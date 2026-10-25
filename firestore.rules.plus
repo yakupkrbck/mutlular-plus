@@ -1,0 +1,121 @@
+// ============================================================================
+// MUTLULAR PLUS — Firestore kuralları (EKLEME bloğu)
+//
+// DİKKAT: Firebase Console'daki kural dosyası TEK parçadır. Haber-2'nin mevcut
+// kurallarını SİLMEYİN. Aşağıdaki `match` bloklarını, mevcut dosyadaki
+//   match /databases/{database}/documents { ... }
+// bloğunun İÇİNE, mevcut kuralların altına yapıştırın. Tüm Plus koleksiyonları
+// `plus_` ile başladığı için Haber-2 verisiyle çakışmaz.
+// Yönetici/editör = `admins/{uid}` belgesi olan kullanıcı (Haber-2 ile ortak).
+// ============================================================================
+
+    function plusSignedIn() { return request.auth != null; }
+    function plusUid() { return request.auth.uid; }
+    function plusIsStaff() {
+      return plusSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function plusRole() {
+      return get(/databases/$(database)/documents/plus_users/$(request.auth.uid)).data.role;
+    }
+    function plusHasProfile() {
+      return plusSignedIn() &&
+        exists(/databases/$(database)/documents/plus_users/$(request.auth.uid));
+    }
+    function plusIsOwner() { return plusSignedIn() && resource.data.ownerUid == request.auth.uid; }
+    function plusCreatesOwn() { return plusSignedIn() && request.resource.data.ownerUid == request.auth.uid; }
+
+    // Kullanıcı profilleri: kişi kendi belgesini okur/yazar; rolü kendisi yükseltemez.
+    // Yönetim yalnızca esnaf onay alanını değiştirebilir.
+    match /plus_users/{uid} {
+      allow read: if plusSignedIn() && (request.auth.uid == uid || plusIsStaff());
+      allow create: if plusSignedIn() && request.auth.uid == uid
+        && request.resource.data.role in ['mahalle-sakini', 'esnaf', 'usta'];
+      allow update: if plusSignedIn() && (
+        (request.auth.uid == uid && request.resource.data.role == resource.data.role)
+        || (plusIsStaff() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['businessApproved']))
+      );
+
+      // Kişisel bildirimler
+      match /bildirimler/{nid} {
+        allow read, write: if plusSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // Haberler: herkes okur; yalnızca yönetim/editör yazar
+    match /plus_haberler/{id} {
+      allow read: if true;
+      allow write: if plusIsStaff();
+    }
+
+    // Yönetim duyuruları: giriş yapan okur, yönetim yazar
+    match /plus_duyurular/{id} {
+      allow read: if plusSignedIn();
+      allow write: if plusIsStaff();
+    }
+
+    // İlanlar (alım-satım)
+    match /plus_ilanlar/{id} {
+      allow read: if true;
+      allow create: if plusCreatesOwn();
+      allow update, delete: if plusIsOwner() || plusIsStaff();
+    }
+
+    // İş / eleman ilanları (başvurular ilanın içinde tutulur)
+    match /plus_isler/{id} {
+      allow read: if true;
+      allow create: if plusCreatesOwn();
+      allow update: if plusIsOwner() || plusIsStaff()
+        || (plusSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applications']));
+      allow delete: if plusIsOwner() || plusIsStaff();
+    }
+
+    // Vefat / taziye ilanları: onay yönetimde
+    match /plus_vefat/{id} {
+      allow read: if true;
+      allow create: if plusCreatesOwn();
+      allow update, delete: if plusIsStaff();
+    }
+
+    // İşletmeler / esnaf vitrini
+    match /plus_isletmeler/{id} {
+      allow read: if true;
+      allow create: if plusCreatesOwn() && request.resource.data.approvalStatus == 'pending';
+      allow update: if plusIsStaff()
+        || (plusIsOwner() && request.resource.data.approvalStatus == resource.data.approvalStatus
+            && request.resource.data.ownerUid == resource.data.ownerUid);
+      allow delete: if plusIsStaff() || plusIsOwner();
+    }
+
+    // Esnaf başvuruları: sahibi ve yönetim okur; onayı yalnızca yönetim verir
+    match /plus_esnaf_basvurulari/{id} {
+      allow read: if plusIsOwner() || plusIsStaff();
+      allow create: if plusCreatesOwn() && request.resource.data.status == 'pending';
+      allow update, delete: if plusIsStaff();
+    }
+
+    // Esnaf hikayeleri
+    match /plus_hikayeler/{id} {
+      allow read: if true;
+      allow create: if plusCreatesOwn() && plusHasProfile() && plusRole() == 'esnaf';
+      allow update, delete: if plusIsOwner() || plusIsStaff();
+    }
+
+    // Hizmet talepleri: talep sahibi, usta ve yönetim okur.
+    // Usta yalnızca teklif alanlarını değiştirebilir.
+    match /plus_talepler/{id} {
+      allow read: if plusIsOwner() || plusIsStaff() || (plusHasProfile() && plusRole() == 'usta');
+      allow create: if plusCreatesOwn();
+      allow update: if plusIsOwner() || plusIsStaff()
+        || (plusHasProfile() && plusRole() == 'usta'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['offers', 'offersCount', 'status']));
+      allow delete: if plusIsOwner() || plusIsStaff();
+    }
+
+    // Muhtarlık başvuruları: başvuran ve yönetim okur; durumu yönetim günceller
+    match /plus_muhtarlik/{id} {
+      allow read: if plusIsOwner() || plusIsStaff();
+      allow create: if plusCreatesOwn();
+      allow update: if plusIsStaff();
+      allow delete: if plusIsStaff();
+    }

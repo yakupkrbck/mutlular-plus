@@ -1,0 +1,6 @@
+{
+  "name": "Mutlular Plus",
+  "description": "Mutlular Plus - Şehrin Dijital Merkezi mobil ve web platformu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
