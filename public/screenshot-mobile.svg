@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <linearGradient id="bgMobile" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e" />
+      <stop offset="100%" stop-color="#e11d48" />
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#bgMobile)" />
+  <!-- Status bar -->
+  <rect width="1080" height="80" fill="#020617" />
+  <text x="60" y="52" fill="#ffffff" font-size="28" font-family="system-ui" font-weight="bold">12:30</text>
+  <text x="960" y="52" fill="#ffffff" font-size="26" font-family="system-ui">5G 100%</text>
+  <!-- App Header -->
+  <rect y="80" width="1080" height="140" fill="#1e293b" />
+  <circle cx="100" cy="150" r="40" fill="url(#roseGrad)" />
+  <text x="100" y="160" fill="#ffffff" font-size="28" font-family="system-ui" font-weight="bold" text-anchor="middle">MP</text>
+  <text x="170" y="145" fill="#ffffff" font-size="36" font-family="system-ui" font-weight="bold">Mutlular Plus</text>
+  <text x="170" y="180" fill="#94a3b8" font-size="24" font-family="system-ui">Şehrin ve Mahallenin Dijital Merkezi</text>
+  <!-- Card 1 -->
+  <rect x="60" y="260" width="960" height="320" rx="32" fill="#e11d48" />
+  <text x="120" y="340" fill="#ffffff" font-size="44" font-family="system-ui" font-weight="bold">Acil Usta veya Hizmet mi Lazım?</text>
+  <text x="120" y="400" fill="#ffe4e6" font-size="28" font-family="system-ui">Tesisatçı, elektrikçi, boyacı ve nakliye ustalarından anında teklif al.</text>
+  <!-- Card 2 -->
+  <rect x="60" y="620" width="460" height="280" rx="28" fill="#1e293b" />
+  <text x="100" y="700" fill="#38bdf8" font-size="34" font-family="system-ui" font-weight="bold">🚌 Burulaş & Ulaşım</text>
+  <text x="100" y="750" fill="#94a3b8" font-size="24" font-family="system-ui">Bursakart Bakiye & Dolum, Otobüs Saatleri</text>
+  <!-- Card 3 -->
+  <rect x="560" y="620" width="460" height="280" rx="28" fill="#1e293b" />
+  <text x="600" y="700" fill="#10b981" font-size="34" font-family="system-ui" font-weight="bold">💊 Nöbetçi Eczaneler</text>
+  <text x="600" y="750" fill="#94a3b8" font-size="24" font-family="system-ui">Osmangazi & Mutlular Açık Nöbetçi Eczaneler</text>
+</svg>

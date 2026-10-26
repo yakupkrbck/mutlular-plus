@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="bgDesk" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bgDesk)" />
+  <!-- App Center Screen Preview -->
+  <rect x="710" y="40" width="500" height="1000" rx="40" fill="#f8fafc" stroke="#334155" stroke-width="8" />
+  <rect x="710" y="40" width="500" height="80" rx="40" fill="#e11d48" />
+  <text x="960" y="90" fill="#ffffff" font-size="28" font-family="system-ui" font-weight="bold" text-anchor="middle">Mutlular Plus</text>
+  <text x="960" y="115" fill="#ffe4e6" font-size="16" font-family="system-ui" text-anchor="middle">Google Play Android Uygulaması</text>
+</svg>

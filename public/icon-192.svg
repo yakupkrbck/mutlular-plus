@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e" />
+      <stop offset="50%" stop-color="#e11d48" />
+      <stop offset="100%" stop-color="#9f1239" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="url(#bg)" />
+  <!-- Stylized MP Emblem -->
+  <g filter="url(#shadow)" fill="#ffffff">
+    <!-- M letter -->
+    <path d="M 44 136 L 44 60 L 64 104 L 84 60 L 84 136 L 68 136 L 68 88 L 64 98 L 56 88 L 56 136 Z" />
+    <!-- P letter -->
+    <path d="M 100 60 L 128 60 C 142 60 152 70 152 84 C 152 98 142 108 128 108 L 116 108 L 116 136 L 100 136 Z M 116 74 L 116 94 L 126 94 C 132 94 136 90 136 84 C 136 78 132 74 126 74 Z" />
+    <!-- Plus Sparkle Indicator -->
+    <circle cx="152" cy="56" r="8" fill="#facc15" />
+  </g>
+</svg>
