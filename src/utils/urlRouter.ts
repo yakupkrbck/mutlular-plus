@@ -1,6 +1,17 @@
 import { RestaurantItem, NewsItem, ClassifiedItem } from '../types';
 import { NavTab } from '../components/BottomNav';
 
+// Site bir alt klasörde yayınlanabilir (örn. /mutlular-plus/). Vite bunu BASE_URL olarak verir.
+// Kök yayında '' , alt klasörde '/mutlular-plus' olur.
+const BASE_PREFIX: string = (((import.meta as any).env?.BASE_URL as string) || '/').replace(/\/+$/, '');
+
+function stripBase(pathname: string): string {
+  if (BASE_PREFIX && (pathname === BASE_PREFIX || pathname.startsWith(BASE_PREFIX + '/'))) {
+    return pathname.slice(BASE_PREFIX.length) || '/';
+  }
+  return pathname;
+}
+
 /**
  * Türkçe karakterleri ASCII ve arama uyumlu formata dönüştürür
  */
@@ -59,6 +70,7 @@ export function parseCurrentPath(pathname: string): ParsedRoute {
   try {
     pathname = decodeURIComponent(pathname);
   } catch {}
+  pathname = stripBase(pathname);
 
   const clean = pathname.replace(/^\/+|\/+$/g, '');
   if (!clean) {
@@ -294,8 +306,9 @@ export function syncUrlToBrowser(
 ) {
   if (typeof window === 'undefined') return;
 
+  const fullPath = BASE_PREFIX + path;
   const currentPathWithSlash = window.location.pathname;
-  if (currentPathWithSlash === path) {
+  if (currentPathWithSlash === fullPath) {
     if (document.title !== title) {
       document.title = title;
     }
@@ -303,9 +316,9 @@ export function syncUrlToBrowser(
   }
 
   if (replace) {
-    window.history.replaceState({ path }, title, path);
+    window.history.replaceState({ path: fullPath }, title, fullPath);
   } else {
-    window.history.pushState({ path }, title, path);
+    window.history.pushState({ path: fullPath }, title, fullPath);
   }
   document.title = title;
 }
