@@ -9,17 +9,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Proje Kaynak Kodları İndirme (.ZIP) Endpoint
-  app.get('/api/download-source-zip', (req, res) => {
-    const zipPath = path.resolve(process.cwd(), 'public/mutlular-plus-kaynak-kodlar.zip');
-    if (fs.existsSync(zipPath)) {
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', 'attachment; filename="mutlular-plus-kaynak-kodlar.zip"');
-      return fs.createReadStream(zipPath).pipe(res);
-    }
-    return res.status(404).json({ error: 'Zip dosyası bulunamadı' });
-  });
-
   // Burulaş Canlı Otobüs & Ücret API Proxy
   // Origin: https://www.bursakart.com.tr başlığı ile Burulaş backend API'sine güvenli bağlantı sağlar
   app.get('/api/burulas/realtime/:lineCode', async (req, res) => {
