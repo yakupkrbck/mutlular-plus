@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, PlusCircle, CheckCircle2, KeyRound, BadgeDollarSign, PackageOpen } from 'lucide-react';
 import { ClassifiedItem, ClassifiedMainCategory, ClassifiedSubCategory } from '../../types';
+import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 
 interface MarketListingModalProps {
   isOpen: boolean;
@@ -64,20 +65,13 @@ export const MarketListingModal: React.FC<MarketListingModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone.trim()) {
+      window.alert('Lütfen iletişim telefon numaranızı yazın.');
+      return;
+    }
     setSubmitted(true);
 
-    const defaultImage =
-      subCategory === 'arac'
-        ? 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&auto=format&fit=crop&q=80'
-        : subCategory === 'tarla' || subCategory === 'arsa'
-        ? 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&auto=format&fit=crop&q=80'
-        : subCategory === 'depo'
-        ? 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop&q=80'
-        : subCategory === 'elektronik'
-        ? 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600&auto=format&fit=crop&q=80'
-        : subCategory === 'esya'
-        ? 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80';
+    const defaultImage = PLACEHOLDER_IMG;
 
     const tagLabel =
       mainCategory === 'kiralik' ? 'KİRALIK' : mainCategory === 'satilik' ? 'SATILIK' : '2. EL';
@@ -93,7 +87,7 @@ export const MarketListingModal: React.FC<MarketListingModalProps> = ({
           image: defaultImage,
           tag: tagLabel,
           date: 'Bugün',
-          phone: phone.trim() || '905551234567',
+          phone: phone.trim(),
           description: desc.trim() || 'İlan sahibi tarafından detaylı bilgi verilmedi.',
           agency: agency.trim() || 'SAHİBİNDEN',
           rooms: rooms.trim() || undefined,
@@ -137,10 +131,10 @@ export const MarketListingModal: React.FC<MarketListingModalProps> = ({
           <div className="py-12 text-center space-y-2">
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
             <h4 className="text-[15px] font-black text-neutral-900">
-              İlanınız Başarıyla Eklendi!
+              İlanınız Alındı!
             </h4>
             <p className="text-[11px] text-neutral-500">
-              Mutlular Plus vitrininde anında yayına alındı.
+              Yönetim onayından sonra vitrinde yayınlanır. Durumunu profil panelinizden takip edebilirsiniz.
             </p>
           </div>
         ) : (

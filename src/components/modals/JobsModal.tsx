@@ -32,6 +32,7 @@ interface JobsModalProps {
   onAddNewJob: (newJob: JobItem) => void;
   onApplyJob: (jobId: string, application: JobApplication) => void;
   userProfile?: {
+    uid?: string;
     name?: string;
     phone?: string;
     isUsta?: boolean;
@@ -98,9 +99,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
     if (activeTab === 'esnaf') return job.posterType === 'esnaf';
     if (activeTab === 'urgent') return !!job.isUrgent;
     if (activeTab === 'my-applications') {
-      return job.applications?.some(
-        (app) => app.applicantName === userProfile?.name || app.applicantPhone === userProfile?.phone
-      );
+      return job.applications?.some((app) => app.applicantUid === userProfile?.uid);
     }
     return true;
   });
@@ -131,7 +130,6 @@ export const JobsModal: React.FC<JobsModalProps> = ({
         ? newRequirements.split('\n').filter((r) => r.trim().length > 0)
         : ['İş disiplinine sahip', 'Mahalle sakini veya yakın çevrede ikamet eden'],
       date: 'Bugün',
-      applications: [],
     };
 
     onAddNewJob(createdJob);
@@ -168,6 +166,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
     const newApplication: JobApplication = {
       id: `app-${Date.now()}`,
       jobId: selectedJob.id,
+      applicantUid: userProfile?.uid,
       applicantName: applicantName.trim(),
       applicantRole,
       applicantPhone: applicantPhone.trim(),
@@ -577,9 +576,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
           ) : (
             <div className="space-y-2.5">
               {filteredJobs.map((job) => {
-                const hasApplied = job.applications?.some(
-                  (app) => app.applicantName === userProfile?.name || app.applicantPhone === userProfile?.phone
-                );
+                const hasApplied = job.applications?.some((app) => app.applicantUid === userProfile?.uid);
 
                 return (
                   <div
@@ -654,10 +651,10 @@ export const JobsModal: React.FC<JobsModalProps> = ({
                         <span>{job.type}</span>
                       </span>
 
-                      {job.applications && job.applications.length > 0 && (
+                      {(job.applicationCount || 0) > 0 && (
                         <span className="bg-neutral-100 text-neutral-600 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ml-auto">
                           <Users className="w-3 h-3" />
-                          <span>{job.applications.length} Başvuru</span>
+                          <span>{job.applicationCount} Başvuru</span>
                         </span>
                       )}
                     </div>
@@ -821,8 +818,10 @@ export const JobsModal: React.FC<JobsModalProps> = ({
                 </div>
               )}
 
-              {/* Existing Applicants List (Visible to all or poster) */}
-              {selectedJob.applications && selectedJob.applications.length > 0 && (
+              {/* Gelen başvurular yalnızca ilan sahibine gösterilir */}
+              {selectedJob.ownerUid === userProfile?.uid &&
+                selectedJob.applications &&
+                selectedJob.applications.length > 0 && (
                 <div className="pt-2 border-t border-neutral-100">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-xs font-black text-neutral-800 uppercase tracking-tight flex items-center gap-1.5">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Calendar, Share2, Eye, Tag, ArrowLeft } from 'lucide-react';
 import { NewsItem } from '../../types';
+import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 
 interface NewsDetailViewProps {
   news: NewsItem | null;
@@ -45,7 +46,7 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
         {/* Featured Image */}
         <div className="relative h-56 w-full bg-neutral-900 shrink-0">
           <img
-            src={news.image || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=700&auto=format&fit=crop&q=80'}
+            src={news.image || PLACEHOLDER_IMG}
             alt={news.title}
             className="w-full h-full object-cover"
           />

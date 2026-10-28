@@ -173,7 +173,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                         <div className="text-[11px] text-neutral-400 flex items-center gap-1.5">
                           <span>{r.tag}</span>
                           <span>•</span>
-                          <span>★ {r.rating}</span>
+                          <span>{r.rating ? `★ ${r.rating}` : 'Yeni'}</span>
                           <span>•</span>
                           <span className={checkIsFoodStore(r) ? 'text-amber-700 font-bold' : 'text-blue-700 font-bold'}>
                             {checkIsFoodStore(r) ? 'Menüyü Gör' : 'Mağazayı Gör'}

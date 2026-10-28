@@ -37,6 +37,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { StoreShowcaseProduct, StoreCampaignItem, UserProfile, BusinessTypeMode, RestaurantItem } from '../../types';
+import { ImageCropField } from '../ImageCropField';
 
 interface EsnafPaneliModalProps {
   isOpen: boolean;
@@ -64,141 +65,6 @@ interface EsnafPaneliModalProps {
   onOpenJobs?: () => void;
 }
 
-// Hazır hızlı görsel seçenekleri
-const PRESET_IMAGES = {
-  yemek: [
-    { label: 'Döner & Dürüm', url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&auto=format&fit=crop&q=80' },
-    { label: 'İskender & Izgara', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Köfte & Porsiyon', url: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Tatlı & Pasta', url: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Kahve & İçecek', url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Çorba & Sulu Yemek', url: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80' },
-  ],
-  giyim: [
-    { label: 'Gömlek & Triko', url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Pantolon & Jean', url: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Elbise & Butik', url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Ceket & Mont', url: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Ayakkabı & Sneaker', url: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=600&auto=format&fit=crop&q=80' },
-    { label: 'Çanta & Aksesuar', url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&auto=format&fit=crop&q=80' },
-  ],
-};
-
-const DEFAULT_FOOD_PRODUCTS: StoreShowcaseProduct[] = [
-  {
-    id: 'prod-f1',
-    name: 'Özel Marine Soslu Tavuk Döner Dürüm',
-    price: '145 ₺',
-    discountPrice: '130 ₺',
-    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&auto=format&fit=crop&q=80',
-    desc: 'Lavaş arası özel marine soslu yaprak tavuk, patates, turşu.',
-    inStock: true,
-    stockStatus: 'in_stock',
-    category: 'Döner & Dürüm',
-    isFeatured: true,
-    badge: 'Şefin Spesiyali',
-    sizes: ['Tek Dürüm', '1.5 Porsiyon Dürüm'],
-  },
-  {
-    id: 'prod-f2',
-    name: 'Tereyağlı İskender Porsiyon',
-    price: '240 ₺',
-    discountPrice: '220 ₺',
-    image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80',
-    desc: 'Kızarmış pide üzerinde döner, domates sosu, köz biber ve yoğurt.',
-    inStock: true,
-    stockStatus: 'in_stock',
-    category: 'Izgara & Döner',
-    isFeatured: true,
-    sizes: ['1 Porsiyon', '1.5 Porsiyon'],
-  },
-  {
-    id: 'prod-f3',
-    name: 'Geleneksel Mercimek Çorbası',
-    price: '80 ₺',
-    image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&auto=format&fit=crop&q=80',
-    desc: 'Tereyağlı kıtır kruton ve taze limon dilimi ile sıcak servis.',
-    inStock: false,
-    stockStatus: 'out_of_stock',
-    category: 'Çorbalar',
-    isFeatured: false,
-    badge: 'Tükendi',
-  },
-  {
-    id: 'prod-f4',
-    name: 'San Sebastian Cheesecake',
-    price: '160 ₺',
-    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&auto=format&fit=crop&q=80',
-    desc: 'Akışkan kıvamlı, sıcak Belçika çikolatası sosu ile.',
-    inStock: true,
-    stockStatus: 'low_stock',
-    stockCount: 3,
-    category: 'Tatlılar',
-    isFeatured: true,
-    badge: 'Kritik Stok (Son 3 Adet)',
-  },
-];
-
-const DEFAULT_RETAIL_PRODUCTS: StoreShowcaseProduct[] = [
-  {
-    id: 'prod-g1',
-    name: 'Keten Oversize Erkek Gömlek Koleksiyonu',
-    price: '480 ₺',
-    discountPrice: '420 ₺',
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&auto=format&fit=crop&q=80',
-    desc: '100% pamuk keten kumaş, nefes alan rahat kalıp, bej ve haki renk.',
-    inStock: true,
-    stockStatus: 'in_stock',
-    stockCount: 18,
-    category: 'Üst Giyim',
-    isFeatured: true,
-    badge: 'Yeni Sezon',
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-  },
-  {
-    id: 'prod-g2',
-    name: 'İtalyan Kesim Likralı Chino Pantolon',
-    price: '590 ₺',
-    discountPrice: '520 ₺',
-    image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&auto=format&fit=crop&q=80',
-    desc: 'Dört mevsim giyilebilir esnek pamuklu kumaş, lacivert ve taş rengi.',
-    inStock: true,
-    stockStatus: 'in_stock',
-    stockCount: 12,
-    category: 'Pantolon',
-    isFeatured: true,
-    sizes: ['30', '32', '34', '36', '38'],
-  },
-  {
-    id: 'prod-g3',
-    name: 'Hakiki Deri Unisex Sneaker Ayakkabı',
-    price: '890 ₺',
-    image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=600&auto=format&fit=crop&q=80',
-    desc: 'Ortopedik taban, beyaz napa deri, kaymaz kauçuk taban.',
-    inStock: true,
-    stockStatus: 'low_stock',
-    stockCount: 2,
-    category: 'Ayakkabı',
-    isFeatured: false,
-    badge: 'Son 2 Çift',
-    sizes: ['41', '42'],
-  },
-  {
-    id: 'prod-g4',
-    name: 'Yün Karışımlı Kaşe Kaban',
-    price: '1.450 ₺',
-    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&auto=format&fit=crop&q=80',
-    desc: 'Astarsız dökümlü şık kalıp, antrasit gri.',
-    inStock: false,
-    stockStatus: 'out_of_stock',
-    stockCount: 0,
-    category: 'Dış Giyim',
-    isFeatured: false,
-    badge: 'Tükendi',
-    sizes: ['M', 'L'],
-  },
-];
-
 export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
   isOpen,
   onClose,
@@ -224,7 +90,7 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
     userProfile?.businessAddress || 'Cumhuriyet Caddesi No: 18/A Mutlular'
   );
   const [storePhone, setStorePhone] = useState(
-    userProfile?.phone || '0532 990 12 34'
+    userProfile?.phone || ''
   );
   const [isApproved, setIsApproved] = useState(
     userProfile?.businessApproved !== false
@@ -245,11 +111,7 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
   }, [userProfile]);
 
   const [businessMode, setBusinessMode] = useState<BusinessTypeMode>(initialMode);
-  const [storeImage, setStoreImage] = useState(
-    initialMode === 'qr_menu'
-      ? 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80'
-      : 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80'
-  );
+  const [storeImage, setStoreImage] = useState(ownStore?.image || '');
 
   // Ürünler işletme kaydından (Firestore: plus_isletmeler) canlı gelir
   const [products, setProducts] = useState<StoreShowcaseProduct[]>(ownStore?.products || []);
@@ -313,11 +175,7 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
   const [prodStockCount, setProdStockCount] = useState<string>('20');
   const [prodSizes, setProdSizes] = useState<string>('');
   const [prodBadge, setProdBadge] = useState<string>('');
-  const [prodImage, setProdImage] = useState(
-    businessMode === 'qr_menu'
-      ? PRESET_IMAGES.yemek[0].url
-      : PRESET_IMAGES.giyim[0].url
-  );
+  const [prodImage, setProdImage] = useState('');
 
   // Search & Filter in panel
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -366,7 +224,7 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
     setProdStockCount('15');
     setProdSizes(businessMode === 'qr_menu' ? 'Tek Porsiyon, 1.5 Porsiyon' : 'S, M, L, XL');
     setProdBadge('');
-    setProdImage(businessMode === 'qr_menu' ? PRESET_IMAGES.yemek[0].url : PRESET_IMAGES.giyim[0].url);
+    setProdImage('');
     setIsAddingProduct(true);
   };
 
@@ -519,9 +377,8 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
   // Mode Switcher handler
   const handleSwitchMode = (mode: BusinessTypeMode) => {
     setBusinessMode(mode);
-    const newProds = mode === 'qr_menu' ? DEFAULT_FOOD_PRODUCTS : DEFAULT_RETAIL_PRODUCTS;
-    setProducts(newProds);
-    syncProductsToApp(newProds, mode);
+    // Mod değişince mevcut ürünler korunur; sahte örnek ürün yüklenmez
+    syncProductsToApp(products, mode);
     triggerFeedback(
       mode === 'qr_menu'
         ? 'İşletme QR Menü Sistemi moduna geçirildi!'
@@ -558,15 +415,11 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
         id: `store-preview-${Date.now()}`,
         name: storeName,
         tag: storeCategory,
-        rating: 5.0,
-        time: businessMode === 'qr_menu' ? 'Açık • Menü Servisi' : 'Açık • Mağaza',
+        rating: 0,
+        time: businessMode === 'qr_menu' ? 'QR Menü' : 'Mağaza',
         deliveryFee: businessMode === 'qr_menu' ? 'Menü Servisi' : 'Mağazada Teslim',
-        minOrder: businessMode === 'qr_menu' ? 'Güncel Menü' : 'Yeni Sezon',
-        image:
-          storeImage ||
-          (businessMode === 'qr_menu'
-            ? 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80'
-            : 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80'),
+        minOrder: 'Yeni işletme',
+        image: storeImage || '',
         category: businessMode === 'qr_menu' ? 'yemek' : 'giyim',
         businessMode,
         orderType: businessMode === 'qr_menu' ? 'online' : 'store_only',
@@ -1048,36 +901,15 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
                     />
                   </div>
 
-                  {/* 5. Hızlı Görsel Seçici */}
-                  <div>
-                    <label className="text-[11px] font-bold text-neutral-700 block mb-1">
-                      Görsel (Aşağıdan hızlı seçebilir veya URL girebilirsiniz)
-                    </label>
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                      {(businessMode === 'qr_menu' ? PRESET_IMAGES.yemek : PRESET_IMAGES.giyim).map((img) => (
-                        <button
-                          key={img.label}
-                          type="button"
-                          onClick={() => setProdImage(img.url)}
-                          className={`relative rounded-xl overflow-hidden shrink-0 border-2 transition ${
-                            prodImage === img.url ? 'border-amber-500 ring-2 ring-amber-500/30' : 'border-neutral-200'
-                          }`}
-                        >
-                          <img src={img.url} alt={img.label} className="w-14 h-12 object-cover" />
-                          <span className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-[8px] font-bold py-0.5 truncate text-center">
-                            {img.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      value={prodImage}
-                      onChange={(e) => setProdImage(e.target.value)}
-                      placeholder="Görsel URL bağlantısı yapıştırın..."
-                      className="w-full mt-1.5 bg-neutral-50 border border-neutral-200 rounded-xl px-2.5 py-1.5 text-[11px] text-neutral-600 outline-none"
-                    />
-                  </div>
+                  {/* 5. Ürün fotoğrafı: gerçek yükleme + kırpma */}
+                  <ImageCropField
+                    label="Ürün Fotoğrafı"
+                    value={prodImage}
+                    onChange={setProdImage}
+                    aspect={4 / 3}
+                    outputWidth={900}
+                    hint="Galeriden seçin ve kadrajı ayarlayın."
+                  />
 
                   {/* Form Butonları */}
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
@@ -1768,37 +1600,15 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
                     />
                   </div>
 
-                  {/* 6. Kapak Görseli */}
-                  <div>
-                    <label className="text-[11px] font-bold text-neutral-700 block mb-1">
-                      Mağaza Kapak Görseli URL
-                    </label>
-                    <input
-                      type="text"
-                      value={storeImage}
-                      onChange={(e) => setStoreImage(e.target.value)}
-                      placeholder="https://images.unsplash.com/..."
-                      className="w-full bg-neutral-50 border border-neutral-300 rounded-xl px-3 py-2 text-xs text-neutral-900 outline-none focus:border-amber-500 font-mono"
-                    />
-
-                    {/* Hızlı hazır kapaklar */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2">
-                      {(businessMode === 'qr_menu' ? PRESET_IMAGES.yemek : PRESET_IMAGES.giyim).map((preset) => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => setStoreImage(preset.url)}
-                          className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition shrink-0 flex items-center gap-1 ${
-                            storeImage === preset.url
-                              ? 'bg-neutral-900 text-white border-neutral-900'
-                              : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
-                          }`}
-                        >
-                          <span>{preset.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* 6. Kapak fotoğrafı: gerçek yükleme + kırpma */}
+                  <ImageCropField
+                    label="Mağaza Kapak Fotoğrafı"
+                    value={storeImage}
+                    onChange={setStoreImage}
+                    aspect={16 / 9}
+                    outputWidth={1200}
+                    hint="Galeriden seçin ve kadrajı ayarlayın."
+                  />
 
                   {/* Eylemler: Kaydet & Önizleme */}
                   <div className="pt-2 flex items-center gap-2">

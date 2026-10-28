@@ -637,51 +637,6 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               </button>
             )}
 
-            {/* Proje Kodlarını İndir */}
-            <div className="pt-2 mt-2 border-t border-neutral-100">
-              {onOpenExportCode ? (
-                <button
-                  onClick={() => handleAction(onOpenExportCode)}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 transition text-left group cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                      <Download className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-[12px] font-black text-emerald-950 block leading-tight">
-                        Proje Kodlarını İndir (.ZIP)
-                      </span>
-                      <span className="text-[9.5px] text-emerald-700 font-semibold block truncate">
-                        Tüm dosyalar • ZIP, TAR.GZ & TXT
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
-                </button>
-              ) : (
-                <a
-                  href="/mutlular-plus-kaynak-kodlar.zip"
-                  download="mutlular-plus-kaynak-kodlar.zip"
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 transition text-left group"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                      <Download className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-[12px] font-black text-emerald-950 block leading-tight">
-                        Proje Kodlarını İndir (.ZIP)
-                      </span>
-                      <span className="text-[9.5px] text-emerald-700 font-semibold block truncate">
-                        Tüm dosyalar • 2.3 MB
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform shrink-0" />
-                </a>
-              )}
-            </div>
           </div>
         </div>
 

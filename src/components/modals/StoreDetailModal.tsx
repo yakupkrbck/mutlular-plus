@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { checkIsFoodStore } from '../FoodSection';
+import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 
 export interface MenuItem {
   id?: string;
@@ -103,216 +104,12 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
     );
   }, [business, initialMode]);
 
-  // Demo menu items matching the exact reference screenshots
+  // Menü yalnızca işletmenin kendi eklediği ürünlerden oluşur
   const menu: MenuItem[] = useMemo(() => {
     if (!business) return [];
     if (business.menu && business.menu.length > 0) return business.menu;
 
-    return isFood
-      ? [
-          {
-            id: 'food-1',
-            name: 'Tek Köfte Burger Menü',
-            price: '250 TL',
-            promoText: 'Yanında 1 İçecek Bedava',
-            desc: 'Özel susamlı burger ekmeği, ızgara dana köfte, cheddar peyniri, karamelize soğan, turşu ve patates kızartması.',
-            image:
-              'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80',
-            category: 'Burger Menüleri',
-            badge: 'Popüler',
-            sizes: ['Tek Köfte', 'Çift Köfte (+70 TL)'],
-            drinks: DEFAULT_DRINKS,
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'food-2',
-            name: 'Çift Köfte Burger Menü',
-            price: '320 TL',
-            promoText: 'Yanında 1 İçecek Bedava',
-            desc: 'Çift katlı ızgara köfte, çift cheddar peyniri, özel burger sosu ve çıtır patates tabağı ile.',
-            image:
-              'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=600&auto=format&fit=crop&q=80',
-            category: 'Burger Menüleri',
-            badge: 'Şefin Tavsiyesi',
-            sizes: ['Standart', 'Ekstra Cheddarlı (+25 TL)'],
-            drinks: DEFAULT_DRINKS,
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'food-3',
-            name: 'Yarım Porsiyon Ekmek Arası Köfte Menü',
-            price: '250 TL',
-            promoText: 'Yanında 1 İçecek Bedava',
-            desc: 'Taş fırın taze çıtır ekmek arası ızgara kasap köfte, domates, köz biber ve sumaklı soğan.',
-            image:
-              'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=600&auto=format&fit=crop&q=80',
-            category: 'Ekmek Arası Menüler',
-            badge: 'Fırsat Menü',
-            sizes: ['Yarım Ekmek', 'Üç Çeyrek Ekmek (+50 TL)'],
-            drinks: DEFAULT_DRINKS,
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'food-4',
-            name: 'Tam Porsiyon Ekmek Arası Köfte Menü',
-            price: '320 TL',
-            promoText: 'Yanında 1 İçecek Bedava',
-            desc: 'Büyük boy çıtır somun ekmek arası doyurucu köfte ziyafeti, acuka ve turşu garnitürü ile.',
-            image:
-              'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80',
-            category: 'Ekmek Arası Menüler',
-            badge: 'Doyurucu',
-            sizes: ['Tam Ekmek', 'Kaşarlı Tam Ekmek (+30 TL)'],
-            drinks: DEFAULT_DRINKS,
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'food-5',
-            name: 'Özel Soslu Tavuk Burger Menü',
-            price: '210 TL',
-            promoText: 'Yanında 1 İçecek Bedava',
-            desc: 'Çıtır panelenmiş göğüs fileto, marul, mayonez ve patates kızartması tabağı.',
-            image:
-              'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=600&auto=format&fit=crop&q=80',
-            category: 'Burger Menüleri',
-            sizes: ['Klasik Tavuk Burger', 'Double Tavuk Burger (+60 TL)'],
-            drinks: DEFAULT_DRINKS,
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'food-6',
-            name: 'Izgara Kaşarlı Sucuk Ekmek Menü',
-            price: '240 TL',
-            promoText: 'Yanında 1 İçecek Bedava',
-            desc: 'Özel baharatlı kasap sucuk, erimiş taze kaşar ve közlenmiş biber eşliğinde fırın ekmek.',
-            image:
-              'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80',
-            category: 'Ekmek Arası Menüler',
-            sizes: ['Yarım Ekmek', 'Tam Ekmek (+70 TL)'],
-            drinks: DEFAULT_DRINKS,
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'food-7',
-            name: 'Tava Köfte Porsiyon & Pilav Menü',
-            price: '310 TL',
-            promoText: 'Yanında 1 İçecek Bedava',
-            desc: 'Porsiyon ızgara köfte, tereyağlı şehriyeli pirinç pilavı, köz domates ve taze pide.',
-            image:
-              'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&auto=format&fit=crop&q=80',
-            category: 'Porsiyon Menüler',
-            badge: 'Geleneksel',
-            sizes: ['1 Porsiyon (6 Köfte)', '1.5 Porsiyon (9 Köfte) (+90 TL)'],
-            drinks: DEFAULT_DRINKS,
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'food-8',
-            name: 'Fırın Sütlaç & Bursa Kestane Tatlısı',
-            price: '90 TL',
-            desc: 'Taş fırında nar gibi kızarmış geleneksel hafif sütlaç ve taze Antep fıstığı parçaları.',
-            image:
-              'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&auto=format&fit=crop&q=80',
-            category: 'Tatlılar',
-            badge: 'Taze Çıktı',
-            sizes: ['Tek Porsiyon', 'Dondurmalı Porsiyon (+30 TL)'],
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-        ]
-      : [
-          {
-            id: 'retail-1',
-            name: 'Mi Kolu Katlamalı Ekoseli Gömlek',
-            price: '1.499,00 TL',
-            discountPrice: '2.499,00 TL',
-            discountRate: '%40 İNDİRİM',
-            desc: 'Dökümlü yumuşak viskon kumaş, katlanabilir apoletli kol detaylı yeni sezon gömlek.',
-            image:
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
-            category: 'Ekose Koleksiyonu',
-            badge: '%40 İndirim',
-            colorVariants: 7,
-            sizes: ['38', '40', '42', '44', '46'],
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'retail-2',
-            name: 'Mi Desenli Sıfır Yaka Ceket',
-            price: '4.599,00 TL',
-            desc: 'Önü açık kısa form, şık tüvit örgü doku, gold düğme ve astar detayı.',
-            image:
-              'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&auto=format&fit=crop&q=80',
-            category: 'Ceket & Blazer',
-            badge: 'Yeni Sezon',
-            colorVariants: 6,
-            sizes: ['36', '38', '40', '42'],
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'retail-3',
-            name: 'Ekol Ekoseli Kapak Cepli Klasik Ceket',
-            price: '7.499,00 TL',
-            desc: 'İtalyan yün karışımlı kumaş, çift kapaklı fleto cep, astarlı klasik blazer kesim.',
-            image:
-              'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=600&auto=format&fit=crop&q=80',
-            category: 'Ceket & Blazer',
-            badge: 'Premium',
-            colorVariants: 3,
-            sizes: ['38', '40', '42', '44'],
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'retail-4',
-            name: 'Ekol Ekoseli Kapak Cepli Kruvaze Ceket',
-            price: '7.499,00 TL',
-            desc: 'Kruvaze 4 düğmeli kapama, modern fitted kalıp ve zengin dokulu ekose deseni.',
-            image:
-              'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&auto=format&fit=crop&q=80',
-            category: 'Ceket & Blazer',
-            colorVariants: 3,
-            sizes: ['36', '38', '40', '42'],
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'retail-5',
-            name: 'Bej Ekose Dökümlü Bluz & Tunik',
-            price: '4.999,00 TL',
-            desc: 'Hafif ve dökümlü kumaş, rahat salaş kesim, günlük ve ofis kullanımına uygun.',
-            image:
-              'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&auto=format&fit=crop&q=80',
-            category: 'Ekose Koleksiyonu',
-            badge: 'Çok Satan',
-            colorVariants: 3,
-            sizes: ['38', '40', '42', '44', '46'],
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-          {
-            id: 'retail-6',
-            name: 'Ekoseli Cepli Triko Hırka & Yelek',
-            price: '3.899,00 TL',
-            desc: 'Yumuşak sıcak kaşmir tuşeli triko kumaş, derin cepli kışlık stil.',
-            image:
-              'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=600&auto=format&fit=crop&q=80',
-            category: 'Triko & Hırka',
-            colorVariants: 4,
-            sizes: ['Standart', 'Büyük Beden'],
-            inStock: true,
-            stockStatus: 'in_stock',
-          },
-        ];
+    return [];
   }, [business, isFood]);
 
   // Unique categories list
@@ -402,11 +199,15 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
     options?: { size?: string; drink?: string; note?: string }
   ) => {
     const rawPhone = business.phone ? business.phone.replace(/\D/g, '') : '';
-    let targetPhone = '905551234567';
+    let targetPhone = '';
     if (rawPhone.length >= 10) {
       targetPhone = rawPhone.startsWith('90')
         ? rawPhone
         : `90${rawPhone.startsWith('0') ? rawPhone.slice(1) : rawPhone}`;
+    }
+    if (!targetPhone) {
+      window.alert('Bu işletme henüz iletişim numarası eklemedi.');
+      return;
     }
 
     let text = '';
@@ -543,8 +344,8 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                 src={
                   business.image ||
                   (isFood
-                    ? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&auto=format&fit=crop&q=80'
-                    : 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')
+                    ? PLACEHOLDER_IMG
+                    : PLACEHOLDER_IMG)
                 }
                 alt={business.name}
                 className="w-full h-full object-cover"
@@ -569,7 +370,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
               </div>
 
               {/* Sağ Üst: Puan Bilgisi */}
-              {business.rating && (
+              {!!business.rating && (
                 <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-white/95 backdrop-blur-md text-neutral-900 text-[11px] sm:text-xs font-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg flex items-center gap-1 shadow-xs">
                   <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-amber-400 text-amber-400" />
                   <span>{business.rating.toFixed(1)}</span>
@@ -653,7 +454,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                     src={
                       menu[0]?.image ||
                       business.image ||
-                      'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&auto=format&fit=crop&q=80'
+                      PLACEHOLDER_IMG
                     }
                     alt="Logo"
                     className="w-full h-full object-cover"
@@ -790,8 +591,8 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                         src={
                           item.image ||
                           (isFood
-                            ? 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80'
-                            : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80')
+                            ? PLACEHOLDER_IMG
+                            : PLACEHOLDER_IMG)
                         }
                         alt={item.name}
                         onClick={() => handleOpenOptions(item)}
@@ -959,7 +760,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
               <img
                 src={
                   selectedItemForOptions.image ||
-                  'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80'
+                  PLACEHOLDER_IMG
                 }
                 alt={selectedItemForOptions.name}
                 className="w-full h-full object-cover"

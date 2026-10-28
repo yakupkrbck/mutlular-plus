@@ -38,6 +38,7 @@ export const QrMenuScannerModal: React.FC<QrMenuScannerModalProps> = ({
   const [isScanning, setIsScanning] = useState(true);
   const [detectedFeedback, setDetectedFeedback] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [quickTable, setQuickTable] = useState('');
 
   // Filter only food / cafe places supporting QR menu
   const qrRestaurants = restaurants.filter(
@@ -207,8 +208,17 @@ export const QrMenuScannerModal: React.FC<QrMenuScannerModalProps> = ({
               {/* Quick Preset Restaurants Scan Simulation */}
               <div className="space-y-2 text-left pt-1">
                 <span className="text-[11px] font-black text-neutral-700 uppercase tracking-wider block">
-                  Hızlı Demo Menüleri (Tek Tıkla Tara):
+                  Mutlular'daki QR Menülü İşletmeler:
                 </span>
+                <input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={quickTable}
+                  onChange={(e) => setQuickTable(e.target.value)}
+                  placeholder="Masa numaranız (örn. 5)"
+                  className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-amber-400"
+                />
                 <div className="space-y-2">
                   {qrRestaurants.slice(0, 3).map((venue) => (
                     <div
@@ -226,17 +236,18 @@ export const QrMenuScannerModal: React.FC<QrMenuScannerModalProps> = ({
                             {venue.name}
                           </h4>
                           <span className="text-[10px] text-neutral-500 font-semibold block">
-                            {venue.tag} • Masa #3 Hazır
+                            {venue.tag}
                           </span>
                         </div>
                       </div>
 
                       <button
-                        onClick={() => handleSimulateScan(venue, 3)}
+                        disabled={!Number(quickTable)}
+                        onClick={() => handleSimulateScan(venue, Number(quickTable))}
                         className="bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black text-[11px] px-3 py-1.5 rounded-xl flex items-center gap-1 transition active:scale-95 shrink-0 shadow-2xs"
                       >
                         <QrCode className="w-3.5 h-3.5" />
-                        <span>Masa 3 Olarak Aç</span>
+                        <span>{Number(quickTable) ? `Masa ${Number(quickTable)} Olarak Aç` : 'Masa no yazın'}</span>
                       </button>
                     </div>
                   ))}

@@ -158,25 +158,9 @@ export const FoodSection: React.FC<FoodSectionProps> = ({
   };
 
   // Check if current logged-in user is an esnaf with their own registered store
-  const userStore = userProfile?.businessName
-    ? restaurants.find(
-        (r) => r.name.toLowerCase() === (userProfile.businessName || '').toLowerCase()
-      ) || {
-        id: `user-store-${Date.now()}`,
-        name: userProfile.businessName,
-        tag: userProfile.businessCategory || 'Esnaf Mağazası',
-        rating: 5.0,
-        time: userProfile.businessMode === 'qr_menu' ? '20-30 dk' : 'Açık • Mağaza',
-        deliveryFee: userProfile.businessMode === 'qr_menu' ? 'Masada Sipariş' : 'Mağazada Deneme',
-        minOrder: userProfile.businessMode === 'qr_menu' ? 'QR Menü Aktif' : 'Yeni Sezon',
-        image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
-        category: userProfile.businessMode === 'qr_menu' ? ('yemek' as const) : ('giyim' as const),
-        businessMode: userProfile.businessMode || 'qr_menu',
-        phone: userProfile.phone || '0532 000 00 00',
-        address: userProfile.businessAddress || 'Mutlular Mah.',
-        menu: [],
-      }
-    : null;
+  // Esnafın kendi işletmesi yalnızca gerçekten kayıtlıysa gösterilir (uydurma kart oluşturulmaz)
+  const userStore =
+    userProfile?.uid ? restaurants.find((r: any) => r.ownerUid === userProfile.uid) || null : null;
 
   const isUserStoreFood = userStore ? checkIsFoodStore(userStore) : false;
 
@@ -502,7 +486,7 @@ export const FoodSection: React.FC<FoodSectionProps> = ({
                 {/* Top Rating */}
                 <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded-md flex items-center gap-1 text-white text-[11px] font-bold">
                   <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                  <span>{store.rating ? store.rating.toFixed(1) : '5.0'}</span>
+                  <span>{store.rating ? store.rating.toFixed(1) : 'Yeni'}</span>
                 </div>
               </div>
 

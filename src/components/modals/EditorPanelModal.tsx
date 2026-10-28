@@ -30,6 +30,8 @@ interface EditorPanelModalProps {
   newsList?: NewsItem[];
   obituaryList?: ObituaryItem[];
   merchantsList?: PendingMerchantItem[];
+  pendingAds?: ClassifiedItem[];
+  onRejectAd?: (adId: string) => void;
   onApproveAd?: (ad: ClassifiedItem) => void;
   onDeleteAd?: (adId: string) => void;
   onApproveObituary?: (obId: string) => void;
@@ -44,6 +46,8 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
   onClose,
   userProfile,
   classifiedList = [],
+  pendingAds = [],
+  onRejectAd,
   newsList = [],
   obituaryList = [],
   merchantsList: propMerchantsList,
@@ -58,7 +62,7 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
   const [activeTab, setActiveTab] = useState<'ilanlar' | 'cenaze' | 'esnaf' | 'yorumlar' | 'haberler'>('ilanlar');
 
   // Pending Ads to Moderate
-  const [pendingAds, setPendingAds] = useState([]);
+  // Onay bekleyen ilanlar canlı veriden gelir (prop)
 
   // Pending Merchants to Approve
   const [localPendingMerchants, setLocalPendingMerchants] = useState([]);
@@ -83,45 +87,13 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
   };
 
   const handleApprovePendingAd = (ad: any) => {
-    setPendingAds(pendingAds.filter((a) => a.id !== ad.id));
-    if (onApproveAd) {
-      onApproveAd({
-        id: `ad-${Date.now()}`,
-        title: ad.title,
-        price: ad.price,
-        location: 'Mutlular Mah.',
-        tag: ad.category,
-        date: 'Bugün',
-        phone: ad.seller,
-        image: ad.image,
-        description: ad.desc,
-      });
-    }
-    showToast(`"${ad.title}" başlıklı ilan onaylandı ve yayına alındı.`);
-    sendAndroidAppNotification({
-      title: `🏷️ Yeni İlan Yayında: ${ad.title}`,
-      body: `${ad.price} • ${ad.category} - İlan editör onayından geçti ve yayına alındı.`,
-      type: 'ilan',
-      actionTab: 'alim_satim',
-      badgeText: 'YAYINDA',
-    });
-  };
-
-  const handleBroadcastNewsPush = (item: NewsItem) => {
-    sendAndroidAppNotification({
-      title: `🚨 SON DAKİKA: ${item.title}`,
-      body: item.summary,
-      type: 'son_dakika',
-      actionTab: 'haber',
-      relatedId: item.id,
-      badgeText: 'SON DAKİKA',
-      timestamp: Date.now(),
-    });
-    showToast(`"${item.title}" Son Dakika bildirimi olarak gönderildi!`);
+    // Mevcut ilan kaydı onaylanır (yeni kayıt uydurulmaz)
+    onApproveAd?.(ad);
+    showToast(`✓ "${String(ad.title).slice(0, 24)}" ilanı onaylandı ve yayına alındı.`);
   };
 
   const handleRejectPendingAd = (adId: string) => {
-    setPendingAds(pendingAds.filter((a) => a.id !== adId));
+    onRejectAd?.(adId);
     showToast('İlan editör tarafından reddedildi.');
   };
 

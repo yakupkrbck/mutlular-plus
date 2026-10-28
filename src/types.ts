@@ -37,6 +37,8 @@ export type ClassifiedSubCategory = 'ev' | 'tarla' | 'arac' | 'arsa' | 'depo' | 
 export interface ClassifiedItem {
   id: string;
   ownerUid?: string;
+  /** Yayın durumu: sıradan kullanıcının ilanı 'pending' doğar, yönetim onaylar */
+  status?: 'pending' | 'approved' | 'rejected';
   title: string;
   price: string;
   location: string;
@@ -56,6 +58,8 @@ export interface ClassifiedItem {
 
 export interface JobApplication {
   id: string;
+  applicantUid?: string;
+  jobOwnerUid?: string;
   jobId: string;
   applicantName: string;
   applicantRole: 'mahalle_sakini' | 'usta';
@@ -69,6 +73,8 @@ export interface JobApplication {
 export interface JobItem {
   id: string;
   ownerUid?: string;
+  /** Herkese açık sayaç (başvuranların kişisel bilgisi ayrı, özel koleksiyonda tutulur) */
+  applicationCount?: number;
   title: string;
   company: string;
   posterType?: 'usta' | 'esnaf' | 'isletme';
@@ -335,4 +341,13 @@ export interface MuhtarlikApplication {
   status: 'bekliyor' | 'inceleniyor' | 'belediyeye_iletildi' | 'tamamlandi';
   officialNotes?: string;
   updatedAt?: string;
+}
+
+// Yönetici panelinden yüklenen ana sayfa vitrin afişi
+export interface HeroBannerItem {
+  id: string;
+  image: string;
+  title: string;
+  tag?: string;
+  ownerUid?: string;
 }

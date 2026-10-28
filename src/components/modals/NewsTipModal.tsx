@@ -14,6 +14,7 @@ import {
   Info,
   ShieldAlert,
 } from 'lucide-react';
+import { COORDINATOR_WHATSAPP } from '../../config/site';
 
 interface NewsTipModalProps {
   isOpen: boolean;
@@ -230,7 +231,7 @@ export const NewsTipModal: React.FC<NewsTipModalProps> = ({ isOpen, onClose }) =
       `📸 *${mediaSummary}*\n\n` +
       `*(Not: Lütfen seçtiğiniz fotoğraf ve videoları WhatsApp sohbetine ekleyerek gönderiniz.)*`
     );
-    window.open(`https://wa.me/905551234567?text=${text}`, '_blank');
+    window.open(`https://wa.me/${COORDINATOR_WHATSAPP}?text=${text}`, '_blank');
   };
 
   if (!isOpen) return null;

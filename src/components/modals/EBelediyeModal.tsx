@@ -57,7 +57,7 @@ export const EBelediyeModal: React.FC<EBelediyeModalProps> = ({
   const [talepCategory, setTalepCategory] = useState('Fen İşleri (Yol & Kaldırım)');
   const [talepAddress, setTalepAddress] = useState('Mutlular Mah. Cumhuriyet Cad.');
   const [talepMessage, setTalepMessage] = useState('');
-  const [talepPhone, setTalepPhone] = useState(userProfile?.phone || '0532 990 12 34');
+  const [talepPhone, setTalepPhone] = useState(userProfile?.phone || '');
   const [talepResultCode, setTalepResultCode] = useState<string | null>(null);
 
   // Takip Query
@@ -972,16 +972,7 @@ export const EBelediyeModal: React.FC<EBelediyeModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-2.5 p-2.5 bg-white rounded-xl border border-neutral-100">
-                    <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-bold text-neutral-900">WhatsApp Çözüm Hattı</div>
-                      <p className="text-neutral-700 text-[11px] font-mono mt-0.5">
-                        0530 962 16 16
-                      </p>
-                      <span className="text-[10px] text-neutral-400">Fotoğraflı arıza ve şikayet bildirimleri</span>
-                    </div>
-                  </div>
+                  
                 </div>
 
                 <div className="pt-2 flex gap-2">
@@ -993,15 +984,7 @@ export const EBelediyeModal: React.FC<EBelediyeModalProps> = ({
                     <span>Hemen Ara (444 16 01)</span>
                   </a>
 
-                  <a
-                    href="https://wa.me/905309621616"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>WhatsApp Hattı</span>
-                  </a>
+                  
                 </div>
               </div>
             </div>

@@ -14,6 +14,7 @@ import {
   Send
 } from 'lucide-react';
 import { NewsItem, ObituaryItem } from '../types';
+import { PLACEHOLDER_IMG } from '../utils/placeholder';
 
 interface HaberScreenProps {
   newsList: NewsItem[];
@@ -124,7 +125,7 @@ export const HaberScreen: React.FC<HaberScreenProps> = ({
           >
             <div className="relative h-56 w-full">
               <img
-                src={featured.image || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80'}
+                src={featured.image || PLACEHOLDER_IMG}
                 alt={featured.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
@@ -209,7 +210,7 @@ export const HaberScreen: React.FC<HaberScreenProps> = ({
                 className="bg-white rounded-2xl p-3 border border-neutral-200/80 shadow-2xs flex gap-3 cursor-pointer hover:border-rose-400 active:scale-98 transition group"
               >
                 <img
-                  src={news.image || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=300&auto=format&fit=crop&q=80'}
+                  src={news.image || PLACEHOLDER_IMG}
                   alt={news.title}
                   className="w-24 h-24 rounded-xl object-cover shrink-0 bg-neutral-100 group-hover:scale-102 transition-transform"
                 />

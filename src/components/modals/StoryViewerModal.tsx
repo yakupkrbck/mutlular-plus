@@ -182,7 +182,11 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   };
 
   const handleWhatsAppAction = () => {
-    const phone = currentStory.phone || '05329901234';
+    const phone = currentStory.phone;
+    if (!phone) {
+      window.alert('Bu işletme henüz WhatsApp numarası eklemedi.');
+      return;
+    }
     const cleanPhone = phone.replace(/\D/g, '');
     const message = encodeURIComponent(
       `Merhaba ${currentStory.name}! Mutlular Plus Mahalle Hikayenizdeki "${currentStory.title || 'fırsat'}" hakkında bilgi almak / sipariş vermek istiyorum.`

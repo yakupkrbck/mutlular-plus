@@ -118,13 +118,15 @@ export const SaglikOcagiModal: React.FC<SaglikOcagiModalProps> = ({
 
         {/* Hızlı Aksiyon Barı */}
         <div className="bg-teal-50/70 border-b border-teal-100 px-3 py-2.5 flex items-center justify-between gap-2 overflow-x-auto text-[11px] font-bold shrink-0 no-scrollbar">
+          {MEHMET_AKIF_50_ASM.telefon && (
           <a
             href={MEHMET_AKIF_50_ASM.telefonHref}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs transition shrink-0"
           >
             <Phone className="w-3.5 h-3.5" />
-            <span>0224 246 87 01</span>
+            <span>{MEHMET_AKIF_50_ASM.telefon}</span>
           </a>
+          )}
 
           <a
             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -225,6 +227,7 @@ export const SaglikOcagiModal: React.FC<SaglikOcagiModalProps> = ({
                   </div>
                 </div>
 
+                {MEHMET_AKIF_50_ASM.telefon && (
                 <div className="flex items-start gap-2.5 pt-2 border-t border-neutral-200">
                   <Phone className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div className="text-[12px]">
@@ -234,6 +237,7 @@ export const SaglikOcagiModal: React.FC<SaglikOcagiModalProps> = ({
                     </a>
                   </div>
                 </div>
+                )}
               </div>
 
               {/* Aile Hekimi Sistemi Bilgilendirmesi (Net ve Gerçek) */}

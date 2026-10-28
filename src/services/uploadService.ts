@@ -1,17 +1,63 @@
-// Gerçek dosya yükleme: Cloudinary (unsigned preset). Firebase Storage kullanılmıyor (Spark planı).
+import { auth } from '../firebase';
+import { API_BASE } from '../config/api';
+
+// Gerçek dosya yükleme: Cloudinary.
+// 1) Tercih edilen yol: Worker'dan giriş doğrulamalı İMZA alınır (gizli anahtar repoda/istemcide yok).
+// 2) Worker henüz yapılandırılmadıysa (503/404) eski imzasız ön ayara düşülür; bu yalnızca geçiş içindir.
 const CLOUD_NAME = 'dn2wanvcr';
-const UPLOAD_PRESET = 'mutlular_haber';
+const UNSIGNED_PRESET = 'mutlular_haber';
+
+interface Signature {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  folder: string;
+  allowedFormats: string;
+  signature: string;
+}
+
+async function getSignature(): Promise<Signature | null> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Fotoğraf yüklemek için giriş yapmalısınız.');
+  const token = await user.getIdToken();
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/upload-signature`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    return null; // Worker'a ulaşılamadı: geçiş yolu
+  }
+  if (res.status === 503 || res.status === 404) return null; // henüz yapılandırılmamış
+  if (res.status === 401) throw new Error('Oturumunuz doğrulanamadı. Çıkış yapıp tekrar girin.');
+  if (res.status === 429) throw new Error('Çok fazla yükleme yapıldı. Biraz sonra tekrar deneyin.');
+  if (!res.ok) throw new Error('Yükleme izni alınamadı.');
+  return (await res.json()) as Signature;
+}
 
 export const uploadDataUrl = async (dataUrl: string): Promise<string> => {
-  const isVideo = dataUrl.startsWith('data:video');
+  if (!dataUrl.startsWith('data:image/')) {
+    throw new Error('Yalnızca fotoğraf yüklenebilir.');
+  }
+  const sig = await getSignature();
   const fd = new FormData();
   fd.append('file', dataUrl);
-  fd.append('upload_preset', UPLOAD_PRESET);
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${isVideo ? 'video' : 'image'}/upload`,
-    { method: 'POST', body: fd }
-  );
-  if (!res.ok) throw new Error('Dosya yüklenemedi. İnternet bağlantınızı kontrol edin.');
+  if (sig) {
+    fd.append('api_key', sig.apiKey);
+    fd.append('timestamp', String(sig.timestamp));
+    fd.append('signature', sig.signature);
+    fd.append('folder', sig.folder);
+    fd.append('allowed_formats', sig.allowedFormats);
+  } else {
+    console.warn('[upload] İmzalı yükleme yapılandırılmamış, imzasız ön ayar kullanılıyor.');
+    fd.append('upload_preset', UNSIGNED_PRESET);
+  }
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: fd,
+  });
+  if (!res.ok) throw new Error('Fotoğraf yüklenemedi. İnternet bağlantınızı kontrol edin.');
   const json = await res.json();
   return json.secure_url as string;
 };
@@ -25,9 +71,9 @@ export const uploadFile = async (file: File): Promise<string> =>
   });
 
 const isBigDataUrl = (v: unknown): v is string =>
-  typeof v === 'string' && /^data:(image|video)\//.test(v) && v.length > 2000;
+  typeof v === 'string' && /^data:image\//.test(v) && v.length > 2000;
 
-// Bir nesnenin içindeki tüm data: görsel/video değerlerini Cloudinary'ye yükleyip URL ile değiştirir.
+// Bir nesnenin içindeki tüm data: fotoğraf değerlerini Cloudinary'ye yükleyip URL ile değiştirir.
 export const uploadDataUrlsDeep = async <T,>(value: T, cache = new Map<string, Promise<string>>()): Promise<T> => {
   if (isBigDataUrl(value)) {
     if (!cache.has(value)) cache.set(value, uploadDataUrl(value));

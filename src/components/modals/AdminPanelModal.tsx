@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import {
   ClassifiedItem,
-  NewsItem,
+  NewsItem, HeroBannerItem,
   ObituaryItem,
   ClassifiedMainCategory,
   ClassifiedSubCategory,
@@ -56,6 +56,8 @@ import {
   sendAndroidAppNotification,
   AndroidPayloadType,
 } from '../../services/androidNotificationService';
+import { PLACEHOLDER_IMG } from '../../utils/placeholder';
+import { ImageCropField } from '../ImageCropField';
 
 export interface PendingAdItem extends ClassifiedItem {
   status: 'pending' | 'approved' | 'rejected';
@@ -91,6 +93,11 @@ interface AdminPanelModalProps {
   // Live state from App
   classifiedList: ClassifiedItem[];
   newsList: NewsItem[];
+  heroBanners?: HeroBannerItem[];
+  pendingAds?: ClassifiedItem[];
+  onRejectAd?: (adId: string) => void;
+  onAddHeroBanner?: (b: HeroBannerItem) => void;
+  onDeleteHeroBanner?: (id: string) => void;
   obituaryList?: ObituaryItem[];
   merchantsList?: PendingMerchantItem[];
   onApproveAd: (ad: ClassifiedItem) => void;
@@ -112,6 +119,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onClose,
   classifiedList,
   newsList,
+  heroBanners = [],
+  pendingAds: pendingAdsProp = [],
+  onRejectAd,
+  onAddHeroBanner,
+  onDeleteHeroBanner,
   obituaryList = [],
   merchantsList: propMerchantsList,
   onApproveAd,
@@ -129,8 +141,32 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   >('dashboard');
+
+  // Vitrin afişi formu
+  const [bannerImage, setBannerImage] = useState('');
+  const [bannerTitle, setBannerTitle] = useState('');
+  const [bannerTag, setBannerTag] = useState('');
+  const handleAddBanner = () => {
+    if (!bannerImage) {
+      window.alert('Lütfen afiş fotoğrafı yükleyin.');
+      return;
+    }
+    if (!bannerTitle.trim()) {
+      window.alert('Lütfen afiş başlığını yazın.');
+      return;
+    }
+    onAddHeroBanner?.({
+      id: `banner-${Date.now()}`,
+      image: bannerImage,
+      title: bannerTitle.trim(),
+      tag: bannerTag.trim(),
+    });
+    setBannerImage('');
+    setBannerTitle('');
+    setBannerTag('');
+  };
 
   // Push Broadcast Form States
   const [broadcastType, setBroadcastType] = useState<AndroidPayloadType>('duyuru');
@@ -152,7 +188,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   ]);
 
   // 1. Pending / Active Ads State for admin moderation
-  const [pendingAds, setPendingAds] = useState<PendingAdItem[]>([]);
+  // Onay bekleyen ilanlar canlı veriden gelir (Firestore: status === 'pending')
+  const pendingAds = pendingAdsProp as PendingAdItem[];
 
   // Editing state for active ads
   const [editingAdId, setEditingAdId] = useState<string | null>(null);
@@ -199,9 +236,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [newNewsTitle, setNewNewsTitle] = useState('');
   const [newNewsSummary, setNewNewsSummary] = useState('');
   const [newNewsCategory, setNewNewsCategory] = useState('Şehir & Yaşam');
-  const [newNewsImage, setNewNewsImage] = useState(
-    'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1000&auto=format&fit=crop&q=80'
-  );
+  const [newNewsImage, setNewNewsImage] = useState('');
   const [newNewsUrgent, setNewNewsUrgent] = useState(false);
   const [newsSuccessToast, setNewsSuccessToast] = useState(false);
 
@@ -221,17 +256,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // Actions for Ads Moderation
   const handleApproveAdItem = (ad: PendingAdItem) => {
-    setPendingAds((prev) =>
-      prev.map((item) => (item.id === ad.id ? { ...item, status: 'approved' } : item))
-    );
     onApproveAd(ad);
     showToast(`✓ "${ad.title.slice(0, 24)}..." ilanı onaylandı ve yayına alındı!`);
   };
 
   const handleRejectAdItem = (adId: string) => {
-    setPendingAds((prev) =>
-      prev.map((item) => (item.id === adId ? { ...item, status: 'rejected' } : item))
-    );
+    onRejectAd?.(adId);
     showToast(`✕ İlan reddedildi.`);
   };
 
@@ -323,6 +353,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     }
     setNewNewsTitle('');
     setNewNewsSummary('');
+      setNewNewsImage('');
     setNewsSuccessToast(true);
     showToast(`✓ Yeni haber "${created.title.slice(0, 22)}..." başarıyla yayınlandı!`);
     setTimeout(() => setNewsSuccessToast(false), 3000);
@@ -653,6 +684,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('vitrin-afisleri')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'vitrin-afisleri'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Vitrin Afişleri ({heroBanners.length})</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('haber-yonetimi')}
             className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
               activeTab === 'haber-yonetimi'
@@ -770,98 +813,30 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               {/* 3 KEY VISUAL METRIC CARDS (Requested by User) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* CARD 1: GÜNLÜK AKTİF KULLANICI SAYISI (DAU) */}
-                <div className="p-4 rounded-2xl bg-neutral-800/80 border border-blue-500/30 hover:border-blue-500/60 transition shadow-md flex flex-col justify-between relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
-
-                  <div>
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center">
-                          <Users className="w-4 h-4" />
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-300">
-                          Günlük Aktif Kullanıcı
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5">
-                        <ArrowUpRight className="w-3 h-3" />
-                        +%14.8
-                      </span>
+                {/* CARD 1: GERÇEK İÇERİK ÖZETİ (canlı veriden) */}
+                <div className="p-4 rounded-2xl bg-neutral-800/80 border border-blue-500/30 relative overflow-hidden flex flex-col justify-between">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center">
+                      <Users className="w-4 h-4" />
                     </div>
-
-                    {/* Main KPI Value */}
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="text-3xl font-black text-white tracking-tight">1.842</span>
-                      <span className="text-xs text-neutral-400 font-bold">sakin / gün</span>
-                    </div>
-
-                    {/* Live Online Sub-metric */}
-                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold mt-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span>148 mahalleli şu an anlık çevrimiçi</span>
-                    </div>
-
-                    {/* Visual 7-Day Sparkline Bar Chart */}
-                    <div className="mt-3 pt-3 border-t border-neutral-700/60">
-                      <div className="text-[9.5px] font-bold text-neutral-400 uppercase tracking-wider mb-2 flex justify-between">
-                        <span>Son 7 Günlük DAU Dağılımı</span>
-                        <span className="text-blue-300 font-black">Zirve: 1.940</span>
-                      </div>
-                      <div className="flex items-end justify-between gap-1.5 h-16 pt-2">
-                        {[
-                          { day: 'Pzt', val: '1.420', h: '55%' },
-                          { day: 'Sal', val: '1.580', h: '65%' },
-                          { day: 'Çar', val: '1.690', h: '72%' },
-                          { day: 'Per', val: '1.620', h: '68%' },
-                          { day: 'Cum', val: '1.780', h: '82%' },
-                          { day: 'Cmt', val: '1.940', h: '100%', peak: true },
-                          { day: 'Bugün', val: '1.842', h: '92%', current: true },
-                        ].map((d) => (
-                          <div key={d.day} className="flex-1 flex flex-col items-center gap-1 group/bar">
-                            <div className="w-full bg-neutral-900 rounded-t h-full flex items-end">
-                              <div
-                                style={{ height: d.h }}
-                                className={`w-full rounded-t transition-all ${
-                                  d.current
-                                    ? 'bg-gradient-to-t from-blue-600 to-indigo-400 shadow-xs'
-                                    : d.peak
-                                    ? 'bg-gradient-to-t from-amber-600 to-amber-400'
-                                    : 'bg-neutral-700 group-hover/bar:bg-neutral-600'
-                                }`}
-                              />
-                            </div>
-                            <span
-                              className={`text-[9px] font-bold ${
-                                d.current
-                                  ? 'text-blue-300 font-black'
-                                  : d.peak
-                                  ? 'text-amber-300 font-black'
-                                  : 'text-neutral-500'
-                              }`}
-                            >
-                              {d.day}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-300">
+                      Platform Özeti
+                    </span>
                   </div>
-
-                  {/* Segments Breakdown */}
-                  <div className="mt-3 pt-2.5 border-t border-neutral-700/60 grid grid-cols-3 gap-1 text-center text-[10px]">
-                    <div className="p-1.5 rounded-lg bg-neutral-900/60">
-                      <div className="text-neutral-400 font-medium">Sakinler</div>
-                      <div className="font-black text-white">1.240 (%67)</div>
+                  <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
+                    <div className="p-2 rounded-lg bg-neutral-900/60">
+                      <div className="text-neutral-400 font-medium">Haber</div>
+                      <div className="font-black text-white text-lg">{newsList.length}</div>
                     </div>
-                    <div className="p-1.5 rounded-lg bg-neutral-900/60">
-                      <div className="text-neutral-400 font-medium">Esnaflar</div>
-                      <div className="font-black text-amber-400">380 (%21)</div>
+                    <div className="p-2 rounded-lg bg-neutral-900/60">
+                      <div className="text-neutral-400 font-medium">Onaylı Esnaf</div>
+                      <div className="font-black text-amber-400 text-lg">
+                        {(propMerchantsList || []).filter((m) => m.status === 'approved').length}
+                      </div>
                     </div>
-                    <div className="p-1.5 rounded-lg bg-neutral-900/60">
-                      <div className="text-neutral-400 font-medium">Ustalar</div>
-                      <div className="font-black text-blue-400">222 (%12)</div>
+                    <div className="p-2 rounded-lg bg-neutral-900/60">
+                      <div className="text-neutral-400 font-medium">Vefat İlanı</div>
+                      <div className="font-black text-blue-400 text-lg">{obituaryList.length}</div>
                     </div>
                   </div>
                 </div>
@@ -1105,101 +1080,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </div>
               </div>
 
-              {/* VISUAL 7-DAY VOLUME & ACTIVITY ANALYTICS CHART */}
-              <div className="p-4 bg-neutral-800/80 rounded-2xl border border-neutral-700 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-700 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-indigo-400" />
-                    <div>
-                      <h4 className="text-[12.5px] font-black text-white">
-                        Haftalık Mahalleli Aktivitesi ve İlan Trafiği
-                      </h4>
-                      <p className="text-[10px] text-neutral-400">
-                        Günlük tekil ziyaretçi (DAU) ve sisteme eklenen ilan hareketliliği
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-[10px] font-bold">
-                    <span className="flex items-center gap-1 text-blue-400">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                      Kullanıcı Aktivitesi
-                    </span>
-                    <span className="flex items-center gap-1 text-emerald-400">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                      İlan Sayısı
-                    </span>
-                  </div>
-                </div>
-
-                {/* SVG Visual Graphic Chart */}
-                <div className="w-full bg-neutral-900/80 rounded-xl p-3 border border-neutral-800">
-                  <div className="grid grid-cols-7 gap-2 h-36 items-end pb-2 border-b border-neutral-800">
-                    {[
-                      { day: 'Pazartesi', short: 'Pzt', users: 1420, ads: 3, hUser: '60%', hAd: '35%' },
-                      { day: 'Salı', short: 'Sal', users: 1580, ads: 5, hUser: '70%', hAd: '55%' },
-                      { day: 'Çarşamba', short: 'Çar', users: 1690, ads: 4, hUser: '76%', hAd: '45%' },
-                      { day: 'Perşembe', short: 'Per', users: 1620, ads: 6, hUser: '72%', hAd: '65%' },
-                      { day: 'Cuma', short: 'Cum', users: 1780, ads: 8, hUser: '84%', hAd: '85%' },
-                      { day: 'Cumartesi', short: 'Cmt', users: 1940, ads: 7, hUser: '96%', hAd: '75%', peak: true },
-                      { day: 'Pazar (Bugün)', short: 'Paz', users: 1842, ads: 5, hUser: '90%', hAd: '55%', current: true },
-                    ].map((bar) => (
-                      <div key={bar.short} className="flex flex-col items-center h-full justify-end group/chart">
-                        {/* Tooltip on hover */}
-                        <div className="text-[9px] font-black text-neutral-300 mb-1 group-hover/chart:text-blue-300 transition text-center truncate">
-                          {bar.users}
-                        </div>
-
-                        {/* Dual Bar Graphic */}
-                        <div className="w-full flex items-end justify-center gap-1 h-24">
-                          <div
-                            style={{ height: bar.hUser }}
-                            className={`w-3.5 sm:w-5 rounded-t transition-all ${
-                              bar.current
-                                ? 'bg-gradient-to-t from-blue-600 via-indigo-500 to-blue-400 shadow-md'
-                                : bar.peak
-                                ? 'bg-gradient-to-t from-indigo-600 to-blue-400'
-                                : 'bg-neutral-700 hover:bg-neutral-600'
-                            }`}
-                          />
-                          <div
-                            style={{ height: bar.hAd }}
-                            className="w-1.5 sm:w-2 rounded-t bg-emerald-500/80 transition-all"
-                          />
-                        </div>
-
-                        {/* Day Label */}
-                        <span
-                          className={`text-[9.5px] mt-1.5 font-bold ${
-                            bar.current
-                              ? 'text-blue-400 font-black'
-                              : bar.peak
-                              ? 'text-amber-400 font-black'
-                              : 'text-neutral-500'
-                          }`}
-                        >
-                          {bar.short}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Summary Insights */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 text-[10.5px] text-neutral-400">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
-                      Haftalık Zirve: <strong>Cumartesi 1.940 Aktif Kullanıcı</strong>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      En Fazla İlan Girişi: <strong>Cuma (8 Yeni İlan)</strong>
-                    </span>
-                    <span className="text-neutral-500">
-                      En Yoğun Saat: <strong>18:00 - 21:30</strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              
 
               {/* QUICK ADMIN ACTIONS & CONVERSION METRICS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1789,6 +1670,80 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           )}
 
           {/* TAB 2: TÜM HABERLERİ YÖNETME, DÜZENLEME, SİLME VE YENİ HABER GİRME */}
+          {activeTab === 'vitrin-afisleri' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-neutral-800/80 border border-neutral-700 space-y-3">
+                <h3 className="text-sm font-black text-white">Yeni Vitrin Afişi</h3>
+                <p className="text-[11px] text-neutral-400">
+                  Ana sayfanın en üstündeki kayan alanda haberlerden önce gösterilir.
+                </p>
+                <div className="bg-white rounded-xl p-2">
+                  <ImageCropField
+                    value={bannerImage}
+                    onChange={setBannerImage}
+                    aspect={16 / 10}
+                    outputWidth={1200}
+                    hint="Galeriden yükleyin, kadrajı ayarlayın."
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-300 uppercase mb-1">Başlık *</label>
+                  <input
+                    value={bannerTitle}
+                    onChange={(e) => setBannerTitle(e.target.value)}
+                    maxLength={80}
+                    placeholder="Örn: Mahalle Pazarı Cumartesi Kuruluyor"
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-300 uppercase mb-1">
+                    Etiket (isteğe bağlı)
+                  </label>
+                  <input
+                    value={bannerTag}
+                    onChange={(e) => setBannerTag(e.target.value)}
+                    maxLength={30}
+                    placeholder="Örn: Duyuru"
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-rose-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddBanner}
+                  className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl py-2.5"
+                >
+                  Afişi Yayınla
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm font-black text-white">Yayındaki Afişler ({heroBanners.length})</h3>
+                {heroBanners.length === 0 && (
+                  <p className="text-[11px] text-neutral-400">Henüz afiş yok. Ana sayfada yalnızca haberler görünür.</p>
+                )}
+                {heroBanners.map((b) => (
+                  <div key={b.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-neutral-800/80 border border-neutral-700">
+                    <img src={b.image} alt="" className="w-20 h-12 object-cover rounded-lg shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-white truncate">{b.title}</div>
+                      {b.tag && <div className="text-[10px] text-amber-300">{b.tag}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('Bu afiş silinsin mi?')) onDeleteHeroBanner?.(b.id);
+                      }}
+                      className="shrink-0 text-[11px] font-black text-rose-400 hover:text-rose-300 px-2 py-1"
+                    >
+                      Sil
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'haber-yonetimi' && (
             <div className="space-y-4">
               {/* Add New News Box */}
@@ -1855,15 +1810,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                     <div>
                       <label className="block text-[10px] font-bold text-neutral-300 uppercase mb-1">
-                        Görsel URL
+                        Haber Fotoğrafı
                       </label>
-                      <input
-                        type="url"
-                        value={newNewsImage}
-                        onChange={(e) => setNewNewsImage(e.target.value)}
-                        placeholder="https://..."
-                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 font-medium"
-                      />
+                      <div className="bg-white rounded-xl p-2">
+                        <ImageCropField
+                          value={newNewsImage}
+                          onChange={setNewNewsImage}
+                          aspect={16 / 9}
+                          outputWidth={1200}
+                          hint="Galeriden yükleyin, kadrajı ayarlayın."
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -2017,7 +1974,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         <img
                           src={
                             item.image ||
-                            'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=200&auto=format&fit=crop&q=80'
+                            PLACEHOLDER_IMG
                           }
                           alt={item.title}
                           className="w-14 h-14 rounded-lg object-cover bg-neutral-900 shrink-0 border border-neutral-700"
@@ -2334,7 +2291,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       id: `ed-${Date.now()}`,
                       name: newEdName,
                       email: newEdEmail,
-                      phone: newEdPhone || '0555 000 00 00',
+                      phone: newEdPhone,
                       assignedDate: 'Bugün',
                       status: 'active',
                       assignedBy: 'Süper Admin Yakup',

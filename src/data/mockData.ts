@@ -86,30 +86,4 @@ export const NEWS_LIST: NewsItem[] = [];
 // Mahalle Sakinleri ve Muhtarlık Vefat İlanları Listesi
 export const OBITUARY_LIST: ObituaryItem[] = [];
 
-// Bursa Nöbetçi Eczaneler (Gerçek Bilgi)
-export const PHARMACY_ON_DUTY = [
-  {
-    name: 'MEHMET AKİF ECZANESİ',
-    pharmacist: 'Ecz. Mehmet Akif',
-    address: 'Mehmet Akif Mah. İnönü Cad. No: 18 Osmangazi / Bursa',
-    phone: '0224 246 12 34',
-    distance: '250 m',
-  },
-  {
-    name: 'MUTLULAR ŞİFA ECZANESİ',
-    pharmacist: 'Ecz. Şifa Kaya',
-    address: 'Mutlular Mah. Cumhuriyet Cad. No: 42 Osmangazi / Bursa',
-    phone: '0224 246 80 90',
-    distance: '650 m',
-  },
-];
-
 // Bursa / Osmangazi Diyanet Namaz Vakitleri
-export const PRAYER_TIMES = [
-  { name: 'İmsak', time: '05:14' },
-  { name: 'Güneş', time: '06:38' },
-  { name: 'Öğle', time: '12:44' },
-  { name: 'İkindi', time: '15:58' },
-  { name: 'Akşam', time: '18:38', next: true },
-  { name: 'Yatsı', time: '19:56' },
-];

@@ -8,6 +8,7 @@ import {
   MessageCircle,
   ShieldCheck,
 } from 'lucide-react';
+import { useMuhtarInfo } from '../services/muhtarInfo';
 
 interface OfficialSectionProps {
   onOpenMuhtar?: () => void;
@@ -18,19 +19,7 @@ interface OfficialSectionProps {
 export const OfficialSection: React.FC<OfficialSectionProps> = ({
   onOpenMuhtar,
 }) => {
-  // Çalışma saati kontrolü (canlı durum: Hafta içi 08:30 - 17:00)
-  const isCurrentlyOpen = useMemo(() => {
-    const now = new Date();
-    const day = now.getDay(); // 0: Pazar, 6: Cumartesi
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentMinutes = hours * 60 + minutes;
-
-    if (day === 0 || day === 6) return false;
-    const isWorkingHours = currentMinutes >= 510 && currentMinutes < 1020;
-    const isLunchBreak = currentMinutes >= 750 && currentMinutes < 810;
-    return isWorkingHours && !isLunchBreak;
-  }, []);
+  const info = useMuhtarInfo();
 
   return (
     <div className="px-3 py-2 space-y-2">
@@ -70,14 +59,7 @@ export const OfficialSection: React.FC<OfficialSectionProps> = ({
                 <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-full border border-white/20">
                   T.C. Osmangazi
                 </span>
-                <span
-                  className={`text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${
-                    isCurrentlyOpen ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-neutral-900'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                  {isCurrentlyOpen ? 'ŞU AN AÇIK' : 'MESAİ DIŞI'}
-                </span>
+                
               </div>
               <h3 className="text-base font-black text-white leading-tight mt-1 truncate">
                 Mehmet Akif Mahalle Muhtarlığı
@@ -98,11 +80,11 @@ export const OfficialSection: React.FC<OfficialSectionProps> = ({
         <div className="mt-3 pt-2.5 border-t border-white/20 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-rose-100 font-medium relative z-10">
           <div className="flex items-center gap-1.5 truncate">
             <Phone className="w-3.5 h-3.5 text-rose-200 shrink-0" />
-            <span className="truncate">0224 246 16 16</span>
+            <span className="truncate">{info.telefon || 'Muhtarlık'}</span>
           </div>
           <div className="flex items-center gap-1.5 truncate">
             <Clock className="w-3.5 h-3.5 text-rose-200 shrink-0" />
-            <span className="truncate">Hafta içi 08:30 – 17:00</span>
+            <span className="truncate">{info.mesai || 'Mehmet Akif Mahallesi'}</span>
           </div>
           <div className="flex items-center gap-1.5 truncate col-span-2 sm:col-span-1 justify-end text-white font-bold underline">
             <Send className="w-3 h-3 shrink-0" />

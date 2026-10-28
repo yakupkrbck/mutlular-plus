@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, MuhtarlikApplication } from '../../types';
 import { sendAndroidAppNotification } from '../../services/androidNotificationService';
+import { useMuhtarInfo, saveMuhtarInfo, MuhtarInfo, telHref, waHref, mapsHref, telDigits } from '../../services/muhtarInfo';
 
 interface MuhtarlikModalProps {
   isOpen: boolean;
@@ -63,6 +64,43 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
   const isMuhtar = userProfile?.role === 'muhtar';
   const isYonetici = userProfile?.role === 'yonetici';
   const canAccessMuhtarDesk = isMuhtar || isYonetici;
+
+  // Muhtarlık iletişim bilgileri (Firestore'dan canlı; yönetici/muhtar düzenleyebilir)
+  const info = useMuhtarInfo();
+  const canEditInfo = isMuhtar || isYonetici;
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [infoDraft, setInfoDraft] = useState<MuhtarInfo>(info);
+  const [infoSaving, setInfoSaving] = useState(false);
+  const [infoError, setInfoError] = useState<string | null>(null);
+  const startEditInfo = () => {
+    setInfoDraft(info);
+    setInfoError(null);
+    setEditingInfo(true);
+  };
+  const submitInfo = async () => {
+    if (!infoDraft.ad.trim() || !infoDraft.telefon.trim()) {
+      setInfoError('Ad soyad ve telefon boş bırakılamaz.');
+      return;
+    }
+    setInfoSaving(true);
+    setInfoError(null);
+    try {
+      await saveMuhtarInfo({
+        ad: infoDraft.ad.trim(),
+        unvan: infoDraft.unvan.trim() || 'Mahalle Muhtarı',
+        telefon: infoDraft.telefon.trim(),
+        whatsapp: infoDraft.whatsapp.trim(),
+        eposta: infoDraft.eposta.trim(),
+        adres: infoDraft.adres.trim(),
+        mesai: infoDraft.mesai.trim(),
+      });
+      setEditingInfo(false);
+    } catch (e: any) {
+      setInfoError(e?.code === 'permission-denied' ? 'Bu işlem için yetkiniz yok.' : 'Kaydedilemedi. Tekrar deneyin.');
+    } finally {
+      setInfoSaving(false);
+    }
+  };
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -137,20 +175,6 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
       setTimeout(() => setCopiedKey(null), 2000);
     } catch {}
   };
-
-  // Çalışma saati kontrolü (canlı durum: Hafta içi 08:30 - 17:00)
-  const isCurrentlyOpen = useMemo(() => {
-    const now = new Date();
-    const day = now.getDay(); // 0: Pazar, 6: Cumartesi
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentMinutes = hours * 60 + minutes;
-
-    if (day === 0 || day === 6) return false;
-    const isWorkingHours = currentMinutes >= 510 && currentMinutes < 1020;
-    const isLunchBreak = currentMinutes >= 750 && currentMinutes < 810;
-    return isWorkingHours && !isLunchBreak;
-  }, []);
 
   const pendingCount = useMemo(() => {
     return localApplications.filter((a) => a.status === 'bekliyor').length;
@@ -344,19 +368,10 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                   <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight">
                     Mehmet Akif Mahallesi Muhtarlığı
                   </h2>
-                  <span
-                    className={`text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs ${
-                      isCurrentlyOpen
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-amber-500/90 text-white'
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                    {isCurrentlyOpen ? 'ŞU AN AÇIK' : 'MESAİ DIŞI'}
-                  </span>
+                  
                 </div>
                 <p className="text-[11px] sm:text-xs text-rose-100 font-medium mt-0.5">
-                  T.C. Osmangazi Kaymakamlığı • Bursa Resmi Muhtarlık İletişim & Başvuru Portalı
+                  Mehmet Akif Mahallesi • İletişim ve Başvuru
                 </p>
               </div>
             </div>
@@ -376,7 +391,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
               <div className="flex items-center gap-1.5 text-rose-100">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 <span className="font-extrabold text-white">
-                  {userProfile?.name || 'Halil İbrahim Sevim'}
+                  {userProfile?.name || info.ad}
                 </span>
                 <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black border border-white/30">
                   {userProfile?.title || 'Resmi Yetkili • Mahalle Muhtarı'}
@@ -436,336 +451,194 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
           {/* SEKME 1: İLETİŞİM & KONUM */}
           {activeTab === 'iletisim' && (
             <div className="space-y-4 animate-in fade-in duration-150">
-              {/* ŞIK RESMİ YETKİLİ MAHALLE MUHTARI PROFİL KARTI */}
-              <div className="bg-gradient-to-br from-white via-rose-50/20 to-neutral-50 rounded-3xl p-5 sm:p-6 border border-red-200/90 shadow-md relative overflow-hidden space-y-4">
-                {/* Arka plan dekoratif filigran mühür */}
-                <div className="absolute -right-6 -bottom-6 w-44 h-44 rounded-full bg-red-600/5 flex items-center justify-center text-red-900/10 text-8xl font-black select-none pointer-events-none">
-                  🏛️
-                </div>
-                <div className="absolute left-1/2 -top-12 -translate-x-1/2 w-48 h-20 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
-
-                {/* Üst Şerit: T.C. Resmi Temsilcilik & 'Resmi Yetkili' Unvan Rozeti */}
-                <div className="flex items-center justify-between gap-2 flex-wrap relative z-10">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10.5px] font-black uppercase tracking-wider bg-red-700 text-white px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1.5 border border-red-600">
-                      <span>🏛️</span>
-                      <span>RESMİ YETKİLİ • MAHALLE MUHTARI</span>
+              {/* MUHTAR İLETİŞİM KARTI: bilgiler Firestore'dan gelir, yönetici düzenleyebilir */}
+              <div className="bg-white rounded-3xl p-5 border border-red-200/90 shadow-md space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-[10.5px] font-black uppercase tracking-wider text-red-700">
+                      {info.unvan}
                     </span>
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-rose-100 text-red-800 border border-rose-300 px-2 py-0.5 rounded-full">
-                      T.C. Osmangazi
-                    </span>
+                    <h3 className="text-xl font-black text-neutral-900 leading-tight mt-0.5">{info.ad}</h3>
                   </div>
-
-                  {/* Canlı Mesai Durumu */}
-                  <span
-                    className={`text-[10.5px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs ${
-                      isCurrentlyOpen
-                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                        : 'bg-amber-50 text-amber-800 border border-amber-300'
-                    }`}
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isCurrentlyOpen ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'
-                      }`}
-                    />
-                    {isCurrentlyOpen ? 'ŞU AN HİZMETTE' : 'MESAİ DIŞI'}
-                  </span>
-                </div>
-
-                {/* Muhtar Portre ve Kimlik Bölümü */}
-                <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-nowrap relative z-10 pt-1">
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    {/* Prestijli Profil Avatarı & Mühür Rozeti */}
-                    <div className="relative shrink-0">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-red-700 via-rose-700 to-red-900 text-white flex items-center justify-center font-black text-2xl sm:text-3xl shadow-lg border-2 border-white ring-4 ring-red-100">
-                        <span>🏛️</span>
-                      </div>
-                      <div
-                        className="absolute -bottom-1 -right-1 bg-amber-400 text-neutral-950 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center shadow-xs"
-                        title="T.C. Devlet Mührü & Mazbatalı Resmi Yetkili"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5 text-neutral-900 stroke-[3]" />
-                      </div>
-                    </div>
-
-                    {/* İsim ve Yetki Detayları */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h3 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight leading-tight">
-                          Halil İbrahim Sevim
-                        </h3>
-                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.2 rounded-full border border-emerald-300">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Doğrulanmış Muhtar
-                        </span>
-                      </div>
-
-                      <p className="text-xs sm:text-[13px] font-black text-red-700 mt-0.5">
-                        Mehmet Akif Mahallesi Muhtarı
-                      </p>
-
-                      <p className="text-[11.5px] text-neutral-600 font-medium line-clamp-1 mt-0.5">
-                        T.C. Osmangazi Kaymakamlığı & Belediyesi Resmi Mahalle Temsilcisi
-                      </p>
-
-                      {/* Küçük Resmi Rozetler */}
-                      <div className="flex items-center gap-1.5 mt-2 flex-wrap text-[10.5px]">
-                        <span className="bg-neutral-100 text-neutral-700 font-bold px-2 py-0.5 rounded-lg border border-neutral-200">
-                          📜 2024–2029 Dönemi
-                        </span>
-                        <span className="bg-neutral-100 text-neutral-700 font-bold px-2 py-0.5 rounded-lg border border-neutral-200">
-                          📍 Yetki: Mehmet Akif & Mutlular
-                        </span>
-                        <span className="bg-rose-50 text-red-700 font-bold px-2 py-0.5 rounded-lg border border-rose-200">
-                          🛡️ MUBİS Tescilli
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Resmi Mühür Rozeti Kutusu */}
-                  <div className="hidden sm:flex flex-col items-end text-right shrink-0 bg-white/80 backdrop-blur-xs p-2.5 rounded-2xl border border-neutral-200/80 shadow-2xs">
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                      Resmi Görev Sahası
-                    </span>
-                    <span className="text-xs font-black text-neutral-900 mt-0.5">
-                      Osmangazi / BURSA
-                    </span>
-                    <span className="text-[10px] text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-full mt-1.5 border border-emerald-200">
-                      1. Derece Mülki Amir
-                    </span>
-                  </div>
-                </div>
-
-                {/* İletişim Kanalları Izgarası (Grid) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-neutral-200/80 relative z-10">
-                  {/* Hizmet Binası Sabit Telefonu */}
-                  <div className="bg-white p-3 rounded-2xl border border-neutral-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8.5 h-8.5 rounded-xl bg-red-50 text-red-700 flex items-center justify-center shrink-0">
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold text-neutral-400 uppercase block">
-                          Muhtarlık Hizmet Telefonu
-                        </span>
-                        <a
-                          href="tel:02242461616"
-                          className="text-xs font-black text-neutral-900 hover:text-red-700 transition tracking-tight truncate block"
-                        >
-                          0224 246 16 16
-                        </a>
-                      </div>
-                    </div>
+                  {canEditInfo && !editingInfo && (
                     <button
                       type="button"
-                      onClick={() => handleCopyText('02242461616', 'tel', 'Telefon numarası')}
-                      className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer"
-                      title="Numarayı Kopyala"
+                      onClick={startEditInfo}
+                      className="shrink-0 text-[11px] font-black text-red-700 bg-red-50 border border-red-200 px-3 py-1.5 rounded-xl hover:bg-red-100"
                     >
-                      {copiedKey === 'tel' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
+                      Bilgileri Düzenle
                     </button>
-                  </div>
+                  )}
+                </div>
 
-                  {/* Muhtar Doğrudan Mobil & WhatsApp */}
-                  <div className="bg-white p-3 rounded-2xl border border-neutral-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8.5 h-8.5 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                        <MessageCircle className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold text-neutral-400 uppercase block">
-                          Muhtar Mobil & WhatsApp
-                        </span>
+                {editingInfo ? (
+                  <div className="space-y-2.5">
+                    {([
+                      ['ad', 'Ad Soyad'],
+                      ['unvan', 'Unvan'],
+                      ['telefon', 'Telefon'],
+                      ['whatsapp', 'WhatsApp (boşsa telefon kullanılır)'],
+                      ['eposta', 'E-posta'],
+                      ['adres', 'Adres'],
+                      ['mesai', 'Çalışma saatleri (isteğe bağlı)'],
+                    ] as [keyof MuhtarInfo, string][]).map(([key, label]) => (
+                      <label key={key} className="block">
+                        <span className="text-[10px] font-bold text-neutral-500 uppercase">{label}</span>
+                        <input
+                          value={infoDraft[key]}
+                          onChange={(e) => setInfoDraft({ ...infoDraft, [key]: e.target.value })}
+                          className="mt-0.5 w-full border border-neutral-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-red-500"
+                        />
+                      </label>
+                    ))}
+                    {infoError && <p className="text-[11px] font-bold text-rose-600">{infoError}</p>}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={infoSaving}
+                        onClick={submitInfo}
+                        className="flex-1 bg-red-700 hover:bg-red-800 disabled:opacity-60 text-white rounded-xl py-2.5 text-xs font-black"
+                      >
+                        {infoSaving ? 'Kaydediliyor…' : 'Kaydet'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingInfo(false)}
+                        className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl py-2.5 text-xs font-black"
+                      >
+                        Vazgeç
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-neutral-200/80">
+                      {info.telefon && (
+                        <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200/80 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-red-50 text-red-700 flex items-center justify-center shrink-0">
+                              <Phone className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-neutral-400 uppercase block">Telefon</span>
+                              <a href={telHref(info.telefon)} className="text-xs font-black text-neutral-900 truncate block">
+                                {info.telefon}
+                              </a>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(telDigits(info.telefon), 'tel', 'Telefon numarası')}
+                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer"
+                            title="Numarayı Kopyala"
+                          >
+                            {copiedKey === 'tel' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      )}
+
+                      {info.eposta && (
+                        <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200/80 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+                              <Mail className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-neutral-400 uppercase block">E-posta</span>
+                              <a href={`mailto:${info.eposta}`} className="text-xs font-black text-neutral-900 truncate block">
+                                {info.eposta}
+                              </a>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(info.eposta, 'mail', 'E-posta adresi')}
+                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer"
+                            title="E-postayı Kopyala"
+                          >
+                            {copiedKey === 'mail' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      )}
+
+                      {info.adres && (
+                        <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200/80 flex items-center justify-between gap-2 sm:col-span-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center shrink-0">
+                              <MapPin className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-neutral-400 uppercase block">Adres</span>
+                              <span className="text-xs font-black text-neutral-900 block">{info.adres}</span>
+                            </div>
+                          </div>
+                          <a
+                            href={mapsHref(info.adres)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Google Haritalar'da Aç"
+                          >
+                            <Navigation className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      )}
+
+                      {info.mesai && (
+                        <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200/80 sm:col-span-2 text-xs font-bold text-neutral-800">
+                          🕒 {info.mesai}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {info.telefon && (
+                        <a href={telHref(info.telefon)} className="bg-red-700 hover:bg-red-800 text-white rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Hemen Ara</span>
+                        </a>
+                      )}
+                      {(info.whatsapp || info.telefon) && (
                         <a
-                          href="https://wa.me/905322461616?text=Merhaba%20Muhtar%C4%B1m%2C%20Mehmet%20Akif%20Mahallesi%20sakinlerindenim."
+                          href={waHref(info.whatsapp || info.telefon, 'Merhaba Muhtarım, Mehmet Akif Mahallesi sakinlerindenim.')}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs font-black text-emerald-800 hover:text-emerald-900 transition tracking-tight truncate block"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5"
                         >
-                          0532 246 16 16
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
                         </a>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyText('05322461616', 'gsm', 'GSM numarası')}
-                      className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer"
-                      title="Numarayı Kopyala"
-                    >
-                      {copiedKey === 'gsm' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
                       )}
-                    </button>
-                  </div>
-
-                  {/* Resmi E-Posta */}
-                  <div className="bg-white p-3 rounded-2xl border border-neutral-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8.5 h-8.5 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold text-neutral-400 uppercase block">
-                          Resmi Kurumsal E-Posta
-                        </span>
+                      {info.eposta && (
+                        <a href={`mailto:${info.eposta}`} className="bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-rose-300" />
+                          <span>E-Posta</span>
+                        </a>
+                      )}
+                      {info.adres && (
                         <a
-                          href="mailto:muhtar@mehmetakif.gov.tr"
-                          className="text-xs font-black text-neutral-900 hover:text-blue-700 transition tracking-tight truncate block"
+                          href={mapsHref(info.adres)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="bg-rose-50 hover:bg-rose-100 text-red-700 border border-red-200 rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5"
                         >
-                          muhtar@mehmetakif.gov.tr
+                          <Navigation className="w-3.5 h-3.5 text-red-600" />
+                          <span>Yol Tarifi</span>
                         </a>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyText('muhtar@mehmetakif.gov.tr', 'mail', 'E-posta adresi')}
-                      className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition cursor-pointer"
-                      title="E-postayı Kopyala"
-                    >
-                      {copiedKey === 'mail' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
                       )}
-                    </button>
-                  </div>
-
-                  {/* Hizmet Binası Adresi */}
-                  <div className="bg-white p-3 rounded-2xl border border-neutral-200/80 shadow-2xs flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8.5 h-8.5 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center shrink-0">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold text-neutral-400 uppercase block">
-                          Muhtarlık Hizmet Binası
-                        </span>
-                        <span className="text-xs font-black text-neutral-900 truncate block">
-                          İnönü Cad. No:42/A Osmangazi/BURSA
-                        </span>
-                      </div>
                     </div>
-                    <a
-                      href="https://www.google.com/maps/search/?api=1&query=Mehmet+Akif+Mahallesi+Muhtarligi+Osmangazi+Bursa"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition cursor-pointer"
-                      title="Google Haritalar'da Aç"
-                    >
-                      <Navigation className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                </div>
+                  </>
+                )}
 
-                {/* 4 Ana Hızlı Aksiyon Butonu */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 relative z-10">
-                  <a
-                    href="tel:02242461616"
-                    className="bg-red-700 hover:bg-red-800 text-white rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>Hemen Ara</span>
-                  </a>
-
-                  <a
-                    href="https://wa.me/905322461616?text=Merhaba%20Muhtar%C4%B1m%2C%20Mehmet%20Akif%20Mahallesi%20sakinlerindenim."
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    <span>WhatsApp</span>
-                  </a>
-
-                  <a
-                    href="mailto:muhtar@mehmetakif.gov.tr"
-                    className="bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition active:scale-95"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-rose-300" />
-                    <span>E-Posta</span>
-                  </a>
-
-                  <a
-                    href="https://www.google.com/maps/search/?api=1&query=Mehmet+Akif+Mahallesi+Muhtarligi+Osmangazi+Bursa"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bg-rose-50 hover:bg-rose-100 text-red-700 border border-red-200 rounded-2xl py-2.5 px-3 text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95"
-                  >
-                    <Navigation className="w-3.5 h-3.5 text-red-600" />
-                    <span>Yol Tarifi</span>
-                  </a>
-                </div>
-
-                {/* Hızlı Geçiş Şeridi: Talep Gönder & Tebligat Sorgula */}
-                <div className="pt-2 border-t border-neutral-200/80 flex items-center justify-between gap-2 text-xs text-neutral-600 font-bold flex-wrap relative z-10">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('talep')}
-                    className="text-red-700 hover:text-red-800 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
+                <div className="pt-2 border-t border-neutral-200/80 flex items-center justify-between gap-2 text-xs text-neutral-600 font-bold">
+                  <button type="button" onClick={() => setActiveTab('talep')} className="text-red-700 hover:underline flex items-center gap-1 cursor-pointer">
                     <Send className="w-3.5 h-3.5" />
                     <span>Muhtara Doğrudan Talep Bildir &rsaquo;</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('evrak')}
-                    className="text-neutral-600 hover:text-neutral-900 hover:underline flex items-center gap-1 cursor-pointer"
-                  >
+                  <button type="button" onClick={() => setActiveTab('evrak')} className="text-neutral-600 hover:underline flex items-center gap-1 cursor-pointer">
                     <FileCheck className="w-3.5 h-3.5 text-neutral-400" />
-                    <span>Askıdaki Tebligatları İncele &rsaquo;</span>
+                    <span>Askıdaki Tebligatlar &rsaquo;</span>
                   </button>
-                </div>
-              </div>
-
-              {/* Adres ve Mesai Saatleri */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-2xs space-y-2">
-                  <div className="flex items-center gap-2 text-red-700">
-                    <MapPin className="w-4 h-4 shrink-0" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-800">
-                      Muhtarlık Hizmet Binası
-                    </h4>
-                  </div>
-                  <p className="text-xs text-neutral-700 font-medium leading-relaxed">
-                    Mehmet Akif Mahallesi, İnönü Caddesi, No:42/A (Sağlık Ocağı ve Park Civarı)
-                    <br />
-                    <span className="text-neutral-500 font-bold">Osmangazi / BURSA</span>
-                  </p>
-                  <p className="text-[11px] text-neutral-500 pt-1 border-t border-neutral-100">
-                    🚌 B2, B15 ve B29 nolu belediye otobüsleriyle muhtarlık durağında inebilirsiniz.
-                  </p>
-                </div>
-
-                <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-2xs space-y-2">
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <Clock className="w-4 h-4 shrink-0" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-800">
-                      Çalışma & Mesai Saatleri
-                    </h4>
-                  </div>
-                  <div className="space-y-1 text-xs text-neutral-700 font-medium">
-                    <div className="flex justify-between">
-                      <span>Pazartesi – Cuma:</span>
-                      <strong className="text-neutral-900">08:30 – 17:00</strong>
-                    </div>
-                    <div className="flex justify-between text-neutral-500 text-[11px]">
-                      <span>Öğle Arası:</span>
-                      <span>12:30 – 13:30</span>
-                    </div>
-                    <div className="flex justify-between text-rose-600 font-bold">
-                      <span>Cumartesi – Pazar:</span>
-                      <span>Kapalı (Nöbetçi Acil)</span>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -784,7 +657,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                         Mutlular Aile Sağlığı Merkezi (Sağlık Ocağı)
                       </h4>
                       <p className="text-[11px] text-teal-800">
-                        Muhtarlık yanındaki sağlık ocağının hekim ve tahlil günleri
+                        Mehmet Akif Aile Sağlığı Merkezi hakkında bilgiler
                       </p>
                     </div>
                   </div>
@@ -809,7 +682,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                       Talebiniz Muhtarlığa İletildi!
                     </h3>
                     <p className="text-xs text-emerald-800 mt-1 max-w-md mx-auto">
-                      Sayın <strong className="font-bold">{formData.name}</strong>, başvurunuz resmi muhtarlık kayıtlarına alındı. Mahalle Muhtarı Halil İbrahim Sevim veya ilgili belediye birimi inceleme yapacaktır.
+                      Sayın <strong className="font-bold">{formData.name}</strong>, başvurunuz resmi muhtarlık kayıtlarına alındı. Mahalle Muhtarı {info.ad} veya ilgili belediye birimi inceleme yapacaktır.
                     </p>
                   </div>
                   <div className="bg-white p-3 rounded-2xl border border-emerald-200 inline-block shadow-2xs">
@@ -1254,7 +1127,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                             <a
                               href={`https://wa.me/90${cleanPhone}?text=Merhaba%20Say%C4%B1n%20${encodeURIComponent(
                                 app.citizenName
-                              )}%2C%20Mehmet%20Akif%20Mahallesi%20Muhtar%C4%B1m%C4%B1z%20Halil%20%C4%B0brahim%20Sevim%20ad%C4%B1na%20${encodeURIComponent(
+                              )}%2C%20Mehmet%20Akif%20Mahallesi%20Muhtar%C4%B1m%C4%B1z%20${encodeURIComponent(info.ad)}%20ad%C4%B1na%20${encodeURIComponent(
                                 app.id
                               )}%20nolu%20${encodeURIComponent(app.category)}%20talebinizle%20ilgili%20bilgilendirmek%20isteriz.`}
                               target="_blank"
@@ -1410,8 +1283,8 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
 
         {/* ALT BİLGİLENDİRME ÇUBUĞU */}
         <div className="bg-neutral-100/80 px-4 py-2.5 border-t border-neutral-200 shrink-0 flex items-center justify-between text-[11px] text-neutral-500">
-          <span>T.C. Osmangazi Mehmet Akif Mahalle Muhtarlığı</span>
-          <span className="font-bold text-neutral-700">Resmi İletişim: 0224 246 16 16</span>
+          <span>Mehmet Akif Mahallesi Muhtarlığı</span>
+          <span className="font-bold text-neutral-700">{info.telefon ? `İletişim: ${info.telefon}` : ''}</span>
         </div>
 
       </div>

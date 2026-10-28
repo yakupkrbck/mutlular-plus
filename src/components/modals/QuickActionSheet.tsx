@@ -214,42 +214,6 @@ export const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
             );
           })}
 
-          {/* Proje Kodlarını İndir (.ZIP) Kartı */}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              if (onOpenExportCode) {
-                onOpenExportCode();
-              } else {
-                window.location.href = '/mutlular-plus-kaynak-kodlar.zip';
-              }
-            }}
-            className="w-full p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/60 border border-emerald-300 shadow-2xs hover:shadow-md transition-all active:scale-[0.99] flex items-center gap-3.5 text-left group cursor-pointer"
-          >
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm bg-gradient-to-br from-emerald-600 to-teal-700 text-white group-hover:scale-105 transition-transform">
-              <Download className="w-6 h-6" />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm sm:text-base font-black text-emerald-950 tracking-tight group-hover:text-emerald-700 transition-colors">
-                  Tüm Proje Kodlarını Dışa Aktar
-                </span>
-                <span className="text-[9.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border bg-emerald-100 text-emerald-800 border-emerald-300">
-                  ZIP • TXT • TAR.GZ
-                </span>
-              </div>
-              <p className="text-[11.5px] text-emerald-800 leading-snug line-clamp-2 mt-0.5 font-medium">
-                Tüm kaynak dosyalar (src, public, server.ts, PWA, README.md, paketler) tek tıkla cihazınıza iner.
-              </p>
-            </div>
-
-            <div className="w-8 h-8 rounded-full bg-white shadow-xs group-hover:bg-emerald-600 group-hover:text-white text-emerald-700 flex items-center justify-center shrink-0 transition">
-              <Download className="w-4 h-4" />
-            </div>
-          </button>
-
           {/* Hızlı Yardımcı Kısayollar (Kompakt 4'lü Bar) */}
           <div className="pt-2 border-t border-neutral-100">
             <div className="text-[10.5px] font-bold text-neutral-400 uppercase tracking-wider px-1 mb-2">

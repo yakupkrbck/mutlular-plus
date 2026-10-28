@@ -30,7 +30,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   const [subCategory, setSubCategory] = useState(prefillSubCategory || 'Genel Tesisat Hizmeti');
   const [urgency, setUrgency] = useState('Hemen (1-2 Gün)');
   const [desc, setDesc] = useState('');
-  const [address, setAddress] = useState('Mutlular Mahallesi, Nilüfer / Bursa');
+  const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('0 (5');
   const [submitted, setSubmitted] = useState(false);
 

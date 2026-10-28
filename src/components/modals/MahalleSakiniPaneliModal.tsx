@@ -77,7 +77,7 @@ export const MahalleSakiniPaneliModal: React.FC<MahalleSakiniPaneliModalProps> =
   };
 
   const citizenName = userProfile?.name || 'Mahalle Sakini';
-  const citizenPhone = userProfile?.phone || '0532 000 00 00';
+  const citizenPhone = userProfile?.phone || '';
   const citizenStreet = 'Mutlular Mah. Fındıklı Sokak No: 12, Osmangazi / Bursa';
 
   // Sample or live user's own ads

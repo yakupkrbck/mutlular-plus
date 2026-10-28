@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } from 'react';
-import { collection, doc, onSnapshot, query, setDoc, deleteDoc, QueryConstraint } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  setDoc,
+  deleteDoc,
+  QueryConstraint,
+  QueryCompositeFilterConstraint,
+} from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { uploadDataUrlsDeep } from './uploadService';
 
 export interface SyncOptions {
   enabled?: boolean;
-  constraints?: QueryConstraint[];
+  constraints?: Array<QueryConstraint | QueryCompositeFilterConstraint>;
   /** constraints değiştiğinde aboneliği yenilemek için kararlı bir anahtar */
   key?: string;
   /** Yeni belgelere ownerUid (giriş yapan kullanıcı) ekler */
@@ -38,7 +47,7 @@ export function useSyncedList<T extends { id: string }>(
   const [ready, setReady] = useState(false);
   const listRef = useRef<T[]>([]);
   const serverRef = useRef<T[]>([]);
-  const constraintsRef = useRef<QueryConstraint[]>(opts.constraints || []);
+  const constraintsRef = useRef<Array<QueryConstraint | QueryCompositeFilterConstraint>>(opts.constraints || []);
   constraintsRef.current = opts.constraints || [];
 
   useEffect(() => {
@@ -49,7 +58,7 @@ export function useSyncedList<T extends { id: string }>(
       setReady(false);
       return;
     }
-    const q = query(collection(db, path), ...constraintsRef.current);
+    const q = (query as any)(collection(db, path), ...constraintsRef.current);
     const unsub = onSnapshot(
       q,
       (snap) => {

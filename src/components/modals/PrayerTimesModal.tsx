@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, Radio, RefreshCw } from 'lucide-react';
-import { PRAYER_TIMES } from '../../data/mockData';
 import { getLiveBursaPrayerTimes, LivePrayerTimesData } from '../../services/liveApis';
 
 interface PrayerTimesModalProps {
@@ -33,7 +32,7 @@ export const PrayerTimesModal: React.FC<PrayerTimesModalProps> = ({
 
   if (!isOpen) return null;
 
-  const displayList = prayerData?.times || PRAYER_TIMES;
+  const displayList = prayerData?.times || [];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200">
@@ -80,6 +79,11 @@ export const PrayerTimesModal: React.FC<PrayerTimesModalProps> = ({
 
         {/* Times list */}
         <div className="py-3 space-y-2">
+          {displayList.length === 0 && !loading && (
+            <p className="text-center text-[12px] font-semibold text-neutral-500 py-6">
+              Namaz vakitleri şu an alınamadı. İnternetinizi kontrol edip yenileyin.
+            </p>
+          )}
           {displayList.map((item, idx) => (
             <div
               key={idx}
@@ -105,7 +109,7 @@ export const PrayerTimesModal: React.FC<PrayerTimesModalProps> = ({
         {/* Footer info */}
         <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-[10px] text-neutral-400 font-medium">
           <span>{prayerData?.hijriDate || 'Hicri Takvim'}</span>
-          <span>Son güncelleme: {prayerData?.lastUpdated || '12:00'}</span>
+          <span>Son güncelleme: {prayerData?.lastUpdated || '-'}</span>
         </div>
       </div>
     </div>

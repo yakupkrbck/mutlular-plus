@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { doc as fsDoc, updateDoc, arrayUnion, increment, where } from 'firebase/firestore';
+import { doc as fsDoc, updateDoc, setDoc, arrayUnion, increment, where, or } from 'firebase/firestore';
 import { db } from './firebase';
 import { useSyncedList } from './services/useSyncedList';
 import {
@@ -73,7 +73,6 @@ import { QrMenuScannerModal } from './components/modals/QrMenuScannerModal';
 import { StoryViewerModal } from './components/modals/StoryViewerModal';
 import { EsnafStoryShareModal } from './components/modals/EsnafStoryShareModal';
 import { MahalleSakiniPaneliModal } from './components/modals/MahalleSakiniPaneliModal';
-import { ExportCodeModal } from './components/modals/ExportCodeModal';
 import { TekliflerimView } from './components/profile/TekliflerimView';
 import { BildirimMerkeziView } from './components/profile/BildirimMerkeziView';
 import { AndroidHeadsUpNotification } from './components/AndroidHeadsUpNotification';
@@ -93,8 +92,6 @@ import {
   NEWS_LIST,
   OBITUARY_LIST,
 } from './data/mockData';
-import { INITIAL_USER_QUOTES } from './data/mockQuotes';
-import { INITIAL_USER_NOTIFICATIONS } from './data/mockNotifications';
 import { ROLE_CONFIGS } from './data/rolesData';
 import {
   ClassifiedItem,
@@ -109,6 +106,7 @@ import {
   UserRole,
   UserQuoteRequest,
   MasterOffer,
+  HeroBannerItem,
   UserNotification,
   NotificationType,
   StoreShowcaseProduct,
@@ -138,6 +136,7 @@ import {
   ChevronRight,
   ExternalLink,
 } from 'lucide-react';
+import { PLACEHOLDER_IMG } from './utils/placeholder';
 
 export default function App() {
   // Navigation State (URL Senkronizasyonu & Deep-linking)
@@ -186,6 +185,18 @@ export default function App() {
 
   const currentRole: UserRole = userProfile ? userProfile.role : 'mahalle-sakini';
   const userName = userProfile?.name || 'Misafir Kullanıcı';
+  const myUid = userProfile?.uid || null;
+  const isStaffRole = currentRole === 'editor' || currentRole === 'yonetici' || currentRole === 'muhtar';
+
+  // Herkese açık koleksiyonlarda onaysız kayıtlar yalnızca sahibine ve yönetime okunur.
+  // (Firestore kuralları da aynısını zorunlu kılar.)
+  const approvedOrMine = (field: string): any[] =>
+    isStaffRole
+      ? []
+      : myUid
+      ? [or(where(field, '==', 'approved'), where('ownerUid', '==', myUid))]
+      : [where(field, '==', 'approved')];
+  const visKey = `${myUid || 'anon'}-${isStaffRole}`;
 
   const handleSuccessLogin = (profile: UserProfile) => {
     setUserProfile(profile);
@@ -201,7 +212,25 @@ export default function App() {
   };
 
   // Classified Ads list with live add support
-  const [classifiedList, setClassifiedList] = useSyncedList<ClassifiedItem>('plus_ilanlar', { stampOwner: true });
+  const [allClassifieds, setClassifiedList] = useSyncedList<ClassifiedItem>('plus_ilanlar', {
+    stampOwner: true,
+    key: visKey,
+    constraints: approvedOrMine('status'),
+  });
+  // Herkese görünen liste yalnızca onaylı ilanlardır
+  const classifiedList = useMemo(
+    () => allClassifieds.filter((a) => !a.status || a.status === 'approved'),
+    [allClassifieds]
+  );
+  const pendingClassifieds = useMemo(
+    () => allClassifieds.filter((a) => a.status === 'pending'),
+    [allClassifieds]
+  );
+  // Kullanıcının kendi paneli: onaylılar + kendi ilanları (onay bekleyen / reddedilen dahil)
+  const panelClassifieds = useMemo(
+    () => allClassifieds.filter((a) => !a.status || a.status === 'approved' || a.ownerUid === myUid),
+    [allClassifieds, myUid]
+  );
 
   // News list with live add & remove support (Haber vitrini & akışı)
   const [newsList, setNewsList] = useSyncedList<NewsItem>('plus_haberler', { stampOwner: true });
@@ -228,8 +257,6 @@ export default function App() {
   const [isCreditOpen, setIsCreditOpen] = useState(false);
   const [isQuoteWizardOpen, setIsQuoteWizardOpen] = useState(false);
   const [quotePrefill, setQuotePrefill] = useState<{ category?: string; subCategory?: string } | null>(null);
-  const myUid = userProfile?.uid || null;
-  const isStaffRole = currentRole === 'editor' || currentRole === 'yonetici' || currentRole === 'muhtar';
   const canSeeAllQuotes = isStaffRole || currentRole === 'usta';
 
   // Hizmet talepleri: sakin sadece kendi taleplerini, usta/yönetim tüm açık talepleri görür
@@ -316,20 +343,43 @@ export default function App() {
   const [isMahalleSakiniPaneliOpen, setIsMahalleSakiniPaneliOpen] = useState(false);
   const [isJobsModalOpen, setIsJobsModalOpen] = useState(false);
   const [jobList, setJobList] = useSyncedList<JobItem>('plus_isler', { stampOwner: true });
-  const [obituaryList, setObituaryList] = useSyncedList<ObituaryItem>('plus_vefat', { stampOwner: true });
+  // İş başvuruları (ad, telefon...) herkese açık ilan belgesinde DEĞİL, özel koleksiyonda tutulur.
+  // Başvuran kendi başvurusunu, ilan sahibi kendi ilanına gelenleri, yönetim hepsini görür.
+  const [jobApplications, setJobApplications] = useSyncedList<JobApplication>('plus_is_basvurulari', {
+    enabled: !!myUid,
+    key: visKey,
+    constraints: isStaffRole || !myUid ? [] : [or(where('applicantUid', '==', myUid), where('jobOwnerUid', '==', myUid))],
+  });
+  const jobsForUi = useMemo(
+    () => jobList.map((j) => ({ ...j, applications: jobApplications.filter((a) => a.jobId === j.id) })),
+    [jobList, jobApplications]
+  );
+
+  const [obituaryList, setObituaryList] = useSyncedList<ObituaryItem>('plus_vefat', {
+    stampOwner: true,
+    key: visKey,
+    constraints: approvedOrMine('status'),
+  });
   // Tüm işletmeler (herkes okur). Onaysız/reddedilenler yalnızca sahibine ve yönetime görünür.
   const [allRestaurants, setRestaurantsList, restaurantsReady] = useSyncedList<RestaurantItem>('plus_isletmeler', {
     stampOwner: true,
+    key: visKey,
+    constraints: approvedOrMine('approvalStatus'),
   });
   const restaurantsList = useMemo(
     () =>
-      allRestaurants.filter(
-        (r) =>
-          !r.approvalStatus ||
-          r.approvalStatus === 'approved' ||
-          (!!myUid && r.ownerUid === myUid) ||
-          isStaffRole
-      ),
+      allRestaurants
+        .filter(
+          (r) =>
+            !r.approvalStatus ||
+            r.approvalStatus === 'approved' ||
+            (!!myUid && r.ownerUid === myUid) ||
+            isStaffRole
+        )
+        .map((r) => ({
+          ...r,
+          image: r.image || PLACEHOLDER_IMG,
+        })),
     [allRestaurants, myUid, isStaffRole]
   );
   const ownStore = useMemo(
@@ -345,6 +395,9 @@ export default function App() {
     constraints: isStaffRole || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
 
+  // Ana sayfa vitrin afişleri (yönetici yükler)
+  const [heroBanners, setHeroBanners] = useSyncedList<HeroBannerItem>('plus_vitrin', { stampOwner: true });
+
   // Esnaf Hikaye Sistemi (Tam Ekran Video / Görsel Paylaşımı)
   const [storiesList, setStoriesList] = useSyncedList<StoryItem>('plus_hikayeler', { stampOwner: true });
   const [isStoryViewerOpen, setIsStoryViewerOpen] = useState(false);
@@ -354,7 +407,6 @@ export default function App() {
     title?: string;
     badge?: string;
   } | null>(null);
-  const [isExportCodeOpen, setIsExportCodeOpen] = useState(false);
 
   const handlePublishEsnafStory = (newStory: StoryItem) => {
     setStoriesList((prev) => [newStory, ...prev]);
@@ -620,33 +672,23 @@ export default function App() {
   };
 
   const handleApplyJobToSystem = (jobId: string, application: JobApplication) => {
-    setJobList((prev) =>
-      prev.map((job) =>
-        job.id === jobId
-          ? {
-              ...job,
-              applications: [application, ...(job.applications || [])],
-            }
-          : job
-      )
-    );
-
-    const targetJob = jobList.find((j) => j.id === jobId);
-    const notif: UserNotification = {
-      id: `app-notif-${Date.now()}`,
-      type: 'teklif',
-      title: `İş Başvurunuz İletildi`,
-      message: `"${targetJob?.title || 'İlan'}" başvurunuz işverene iletildi. İlgili usta/esnaf sizinle iletişime geçecektir.`,
-      date: 'Az önce',
-      read: false,
-      badgeText: 'BAŞVURU',
-      actionTab: 'profil',
-    };
-    setUserNotifications((prev) => [notif, ...prev]);
+    const job = jobList.find((j) => j.id === jobId);
+    if (!myUid || !job?.ownerUid) {
+      window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'Başvuru için giriş yapmalısınız.' }));
+      return;
+    }
+    // Kişisel bilgiler özel koleksiyona yazılır
+    setJobApplications((prev) => [
+      { ...application, applicantUid: myUid, jobOwnerUid: job.ownerUid, status: 'beklemede' },
+      ...prev,
+    ]);
+    // Herkese açık yalnızca sayaç artar
+    updateDoc(fsDoc(db, 'plus_isler', jobId), { applicationCount: increment(1) }).catch(() => {});
   };
 
   const handleAddNewAd = (newAd: ClassifiedItem) => {
-    setClassifiedList((prev) => [newAd, ...prev]);
+    // Yönetim ilanı doğrudan yayınlar; diğer kullanıcıların ilanları onay bekler
+    setClassifiedList((prev) => [{ ...newAd, status: isStaffRole ? 'approved' : 'pending' }, ...prev]);
   };
 
   // Notification handlers
@@ -772,27 +814,16 @@ export default function App() {
 
   // Admin moderation handlers
   const handleAdminApproveAd = (approvedAd: ClassifiedItem) => {
-    // If ad is already in list, do not duplicate; otherwise prepend
-    setClassifiedList((prev) => {
-      const exists = prev.some((item) => item.id === approvedAd.id);
-      if (exists) return prev;
-      return [approvedAd, ...prev];
-    });
+    // Mevcut kaydın durumu "onaylandı" olur (yeni kayıt oluşturulmaz)
+    setClassifiedList((prev) =>
+      prev.map((item) => (item.id === approvedAd.id ? { ...item, status: 'approved' as const } : item))
+    );
+  };
 
-    // Notify user of approved ad
-    const notif: UserNotification = {
-      id: `notif-appr-${Date.now()}`,
-      type: 'ilan',
-      title: `İlanınız Yayında: ${approvedAd.title.slice(0, 28)}...`,
-      message: `"${approvedAd.title}" ilanınız yönetici tarafından onaylandı ve yayına alındı.`,
-      date: 'Az önce',
-      read: false,
-      relatedId: approvedAd.id,
-      badgeText: 'Yayında',
-      sender: 'Yönetim Masası',
-      actionTab: 'alim-satim',
-    };
-    setUserNotifications((prev) => [notif, ...prev]);
+  const handleAdminRejectAd = (adId: string) => {
+    setClassifiedList((prev) =>
+      prev.map((item) => (item.id === adId ? { ...item, status: 'rejected' as const } : item))
+    );
   };
 
   const handleAdminDeleteAd = (adId: string) => {
@@ -895,8 +926,8 @@ export default function App() {
               tag: userProfile.businessCategory || 'Esnaf',
               rating: 0,
               time: mode === 'qr_menu' ? 'QR Menü' : 'Mağaza',
-              deliveryFee: mode === 'qr_menu' ? 'Masada Sipariş' : 'Mağazada Deneme',
-              minOrder: mode === 'qr_menu' ? 'QR Menü Aktif' : 'Yeni Sezon',
+              deliveryFee: mode === 'qr_menu' ? 'Masada Sipariş' : 'Mağazada Teslim',
+              minOrder: 'Yeni işletme',
               image: '',
               category: mode === 'qr_menu' ? 'yemek' : 'diger',
               businessMode: mode,
@@ -1015,15 +1046,11 @@ export default function App() {
       slug: slugify(data.businessName),
       name: data.businessName,
       tag: data.category,
-      rating: 5.0,
-      time: data.businessMode === 'qr_menu' ? '20-30 dk' : 'Açık • Mağaza',
+      rating: 0,
+      time: data.businessMode === 'qr_menu' ? 'QR Menü' : 'Mağaza',
       deliveryFee: data.businessMode === 'qr_menu' ? 'Masada Sipariş' : 'Mağazada Deneme',
-      minOrder: data.businessMode === 'qr_menu' ? 'QR Menü Aktif' : 'Yeni Sezon',
-      image:
-        data.image ||
-        (data.businessMode === 'qr_menu'
-          ? 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80'
-          : 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80'),
+      minOrder: 'Yeni işletme',
+      image: data.image || '',
       category: data.categoryKey,
       businessMode: data.businessMode,
       orderType: data.businessMode === 'qr_menu' ? 'online' : 'store_only',
@@ -1244,14 +1271,24 @@ export default function App() {
       status: 'beklemede',
       urgency: newReq.urgency,
       desc: newReq.desc,
-      address: newReq.address,
-      phone: newReq.phone,
+      // Tam adres ve telefon herkese açık talep belgesine YAZILMAZ; özel alt belgede tutulur
+      address: 'Mehmet Akif Mahallesi',
       createdAt: 'Az önce',
       ownerName: userProfile?.name || 'Mahalle Sakini',
       offersCount: 0,
       offers: [],
     };
     setUserQuotes((prev) => [formattedRequest, ...prev]);
+    if (myUid) {
+      // İletişim bilgisi: yalnızca talep sahibi, yönetim ve teklifi kabul edilen usta okuyabilir
+      setDoc(fsDoc(db, 'plus_talepler', formattedRequest.id, 'iletisim', 'bilgi'), {
+        ownerUid: myUid,
+        phone: newReq.phone,
+        address: newReq.address,
+      }).catch(() => {
+        window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'İletişim bilgisi kaydedilemedi.' }));
+      });
+    }
 
     // Add confirmation notification
     const notif: UserNotification = {
@@ -1457,7 +1494,6 @@ export default function App() {
           isLoggedIn={isLoggedIn}
           userProfile={userProfile}
           unreadNotificationCount={unreadNotificationCount}
-          onOpenExportCode={() => setIsExportCodeOpen(true)}
         />
 
         {/* Dynamic Screen Content */}
@@ -1467,6 +1503,7 @@ export default function App() {
               {/* 1. Haber Vitrini (Görsel Ön Planda, Yazı Görseli Kapatmaz, Mutlular Plus Renkleri) */}
               <HaberVitrini
                 newsList={newsList}
+                banners={heroBanners}
                 onSelectNews={(news) => setSelectedNews(news)}
                 onOpenBusinessRegister={() => setIsBusinessRegisterOpen(true)}
                 onOpenLiveSupport={() => setIsLiveSupportOpen(true)}
@@ -2618,7 +2655,6 @@ export default function App() {
           userName={userProfile?.name}
           userProfile={userProfile}
           unreadNotificationCount={unreadNotificationCount}
-          onOpenExportCode={() => setIsExportCodeOpen(true)}
         />
 
         <PharmacyModal
@@ -2826,10 +2862,6 @@ export default function App() {
             setIsQrScannerOpen(true);
           }}
           userProfile={userProfile}
-          onOpenExportCode={() => {
-            setIsQuickActionOpen(false);
-            setIsExportCodeOpen(true);
-          }}
         />
 
         {/* Yönetici Denetim & Yönetim Paneli Modalı */}
@@ -2838,6 +2870,11 @@ export default function App() {
           onClose={() => setIsAdminOpen(false)}
           classifiedList={classifiedList}
           newsList={newsList}
+          heroBanners={heroBanners}
+          pendingAds={pendingClassifieds}
+          onRejectAd={handleAdminRejectAd}
+          onAddHeroBanner={(b) => setHeroBanners((prev) => [b, ...prev])}
+          onDeleteHeroBanner={(id) => setHeroBanners((prev) => prev.filter((x) => x.id !== id))}
           obituaryList={obituaryList}
           onApproveAd={handleAdminApproveAd}
           onDeleteAd={handleAdminDeleteAd}
@@ -2927,6 +2964,8 @@ export default function App() {
           onClose={() => setIsEditorPanelOpen(false)}
           userProfile={userProfile}
           classifiedList={classifiedList}
+          pendingAds={pendingClassifieds}
+          onRejectAd={handleAdminRejectAd}
           newsList={newsList}
           obituaryList={obituaryList}
           merchantsList={merchantsList}
@@ -2943,7 +2982,7 @@ export default function App() {
         <JobsModal
           isOpen={isJobsModalOpen}
           onClose={() => setIsJobsModalOpen(false)}
-          jobs={jobList}
+          jobs={jobsForUi}
           onAddNewJob={handleAddNewJob}
           onApplyJob={handleApplyJobToSystem}
           userProfile={userProfile}
@@ -2955,7 +2994,7 @@ export default function App() {
           onClose={() => setIsMahalleSakiniPaneliOpen(false)}
           userProfile={userProfile}
           userQuotes={userQuotes}
-          classifiedList={classifiedList}
+          classifiedList={panelClassifieds}
           muhtarApplications={muhtarlikApplications}
           onOpenQuoteWizard={() => setIsQuoteWizardOpen(true)}
           onOpenMarketListing={() => setIsMarketListingOpen(true)}
@@ -2967,11 +3006,6 @@ export default function App() {
           onOpenPharmacy={() => setIsPharmacyOpen(true)}
           onOpenKesintiler={() => setIsKesintilerOpen(true)}
           onOpenBelediye={handleOpenBelediye}
-        />
-
-        <ExportCodeModal
-          isOpen={isExportCodeOpen}
-          onClose={() => setIsExportCodeOpen(false)}
         />
 
         <GenericInfoModal

@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { doc as fsDoc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import {
   X,
   Wrench,
@@ -60,6 +62,26 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
 
   const myUid = userProfile?.uid;
 
+  // Müşteri telefonu/adresi yalnızca teklifi KABUL EDİLEN usta için özel alt belgeden okunur
+  const [contacts, setContacts] = useState<Record<string, { phone?: string; address?: string }>>({});
+  const acceptedIds = useMemo(
+    () => quoteRequests.filter((q) => q.acceptedOffer?.ustaUid === myUid).map((q) => q.id),
+    [quoteRequests, myUid]
+  );
+  useEffect(() => {
+    let alive = true;
+    acceptedIds.forEach((id) => {
+      getDoc(fsDoc(db, 'plus_talepler', id, 'iletisim', 'bilgi'))
+        .then((snap) => {
+          if (alive && snap.exists()) setContacts((c) => ({ ...c, [id]: snap.data() as any }));
+        })
+        .catch(() => {});
+    });
+    return () => {
+      alive = false;
+    };
+  }, [acceptedIds.join(',')]);
+
   // Açık havuz: başkalarının açtığı, henüz kabul edilmemiş ve benim teklif vermediğim talepler
   const openPoolRequests = useMemo(
     () =>
@@ -73,7 +95,6 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
         .map((q) => ({
           id: q.id,
           customerName: q.ownerName || 'Mahalle Sakini',
-          customerPhone: q.phone,
           category: q.category,
           subCategory: q.subCategory,
           address: q.address,
@@ -96,10 +117,10 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
           requestId: q.id,
           customerName: q.ownerName || 'Mahalle Sakini',
           // Müşteri telefonu yalnızca teklifim kabul edilince gösterilir
-          customerPhone: accepted ? q.phone : undefined,
+          customerPhone: accepted ? contacts[q.id]?.phone : undefined,
           category: q.category,
           subCategory: q.subCategory,
-          customerAddress: q.address,
+          customerAddress: accepted ? contacts[q.id]?.address || q.address : q.address,
           customerDesc: q.desc,
           offeredPrice: o.price,
           estimatedTime: o.estimatedTime,
@@ -114,7 +135,7 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
       });
     });
     return list;
-  }, [quoteRequests, myUid]);
+  }, [quoteRequests, myUid, contacts]);
 
   // Giving Offer Form State
   const [offeringRequestId, setOfferingRequestId] = useState<string | null>(null);

@@ -17,6 +17,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { UserProfile, BusinessTypeMode } from '../../types';
+import { ImageCropField } from '../ImageCropField';
 
 export interface RegisteredBusinessPayload {
   businessName: string;
@@ -44,55 +45,38 @@ interface BusinessRegisterModalProps {
 const CATEGORY_OPTIONS: {
   label: string;
   key: 'yemek' | 'giyim' | 'market' | 'teknoloji' | 'cicek' | 'kuafor-bakim' | 'diger';
-  defaultImg: string;
 }[] = [
   {
     label: 'Restoran, Lokanta & Cafe',
     key: 'yemek',
-    defaultImg:
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80',
   },
   {
     label: 'Kasap, Şarküteri & Doğal Ürünler',
     key: 'market',
-    defaultImg:
-      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=80',
   },
   {
     label: 'Market, Bakkal & Manav',
     key: 'market',
-    defaultImg:
-      'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800&auto=format&fit=crop&q=80',
   },
   {
     label: 'Giyim, Butik & Ayakkabı',
     key: 'giyim',
-    defaultImg:
-      'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80',
   },
   {
     label: 'Kuaför, Berber & Kişisel Bakım',
     key: 'kuafor-bakim',
-    defaultImg:
-      'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800&auto=format&fit=crop&q=80',
   },
   {
     label: 'Çiçekçilik, Organizasyon & Hediye',
     key: 'cicek',
-    defaultImg:
-      'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=800&auto=format&fit=crop&q=80',
   },
   {
     label: 'Telefon, Bilgisayar & Teknoloji Servis',
     key: 'teknoloji',
-    defaultImg:
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80',
   },
   {
     label: 'Oto Tamir, Lastik & Sanayi',
     key: 'diger',
-    defaultImg:
-      'https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=800&auto=format&fit=crop&q=80',
   },
 ];
 
@@ -113,10 +97,10 @@ export const BusinessRegisterModal: React.FC<BusinessRegisterModalProps> = ({
   const [businessMode, setBusinessMode] = useState<BusinessTypeMode>('qr_menu');
   const [ownerName, setOwnerName] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('Cumhuriyet Cad. Mutlular Mah.');
+  const [address, setAddress] = useState('');
   const [description, setDescription] = useState('');
-  const [workingHours, setWorkingHours] = useState('08:30 - 21:00');
-  const [customImageUrl, setCustomImageUrl] = useState('');
+  const [workingHours, setWorkingHours] = useState('');
+  const [coverImage, setCoverImage] = useState('');
 
   // Sektör değiştikçe modu otomatik belirle
   const handleCategoryChange = (catIdx: number) => {
@@ -156,12 +140,10 @@ export const BusinessRegisterModal: React.FC<BusinessRegisterModalProps> = ({
       businessMode,
       ownerName: ownerName.trim(),
       phone: phone.trim(),
-      address: address.trim() || 'Mutlular Mah.',
-      description:
-        description.trim() ||
-        `${businessName.trim()} işletmesi, Mutlular Çarşısı bünyesinde kaliteli ve güvenilir hizmet sunmaktadır.`,
-      workingHours: workingHours.trim() || '08:30 - 21:00',
-      image: customImageUrl.trim() || chosenCat.defaultImg,
+      address: address.trim(),
+      description: description.trim(),
+      workingHours: workingHours.trim(),
+      image: coverImage,
     };
 
     onRegisterBusiness(payload);
@@ -174,6 +156,7 @@ export const BusinessRegisterModal: React.FC<BusinessRegisterModalProps> = ({
     setRegisteredData(null);
     setBusinessName('');
     setDescription('');
+    setCoverImage('');
     onClose();
   };
 
@@ -552,6 +535,16 @@ export const BusinessRegisterModal: React.FC<BusinessRegisterModalProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Kapak fotoğrafı: gerçek dosya yükleme + kırpma */}
+              <ImageCropField
+                label="İşletme Kapak Fotoğrafı"
+                value={coverImage}
+                onChange={setCoverImage}
+                aspect={16 / 9}
+                outputWidth={1200}
+                hint="Galeriden seçin, kadrajı ayarlayın. Yüklemezseniz fotoğrafsız görünür."
+              />
 
               {/* 7. Açıklama */}
               <div>

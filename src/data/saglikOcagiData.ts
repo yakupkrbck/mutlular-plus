@@ -60,8 +60,8 @@ export const MEHMET_AKIF_50_ASM: SaglikMerkeziBilgisi = {
   ilce: 'Osmangazi',
   il: 'Bursa',
   adres: 'Mehmet Akif, Çukurca Yolu Cd., 16190 Osmangazi/Bursa',
-  telefon: '0224 246 87 01',
-  telefonHref: 'tel:02242468701',
+  telefon: '',
+  telefonHref: '',
   haritaAdres: 'Mehmet Akif Mah Çukurca Yolu Cd Osmangazi Bursa',
   calismaSaatleri: {
     haftaIci: 'Pazartesi - Cuma: 08:00 - 17:00',

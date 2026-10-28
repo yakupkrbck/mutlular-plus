@@ -93,7 +93,7 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
             <div className="flex items-center gap-2 text-[11px] font-semibold text-white/90 mt-1">
               <span className="flex items-center gap-1 text-amber-400 font-bold">
                 <Star className="w-3 h-3 fill-amber-400" />
-                {restaurant.rating.toFixed(1)}
+                {restaurant.rating ? restaurant.rating.toFixed(1) : 'Yeni'}
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">

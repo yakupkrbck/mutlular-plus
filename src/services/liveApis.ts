@@ -167,14 +167,7 @@ export async function getLiveBursaPrayerTimes(): Promise<LivePrayerTimesData> {
     };
   } catch {
     return {
-      times: [
-        { name: 'İmsak', time: '05:31' },
-        { name: 'Güneş', time: '06:55' },
-        { name: 'Öğle', time: '13:06', next: true },
-        { name: 'İkindi', time: '16:32' },
-        { name: 'Akşam', time: '19:07' },
-        { name: 'Yatsı', time: '20:25' },
-      ],
+      times: [],
       hijriDate: 'Bursa Diyanet Takvimi',
       source: 'fallback',
       lastUpdated: '12:00',
