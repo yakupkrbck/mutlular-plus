@@ -27,8 +27,9 @@ jobs:
       - name: Bağımlılıkları kur
         run: npm install --legacy-peer-deps
 
-      - name: Derle (repo adı alt klasör olarak kullanılır)
-        run: npm run build -- --base=/${{ github.event.repository.name }}/
+      # Özel alan adı (www.mutlularhaber.com) kökten yayınlanır, bu yüzden base '/' olmalı
+      - name: Derle
+        run: npm run build
 
       - name: SPA geri dönüş sayfası
         run: cp dist/index.html dist/404.html
