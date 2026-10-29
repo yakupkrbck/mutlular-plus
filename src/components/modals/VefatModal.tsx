@@ -30,6 +30,8 @@ import {
 } from '../../services/vefat_dogrulama_servisi';
 
 interface VefatModalProps {
+  /** Giriş yoksa giriş penceresini açıp true döner; işlem durdurulmalı */
+  onRequireLogin?: (message?: string) => boolean;
   isOpen: boolean;
   onClose: () => void;
   obituaries: ObituaryItem[];
@@ -44,6 +46,7 @@ interface VefatModalProps {
 }
 
 export const VefatModal: React.FC<VefatModalProps> = ({
+  onRequireLogin,
   isOpen,
   onClose,
   obituaries,
@@ -124,6 +127,11 @@ export const VefatModal: React.FC<VefatModalProps> = ({
   };
 
   const handleCreateNewObituary = (e: React.FormEvent) => {
+    if (onRequireLogin?.('Vefat ilanı vermek için giriş yapmalısınız.')) {
+      e.preventDefault();
+      return;
+    }
+
     e.preventDefault();
 
     if (!isLoggedIn) {
@@ -188,6 +196,8 @@ export const VefatModal: React.FC<VefatModalProps> = ({
   };
 
   const handleSendCondolence = (obId: string) => {
+    if (onRequireLogin?.('Taziye mesajı için giriş yapmalısınız.')) return;
+
     if (!condolenceText.trim()) return;
     const author = userProfile?.name || 'Mahalle Sakini';
     const target = obituaries.find((o) => o.id === obId);

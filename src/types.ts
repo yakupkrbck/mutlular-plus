@@ -209,6 +209,8 @@ export interface MasterOffer {
 
 export interface UserQuoteRequest {
   id: string;
+  /** Hizmet alanı kimliği; yalnızca ustası olan alanlardan talep açılabilir */
+  categoryId?: string;
   ownerUid?: string;
   ownerName?: string;
   category: string;

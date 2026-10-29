@@ -6,6 +6,8 @@ interface QuoteWizardModalProps {
   onClose: () => void;
   prefillCategory?: string;
   prefillSubCategory?: string;
+  /** Yalnızca ustası bulunan hizmet alanları */
+  availableCategories?: string[];
   onRequestCreated?: (request: {
     id: string;
     category: string;
@@ -23,10 +25,13 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
   onClose,
   prefillCategory,
   prefillSubCategory,
+  availableCategories = [],
   onRequestCreated,
 }) => {
   const [step, setStep] = useState(prefillCategory ? 2 : 1);
-  const [category, setCategory] = useState(prefillCategory || 'Sıhhi Tesisat & Su Sistemleri');
+  const [category, setCategory] = useState(
+    prefillCategory && availableCategories.includes(prefillCategory) ? prefillCategory : availableCategories[0] || ''
+  );
   const [subCategory, setSubCategory] = useState(prefillSubCategory || 'Genel Tesisat Hizmeti');
   const [urgency, setUrgency] = useState('Hemen (1-2 Gün)');
   const [desc, setDesc] = useState('');
@@ -36,7 +41,7 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (prefillCategory) {
+      if (prefillCategory && availableCategories.includes(prefillCategory)) {
         setCategory(prefillCategory);
         setSubCategory(prefillSubCategory || 'Genel Hizmet Talebi');
         setStep(2);
@@ -47,18 +52,8 @@ export const QuoteWizardModal: React.FC<QuoteWizardModalProps> = ({
     }
   }, [isOpen, prefillCategory, prefillSubCategory]);
 
-  const categories = [
-    'Sıhhi Tesisat & Su Sistemleri',
-    'Elektrik, Aydınlatma & Otomasyon',
-    'Kombi, Klima & Isıtma Sistemleri',
-    'Boya, Badana & Dekorasyon',
-    'Mobilya, Marangoz & İç Kapı',
-    'Nakliyat, Taşıma & Depolama',
-    'Çilingir, Kilit & Demir Doğrama',
-    'Temizlik, İlaçlama & Koltuk Yıkama',
-    'Cam Balkon, Sineklik & PVC Doğrama',
-    'Bahçe Bakımı, Peyzaj & Çit',
-  ];
+  // Yalnızca en az bir ustanın açtığı hizmet alanlarından talep oluşturulabilir
+  const categories = availableCategories;
 
   if (!isOpen) return null;
 

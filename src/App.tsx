@@ -137,6 +137,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { PLACEHOLDER_IMG } from './utils/placeholder';
+import { hizmetAlaniId, HizmetAlani } from './data/hizmetAlanlari';
+import { syncUstaFields } from './services/hizmetAlanlari';
 
 export default function App() {
   // Navigation State (URL Senkronizasyonu & Deep-linking)
@@ -242,12 +244,12 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isBusinessRegisterOpen, setIsBusinessRegisterOpen] = useState(false);
+  const [isBusinessRegisterOpen, setIsBusinessRegisterOpenRaw] = useState(false);
   const [isLiveSupportOpen, setIsLiveSupportOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPharmacyOpen, setIsPharmacyOpen] = useState(false);
   const [isPrayersOpen, setIsPrayersOpen] = useState(false);
-  const [isNewsTipOpen, setIsNewsTipOpen] = useState(false);
+  const [isNewsTipOpen, setIsNewsTipOpenRaw] = useState(false);
   const [isDavetOpen, setIsDavetOpen] = useState(false);
   const [isKursuOpen, setIsKursuOpen] = useState(false);
   const [isLostFoundOpen, setIsLostFoundOpen] = useState(false);
@@ -255,7 +257,7 @@ export default function App() {
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isLiveStreamOpen, setIsLiveStreamOpen] = useState(false);
   const [isCreditOpen, setIsCreditOpen] = useState(false);
-  const [isQuoteWizardOpen, setIsQuoteWizardOpen] = useState(false);
+  const [isQuoteWizardOpen, setIsQuoteWizardOpenRaw] = useState(false);
   const [quotePrefill, setQuotePrefill] = useState<{ category?: string; subCategory?: string } | null>(null);
   const canSeeAllQuotes = isStaffRole || currentRole === 'usta';
 
@@ -322,7 +324,7 @@ export default function App() {
   }, []);
   const [profileSubTab, setProfileSubTab] = useState<'profil' | 'tekliflerim' | 'bildirimler'>('profil');
   const [isBusOpen, setIsBusOpen] = useState(false);
-  const [isMarketListingOpen, setIsMarketListingOpen] = useState(false);
+  const [isMarketListingOpen, setIsMarketListingOpenRaw] = useState(false);
   const [isVefatOpen, setIsVefatOpen] = useState(false);
   const [isEBelediyeOpen, setIsEBelediyeOpen] = useState(false);
   const [isSaglikOcagiOpen, setIsSaglikOcagiOpen] = useState(false);
@@ -342,6 +344,62 @@ export default function App() {
   const [isEditorPanelOpen, setIsEditorPanelOpen] = useState(false);
   const [isMahalleSakiniPaneliOpen, setIsMahalleSakiniPaneliOpen] = useState(false);
   const [isJobsModalOpen, setIsJobsModalOpen] = useState(false);
+
+  // --- Giriş zorunluluğu: giriş yapmadan yalnızca gezilebilir, hiçbir şey paylaşılamaz ---
+  const [loginNotice, setLoginNotice] = useState<string | null>(null);
+  const [loginInitialRole, setLoginInitialRole] = useState<UserRole | undefined>(undefined);
+  const promptLogin = (message = 'Paylaşım yapmak için giriş yapmalısınız.', role?: UserRole) => {
+    setLoginNotice(message);
+    setLoginInitialRole(role);
+    setIsLoginOpen(true);
+  };
+  /** Giriş yoksa giriş penceresini açar ve true döner (işlem durdurulmalı). */
+  const requireLogin = (message?: string): boolean => {
+    if (isLoggedIn) return false;
+    promptLogin(message);
+    return true;
+  };
+
+  // --- Hizmet alanları ustalar tarafından açılır ---
+  const [hizmetAlanlari] = useSyncedList<HizmetAlani>('plus_hizmet_alanlari');
+  const activeFields = useMemo(
+    () => hizmetAlanlari.filter((f) => (f.ustalar || []).length > 0).map((f) => ({ id: f.id, name: f.name })),
+    [hizmetAlanlari]
+  );
+  const activeFieldNames = useMemo(() => activeFields.map((f) => f.name), [activeFields]);
+
+  const setIsMarketListingOpen = (v: boolean) => {
+    if (v && requireLogin('İlan vermek için giriş yapmalısınız.')) return;
+    setIsMarketListingOpenRaw(v);
+  };
+  const setIsNewsTipOpen = (v: boolean) => {
+    if (v && requireLogin('Haber göndermek için giriş yapmalısınız.')) return;
+    setIsNewsTipOpenRaw(v);
+  };
+  const setIsQuoteWizardOpen = (v: boolean) => {
+    if (v) {
+      if (requireLogin('Hizmet talebi oluşturmak için giriş yapmalısınız.')) return;
+      if (activeFieldNames.length === 0) {
+        window.alert('Henüz hizmet alanı açılmadı. Ustalar kayıt olup alan seçtikçe buradan talep oluşturabilirsiniz.');
+        return;
+      }
+    }
+    setIsQuoteWizardOpenRaw(v);
+  };
+  // Esnaf paneli yalnızca "Esnaf" olarak kayıt olmuş hesaplarla oluşturulabilir
+  const setIsBusinessRegisterOpen = (v: boolean) => {
+    if (v) {
+      if (!isLoggedIn) {
+        promptLogin('Esnaf paneli oluşturmak için esnaf olarak kayıt olup giriş yapmalısınız.', 'esnaf');
+        return;
+      }
+      if (currentRole !== 'esnaf') {
+        window.alert('Esnaf paneli oluşturmak için "Esnaf" olarak kayıt olmalısınız. Çıkış yapıp üyelik türü olarak Esnaf seçerek yeni hesap açın.');
+        return;
+      }
+    }
+    setIsBusinessRegisterOpenRaw(v);
+  };
   const [jobList, setJobList] = useSyncedList<JobItem>('plus_isler', { stampOwner: true });
   // İş başvuruları (ad, telefon...) herkese açık ilan belgesinde DEĞİL, özel koleksiyonda tutulur.
   // Başvuran kendi başvurusunu, ilan sahibi kendi ilanına gelenleri, yönetim hepsini görür.
@@ -1036,6 +1094,20 @@ export default function App() {
     }
   }, [classifiedList.length]);
 
+  // Usta faaliyet alanları: profile kaydedilir ve alanlar herkese açılır/kapanır
+  const handleUpdateUstaActivities = async (next: string[]) => {
+    if (!myUid || !userProfile) return;
+    const prevList = userProfile.activities || [];
+    setUserProfile((p) => (p ? { ...p, activities: next } : p));
+    try {
+      await saveProfile(myUid, { ...userProfile, activities: next });
+      await syncUstaFields(myUid, next, prevList);
+    } catch {
+      setUserProfile((p) => (p ? { ...p, activities: prevList } : p));
+      window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'Faaliyet alanları kaydedilemedi.' }));
+    }
+  };
+
   const handleRegisterBusiness = (data: RegisteredBusinessPayload) => {
     const initialProducts: StoreShowcaseProduct[] = [];
     const storeUid = userProfile?.uid || authUidRef.current;
@@ -1096,6 +1168,7 @@ export default function App() {
 
     // Update or activate user profile as esnaf
     const updatedProfile: UserProfile = {
+      ...(userProfile as UserProfile),
       name: (userProfile && userProfile.name) || data.ownerName || 'İşletme Sahibi',
       phone: data.phone || userProfile?.phone,
       email: userProfile?.email,
@@ -1267,6 +1340,7 @@ export default function App() {
     const formattedRequest: UserQuoteRequest = {
       id: newReq.id || `req-${Date.now()}`,
       category: newReq.category,
+      categoryId: hizmetAlaniId(newReq.category),
       subCategory: newReq.subCategory,
       status: 'beklemede',
       urgency: newReq.urgency,
@@ -1786,6 +1860,7 @@ export default function App() {
           {/* Hizmet Tab (Hizmet Faaliyetleri & Teklif Sistemi) */}
           {currentTab === 'hizmet' && (
             <HizmetScreen
+              activeFields={activeFields}
               onOpenQuoteWizard={() => {
                 setQuotePrefill(null);
                 setIsQuoteWizardOpen(true);
@@ -2576,7 +2651,13 @@ export default function App() {
 
         <LoginModal
           isOpen={isLoginOpen}
-          onClose={() => setIsLoginOpen(false)}
+          notice={loginNotice}
+          initialRole={loginInitialRole}
+          onClose={() => {
+            setIsLoginOpen(false);
+            setLoginNotice(null);
+            setLoginInitialRole(undefined);
+          }}
           onSuccessLogin={handleSuccessLogin}
           onNotifyAdminMerchant={(m) => {
             const notif: UserNotification = {
@@ -2678,6 +2759,7 @@ export default function App() {
 
         {/* Mehmet Akif Mahalle Muhtarlığı İletişim & Hizmet Modalı */}
         <MuhtarlikModal
+          onRequireLogin={requireLogin}
           isOpen={isMuhtarlikOpen}
           onClose={() => setIsMuhtarlikOpen(false)}
           onOpenSaglikOcagi={() => {
@@ -2774,6 +2856,7 @@ export default function App() {
             setIsQuoteWizardOpen(false);
             setQuotePrefill(null);
           }}
+          availableCategories={activeFieldNames}
           prefillCategory={quotePrefill?.category}
           prefillSubCategory={quotePrefill?.subCategory}
           onRequestCreated={handleNewQuoteCreated}
@@ -2796,6 +2879,7 @@ export default function App() {
         />
 
         <VefatModal
+          onRequireLogin={requireLogin}
           isOpen={isVefatOpen}
           onClose={() => setIsVefatOpen(false)}
           obituaries={obituaryList}
@@ -2811,6 +2895,7 @@ export default function App() {
 
         {/* Bursa Osmangazi Belediyesi E-Belediye & Online İşlemler Modalı */}
         <EBelediyeModal
+          onRequireLogin={requireLogin}
           isOpen={isEBelediyeOpen}
           onClose={() => setIsEBelediyeOpen(false)}
           userProfile={userProfile}
@@ -2954,6 +3039,7 @@ export default function App() {
           onClose={() => setIsUstaPaneliOpen(false)}
           userProfile={userProfile}
           quoteRequests={quotesAll}
+          onUpdateActivities={handleUpdateUstaActivities}
           onOpenJobs={() => setIsJobsModalOpen(true)}
           onUstaSubmitOffer={handleUstaSubmitOffer}
         />
@@ -2980,6 +3066,7 @@ export default function App() {
 
         {/* İş Dünyası & Eleman İlanları Modalı */}
         <JobsModal
+          onRequireLogin={requireLogin}
           isOpen={isJobsModalOpen}
           onClose={() => setIsJobsModalOpen(false)}
           jobs={jobsForUi}

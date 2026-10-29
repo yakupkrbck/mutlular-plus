@@ -33,9 +33,15 @@ import {
   SELF_REGISTER_ROLES,
   authErrorMessage,
 } from '../../services/authService';
+import { STANDARD_HIZMET_ALANLARI } from '../../data/hizmetAlanlari';
+import { CustomActivityInput } from '../CustomActivityInput';
 
 interface LoginModalProps {
   isOpen: boolean;
+  /** Pencerenin üstünde gösterilen bilgi (örn. "İlan vermek için giriş yapmalısınız") */
+  notice?: string | null;
+  /** Kayıt sekmesinde önceden seçilecek üyelik türü */
+  initialRole?: UserRole;
   onClose: () => void;
   onSuccessLogin: (profile: UserProfile) => void;
   onNotifyAdminMerchant?: (merchant: {
@@ -48,18 +54,7 @@ interface LoginModalProps {
 }
 
 // Usta selectable activities (Multi-select)
-export const USTA_ACTIVITIES = [
-  'Sıhhi Tesisat & Su Kaçağı',
-  'Elektrik, Aydınlatma & Sigorta',
-  'Kombi, Klima & Isıtma',
-  'Boya, Badana & Dekorasyon',
-  'Mobilya, Marangoz & Montaj',
-  'Çilingir, Kapı & Kilit',
-  'Temizlik, Koltuk & Halı Yıkama',
-  'Cam Balkon, PVC & Panjur',
-  'Alçı, Sıva & Fayans Tadilat',
-  'Beyaz Eşya & Cihaz Servisi',
-];
+export const USTA_ACTIVITIES = STANDARD_HIZMET_ALANLARI;
 
 // Esnaf categories
 export const ESNAF_CATEGORIES = [
@@ -89,6 +84,8 @@ export const INITIAL_REGISTERED_ACCOUNTS: RegisteredAccount[] = [];
 
 export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
+  notice,
+  initialRole,
   onClose,
   onSuccessLogin,
   onNotifyAdminMerchant,
@@ -115,9 +112,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [businessAddress, setBusinessAddress] = useState('');
 
   // Usta specific fields: Birden çok faaliyet seçebilir (Multi-select)
-  const [selectedActivities, setSelectedActivities] = useState<string[]>([
-    'Sıhhi Tesisat & Su Kaçağı',
-  ]);
+  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
 
   // Login form fields (ONLY email/phone and password, NO role picker!)
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -133,6 +128,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   } | null>(null);
 
   const [busy, setBusy] = useState(false);
+
+  // Dışarıdan istenen üyelik türü varsa kayıt sekmesinde onu seç
+  useEffect(() => {
+    if (isOpen && initialRole) {
+      setRegisterRole(initialRole);
+      setMainTab('register');
+    }
+  }, [isOpen, initialRole]);
 
   if (!isOpen) return null;
 
@@ -382,6 +385,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{formError}</span>
+              </div>
+            )}
+
+            {notice && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 text-[12px] font-bold text-amber-900">
+                {notice}
               </div>
             )}
 
@@ -776,7 +785,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
                         {/* Multi-select activity pills */}
                         <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
-                          {USTA_ACTIVITIES.map((activity) => {
+                          {[...USTA_ACTIVITIES, ...selectedActivities.filter((a) => !USTA_ACTIVITIES.includes(a))].map((activity) => {
                             const isSelected = selectedActivities.includes(activity);
                             return (
                               <button
@@ -799,6 +808,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             );
                           })}
                         </div>
+
+                        <CustomActivityInput
+                          existing={[...USTA_ACTIVITIES, ...selectedActivities]}
+                          onAdd={(name) => setSelectedActivities((prev) => [...prev, name])}
+                        />
 
                         {/* Usta Paneli Açıklaması */}
                         <div className="p-2.5 rounded-xl bg-blue-100/80 border border-blue-300 text-[10.5px] text-blue-950 flex items-start gap-2 font-medium">

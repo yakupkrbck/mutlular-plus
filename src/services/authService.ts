@@ -16,6 +16,7 @@ import { auth, db, googleProvider } from '../firebase';
 import { Capacitor } from '@capacitor/core';
 import { UserProfile, UserRole } from '../types';
 import { ROLE_CONFIGS } from '../data/rolesData';
+import { syncUstaFields } from './hizmetAlanlari';
 
 // Kendi kendine kayıtta seçilebilen roller. Editör / Yönetici / Muhtar
 // istemciden ASLA atanamaz; yalnızca Firestore'daki `admins/{uid}` kaydıyla gelir.
@@ -120,6 +121,10 @@ export const registerWithEmail = async (input: RegisterInput): Promise<UserProfi
     activities: input.role === 'usta' ? input.activities : undefined,
   });
   await saveProfile(cred.user.uid, profile);
+  if (input.role === 'usta' && input.activities?.length) {
+    // Seçilen alanlar bu andan itibaren herkese görünür ve talep açılabilir olur
+    await syncUstaFields(cred.user.uid, input.activities, []).catch((e) => console.warn('[hizmet alanları]', e));
+  }
   return (await loadProfile(cred.user)) || profile;
 };
 

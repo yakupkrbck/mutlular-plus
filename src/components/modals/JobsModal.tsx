@@ -26,6 +26,8 @@ import { JobItem, JobApplication } from '../../types';
 import { sendAndroidAppNotification } from '../../services/androidNotificationService';
 
 interface JobsModalProps {
+  /** Giriş yoksa giriş penceresini açıp true döner; işlem durdurulmalı */
+  onRequireLogin?: (message?: string) => boolean;
   isOpen: boolean;
   onClose: () => void;
   jobs: JobItem[];
@@ -41,6 +43,7 @@ interface JobsModalProps {
 }
 
 export const JobsModal: React.FC<JobsModalProps> = ({
+  onRequireLogin,
   isOpen,
   onClose,
   jobs,
@@ -105,6 +108,11 @@ export const JobsModal: React.FC<JobsModalProps> = ({
   });
 
   const handleCreateJobSubmit = (e: React.FormEvent) => {
+    if (onRequireLogin?.('İş ilanı vermek için giriş yapmalısınız.')) {
+      e.preventDefault();
+      return;
+    }
+
     e.preventDefault();
     if (!newTitle.trim() || !newCompany.trim() || !newPhone.trim()) {
       showToast('Lütfen ilan başlığı, işletme adı ve telefon numarasını doldurunuz.');
@@ -156,6 +164,11 @@ export const JobsModal: React.FC<JobsModalProps> = ({
   };
 
   const handleApplySubmit = (e: React.FormEvent) => {
+    if (onRequireLogin?.('Başvuru yapmak için giriş yapmalısınız.')) {
+      e.preventDefault();
+      return;
+    }
+
     e.preventDefault();
     if (!selectedJob) return;
     if (!applicantName.trim() || !applicantPhone.trim()) {

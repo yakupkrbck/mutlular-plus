@@ -23,7 +23,8 @@ import {
   Home,
   SlidersHorizontal,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Wrench,
 } from 'lucide-react';
 
 export interface SubActivity {
@@ -405,12 +406,42 @@ interface HizmetScreenProps {
   onOpenQuoteWizard: () => void;
   onOpenQuoteWithService?: (category: string, subCategory?: string) => void;
   onOpenLiveSupport?: () => void;
+  /** Yalnızca en az bir ustanın açtığı hizmet alanları (Firestore: plus_hizmet_alanlari) */
+  activeFields?: { id: string; name: string }[];
 }
 
 export const HizmetScreen: React.FC<HizmetScreenProps> = ({
   onOpenQuoteWizard,
   onOpenQuoteWithService,
+  activeFields = [],
 }) => {
+  // Hizmet alanları ustaların seçimiyle açılır; ustası olmayan alan hiç gösterilmez.
+  const activities: MainActivity[] = useMemo(
+    () =>
+      activeFields.map((f) => {
+        const std = MAIN_ACTIVITIES.find((m) => m.name === f.name);
+        if (std) {
+          // Henüz var olmayan hizmetlere dair iddialar (acil, 7/24 vb.) gösterilmez
+          return { ...std, subActivities: std.subActivities.map((x) => ({ ...x, badge: undefined, popular: false })) };
+        }
+        return {
+          id: `ozel-${f.id}`,
+          name: f.name,
+          shortDesc: 'Mahalle ustaları bu alanda hizmet veriyor.',
+          icon: Wrench,
+          themeColor: 'from-neutral-700 to-neutral-900',
+          badgeBg: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+          subActivities: [
+            {
+              id: `ozel-${f.id}-genel`,
+              name: 'Genel Hizmet Talebi',
+              description: 'Bu alanda yapılmasını istediğiniz işi anlatarak talep oluşturun.',
+            },
+          ],
+        } as MainActivity;
+      }),
+    [activeFields]
+  );
   const [selectedMainCatId, setSelectedMainCatId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedCatIds, setExpandedCatIds] = useState<Record<string, boolean>>({
@@ -437,7 +468,7 @@ export const HizmetScreen: React.FC<HizmetScreenProps> = ({
   const filteredActivities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
 
-    return MAIN_ACTIVITIES.map((mainCat) => {
+    return activities.map((mainCat) => {
       // Category filter check
       if (selectedMainCatId !== 'all' && mainCat.id !== selectedMainCatId) {
         return null;
@@ -478,7 +509,7 @@ export const HizmetScreen: React.FC<HizmetScreenProps> = ({
 
       return null;
     }).filter(Boolean) as MainActivity[];
-  }, [selectedMainCatId, searchQuery]);
+  }, [selectedMainCatId, searchQuery, activities]);
 
   const totalSubActivitiesCount = useMemo(() => {
     return filteredActivities.reduce((acc, cat) => acc + cat.subActivities.length, 0);
@@ -623,10 +654,10 @@ export const HizmetScreen: React.FC<HizmetScreenProps> = ({
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Tüm Faaliyetler ({MAIN_ACTIVITIES.length})</span>
+            <span>Tüm Faaliyetler ({activities.length})</span>
           </button>
 
-          {MAIN_ACTIVITIES.map((cat) => {
+          {activities.map((cat) => {
             const Icon = cat.icon;
             const isSelected = selectedMainCatId === cat.id;
             return (
@@ -663,7 +694,15 @@ export const HizmetScreen: React.FC<HizmetScreenProps> = ({
 
       {/* 6. Hierarchical Activity Cards: Ana Faaliyet & Alt Faaliyetler */}
       <div className="px-3 space-y-4">
-        {filteredActivities.length === 0 ? (
+        {activities.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-neutral-200 p-8 text-center space-y-2">
+            <Wrench className="w-10 h-10 text-neutral-300 mx-auto" />
+            <h4 className="text-[14px] font-black text-neutral-800">Henüz hizmet alanı açılmadı</h4>
+            <p className="text-[11px] text-neutral-500 max-w-xs mx-auto">
+              Mahalle ustaları kayıt olup hizmet alanlarını seçtikçe burada görünecek. Talep yalnızca açık alanlardan oluşturulabilir.
+            </p>
+          </div>
+        ) : filteredActivities.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 text-center space-y-2 border border-neutral-200">
             <HelpCircle className="w-10 h-10 text-neutral-300 mx-auto" />
             <h4 className="text-[14px] font-black text-neutral-800">

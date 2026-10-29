@@ -33,6 +33,8 @@ import { sendAndroidAppNotification } from '../../services/androidNotificationSe
 import { useMuhtarInfo, saveMuhtarInfo, MuhtarInfo, telHref, waHref, mapsHref, telDigits } from '../../services/muhtarInfo';
 
 interface MuhtarlikModalProps {
+  /** Giriş yoksa giriş penceresini açıp true döner; işlem durdurulmalı */
+  onRequireLogin?: (message?: string) => boolean;
   isOpen: boolean;
   onClose: () => void;
   onOpenSaglikOcagi?: () => void;
@@ -52,6 +54,7 @@ type TabType = 'iletisim' | 'talep' | 'evrak' | 'rehber' | 'basvurular';
 const DEFAULT_SAMPLE_APPLICATIONS: MuhtarlikApplication[] = [];
 
 export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
+  onRequireLogin,
   isOpen,
   onClose,
   onOpenSaglikOcagi,
@@ -200,6 +203,11 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
 
   // Citizen Form Submit
   const handleFormSubmit = async (e: React.FormEvent) => {
+    if (onRequireLogin?.('Muhtarlığa başvuru için giriş yapmalısınız.')) {
+      e.preventDefault();
+      return;
+    }
+
     e.preventDefault();
     if (!formData.name || !formData.phone || !formData.message) return;
 

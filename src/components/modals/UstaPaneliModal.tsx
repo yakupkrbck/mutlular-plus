@@ -23,12 +23,16 @@ import {
 } from 'lucide-react';
 import { UstaSubmittedOffer, UserProfile, UserQuoteRequest } from '../../types';
 import { USTA_ACTIVITIES } from './LoginModal';
+import { CustomActivityInput } from '../CustomActivityInput';
+import { hizmetAlaniId } from '../../data/hizmetAlanlari';
 
 interface UstaPaneliModalProps {
   isOpen: boolean;
   onClose: () => void;
   userProfile?: UserProfile | null;
   quoteRequests?: UserQuoteRequest[];
+  /** Faaliyet alanları değişince kalıcı kaydeder ve alanları herkese açar/kapatır */
+  onUpdateActivities?: (next: string[]) => void;
   onOpenJobs?: () => void;
   onUstaSubmitOffer?: (offerData: {
     requestId: string;
@@ -44,6 +48,7 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
   onClose,
   userProfile,
   quoteRequests = [],
+  onUpdateActivities,
   onOpenJobs,
   onUstaSubmitOffer,
 }) => {
@@ -90,6 +95,7 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
           (q) =>
             q.status !== 'tamamlandi' &&
             q.ownerUid !== myUid &&
+            activities.some((a) => hizmetAlaniId(a) === ((q as any).categoryId || hizmetAlaniId(q.category))) &&
             !(q.offers || []).some((o) => o.ustaUid === myUid)
         )
         .map((q) => ({
@@ -102,7 +108,7 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
           urgency: q.urgency,
           createdAt: q.createdAt,
         })),
-    [quoteRequests, myUid]
+    [quoteRequests, myUid, activities]
   );
 
   // Verdiğim teklifler: talepler üzerindeki gerçek teklif kayıtlarından türetilir
@@ -157,9 +163,15 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
   };
 
   const toggleActivity = (act: string) => {
-    setActivities((prev) =>
-      prev.includes(act) ? prev.filter((a) => a !== act) : [...prev, act]
-    );
+    const next = activities.includes(act) ? activities.filter((a) => a !== act) : [...activities, act];
+    setActivities(next);
+    onUpdateActivities?.(next);
+  };
+
+  const addCustomActivity = (name: string) => {
+    const next = [...activities, name];
+    setActivities(next);
+    onUpdateActivities?.(next);
   };
 
   const handleOpenOfferForm = (reqId: string) => {
@@ -609,7 +621,7 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                {USTA_ACTIVITIES.map((act) => {
+                {[...USTA_ACTIVITIES, ...activities.filter((a) => !USTA_ACTIVITIES.includes(a))].map((act) => {
                   const isSelected = activities.includes(act);
                   return (
                     <button
@@ -634,6 +646,8 @@ export const UstaPaneliModal: React.FC<UstaPaneliModalProps> = ({
                   );
                 })}
               </div>
+
+              <CustomActivityInput existing={[...USTA_ACTIVITIES, ...activities]} onAdd={addCustomActivity} />
 
               <div className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 space-y-2">
                 <h4 className="text-[11.5px] font-black text-neutral-900">

@@ -26,6 +26,8 @@ import {
 import { UserProfile, UserNotification } from '../../types';
 
 interface EBelediyeModalProps {
+  /** Giriş yoksa giriş penceresini açıp true döner; işlem durdurulmalı */
+  onRequireLogin?: (message?: string) => boolean;
   isOpen: boolean;
   onClose: () => void;
   userProfile?: UserProfile | null;
@@ -35,6 +37,7 @@ interface EBelediyeModalProps {
 type BelediyeTab = 'borc-sorgulama' | 'e-imar' | 'beyaz-masa' | 'rayic-ve-edevlet' | 'iletisim';
 
 export const EBelediyeModal: React.FC<EBelediyeModalProps> = ({
+  onRequireLogin,
   isOpen,
   onClose,
   userProfile,
@@ -109,6 +112,11 @@ export const EBelediyeModal: React.FC<EBelediyeModalProps> = ({
   };
 
   const handleSubmitTalep = (e: React.FormEvent) => {
+    if (onRequireLogin?.('Talep göndermek için giriş yapmalısınız.')) {
+      e.preventDefault();
+      return;
+    }
+
     e.preventDefault();
     if (!talepMessage.trim()) {
       triggerToast('Lütfen talep veya şikayetinizi detaylandırınız.');
