@@ -1,27 +1,3 @@
-export interface StoryItem {
-  id: string;
-  ownerUid?: string;
-  name: string;
-  shortName?: string;
-  category: string;
-  image: string; // Avatar / preview
-  avatar?: string;
-  mediaType?: 'image' | 'video';
-  mediaUrl?: string; // Fullscreen visual or video URL
-  isNew?: boolean;
-  timeAgo?: string;
-  title?: string;
-  description?: string;
-  badge?: string;
-  actionText?: string;
-  actionType?: 'store' | 'whatsapp' | 'menu' | 'call';
-  phone?: string;
-  address?: string;
-  storeId?: string;
-  likesCount?: number;
-  isViewed?: boolean;
-}
-
 export interface PopularService {
   id: string;
   title: string;

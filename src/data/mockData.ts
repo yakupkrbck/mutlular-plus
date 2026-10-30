@@ -1,5 +1,4 @@
 import {
-  StoryItem,
   PopularService,
   ClassifiedItem,
   JobItem,
@@ -8,8 +7,6 @@ import {
   ObituaryItem,
 } from '../types';
 
-// Gerçek Kullanım: Tüm demo/sahte hikayeler kaldırıldı
-export const STORIES_DATA: StoryItem[] = [];
 
 // Şehir & Mahalle Hizmetleri Kategorileri (Navigasyon Butonları)
 export const POPULAR_SERVICES: PopularService[] = [

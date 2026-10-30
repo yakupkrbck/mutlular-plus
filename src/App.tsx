@@ -15,7 +15,7 @@ import { subscribeAuth, loadProfile, saveProfile, logout as firebaseLogout, fini
 import { Header } from './components/Header';
 import { HaberVitrini } from './components/HaberVitrini';
 import { HomepageSearchBar } from './components/HomepageSearchBar';
-import { StoryCategories } from './components/StoryCategories';
+import { CanliTvBar } from './components/CanliTvBar';
 import { PopularServices } from './components/PopularServices';
 import { PromoCarBanner } from './components/PromoCarBanner';
 import { CampusCard } from './components/CampusCard';
@@ -70,8 +70,6 @@ import { UstaPaneliModal } from './components/modals/UstaPaneliModal';
 import { EditorPanelModal } from './components/modals/EditorPanelModal';
 import { JobsModal } from './components/modals/JobsModal';
 import { QrMenuScannerModal } from './components/modals/QrMenuScannerModal';
-import { StoryViewerModal } from './components/modals/StoryViewerModal';
-import { EsnafStoryShareModal } from './components/modals/EsnafStoryShareModal';
 import { MahalleSakiniPaneliModal } from './components/modals/MahalleSakiniPaneliModal';
 import { TekliflerimView } from './components/profile/TekliflerimView';
 import { BildirimMerkeziView } from './components/profile/BildirimMerkeziView';
@@ -84,7 +82,6 @@ import {
 
 // Data
 import {
-  STORIES_DATA,
   POPULAR_SERVICES,
   CLASSIFIED_ADS,
   JOB_ADS,
@@ -101,7 +98,6 @@ import {
   NewsItem,
   ObituaryItem,
   PendingMerchantItem,
-  StoryItem,
   UserProfile,
   UserRole,
   UserQuoteRequest,
@@ -314,6 +310,28 @@ export default function App() {
   );
 
   // Senkron/yetki hataları için bildirim şeridi
+  const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const onErr = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      setLoadErrors((prev) => ({ ...prev, [d.path]: d.code || 'hata' }));
+    };
+    const onOk = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      setLoadErrors((prev) => {
+        if (!(d.path in prev)) return prev;
+        const next = { ...prev };
+        delete next[d.path];
+        return next;
+      });
+    };
+    window.addEventListener('mp-load-error', onErr);
+    window.addEventListener('mp-load-ok', onOk);
+    return () => {
+      window.removeEventListener('mp-load-error', onErr);
+      window.removeEventListener('mp-load-ok', onOk);
+    };
+  }, []);
   const [syncError, setSyncError] = useState<string | null>(null);
   useEffect(() => {
     const h = (e: Event) => {
@@ -456,22 +474,6 @@ export default function App() {
 
   // Ana sayfa vitrin afişleri (yönetici yükler)
   const [heroBanners, setHeroBanners] = useSyncedList<HeroBannerItem>('plus_vitrin', { stampOwner: true });
-
-  // Esnaf Hikaye Sistemi (Tam Ekran Video / Görsel Paylaşımı)
-  const [storiesList, setStoriesList] = useSyncedList<StoryItem>('plus_hikayeler', { stampOwner: true });
-  const [isStoryViewerOpen, setIsStoryViewerOpen] = useState(false);
-  const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
-  const [isEsnafStoryShareOpen, setIsEsnafStoryShareOpen] = useState(false);
-  const [storySharePrefill, setStorySharePrefill] = useState<{
-    title?: string;
-    badge?: string;
-  } | null>(null);
-
-  const handlePublishEsnafStory = (newStory: StoryItem) => {
-    setStoriesList((prev) => [newStory, ...prev]);
-    setSelectedStoryIndex(0);
-    setIsStoryViewerOpen(true);
-  };
 
   // Selected Item Detail Modals (URL ile çift yönlü senkronize)
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantItem | null>(() => {
@@ -1499,8 +1501,6 @@ export default function App() {
     setIsEditorPanelOpen(false);
     setIsMahalleSakiniPaneliOpen(false);
     setIsJobsModalOpen(false);
-    setIsStoryViewerOpen(false);
-    setIsEsnafStoryShareOpen(false);
     setIsQrScannerOpen(false);
     setSelectedNews(null);
     setSelectedRestaurant(null);
@@ -1539,8 +1539,6 @@ export default function App() {
     isEditorPanelOpen ||
     isMahalleSakiniPaneliOpen ||
     isJobsModalOpen ||
-    isStoryViewerOpen ||
-    isEsnafStoryShareOpen ||
     isQrScannerOpen ||
       !!selectedNews ||
       !!selectedRestaurant ||
@@ -1560,6 +1558,7 @@ export default function App() {
   // Dinleyiciler her zaman güncel durumu görsün diye son sürümü ref'te tutarız
   const backHandlerRef = useRef(handleBackPress);
   const exitingRef = useRef(false);
+  const startHistoryLenRef = useRef(typeof window !== 'undefined' ? window.history.length : 1);
   backHandlerRef.current = handleBackPress;
 
   useEffect(() => {
@@ -1590,14 +1589,23 @@ export default function App() {
     setIsExitConfirmOpen(false);
     if (isNative()) {
       exitNativeApp();
-    } else {
-      // Tarayıcıda: eklediğimiz bekçi kayıtlarını geri sararak siteden çık (en iyi çaba)
-      exitingRef.current = true;
-      window.history.go(-2);
+      return;
+    }
+    // Tarayıcıda uygulamayı kapatma yetkimiz yoktur; en iyi çaba:
+    // 1) bu sekmede biriktirdiğimiz geçmiş kayıtlarının hepsini geri sar (öncesindeki sayfaya dön)
+    // 2) geri gidilecek sayfa yoksa sekmeyi kapatmayı dene, olmazsa boş sayfaya geç
+    exitingRef.current = true;
+    const depth = Math.max(1, window.history.length - startHistoryLenRef.current + 1);
+    window.history.go(-depth);
+    setTimeout(() => {
+      try {
+        window.close();
+      } catch {}
       setTimeout(() => {
         exitingRef.current = false;
-      }, 1000);
-    }
+        if (document.visibilityState === 'visible') window.location.replace('about:blank');
+      }, 500);
+    }, 600);
   };
 
   return (
@@ -1625,6 +1633,13 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Veri okuma hataları: yalnızca yönetime teknik ayrıntı gösterilir */}
+      {isStaffRole && Object.keys(loadErrors).length > 0 && (
+        <div className="fixed top-0 inset-x-0 z-[99] bg-amber-500 text-neutral-900 text-[11px] font-bold px-3 py-1.5 text-center">
+          Veri okunamadı: {Object.entries(loadErrors).map(([k, v]) => `${k} (${v})`).join(', ')}. Firestore kurallarının son sürümü yayınlanmış mı kontrol edin.
         </div>
       )}
 
@@ -1716,24 +1731,8 @@ export default function App() {
               {/* 2. Arama Kutucuğu (Play Store & App Store kaldırılıp buraya taşındı) */}
               <HomepageSearchBar onSearch={handleOpenSearchWithQuery} />
 
-              {/* 3. Category Tabs & Story Avatars */}
-              <StoryCategories
-                stories={storiesList}
-                onSelectStory={(_s: StoryItem, index: number) => {
-                  setSelectedStoryIndex(index);
-                  setIsStoryViewerOpen(true);
-                }}
-                onOpenStoryShare={() => {
-                  setStorySharePrefill(null);
-                  setIsEsnafStoryShareOpen(true);
-                }}
-                onNavigateCanliTv={() => setIsLiveStreamOpen(true)}
-                onNavigateCampus={() => setIsLiveStreamOpen(true)}
-                onNavigateAll={() => {
-                  setSelectedStoryIndex(0);
-                  setIsStoryViewerOpen(true);
-                }}
-              />
+              {/* 3. Canlı TV kısayolu */}
+              <CanliTvBar onOpenCanliTv={() => setIsLiveStreamOpen(true)} />
 
               {/* 4. Popüler Hizmetler Grid */}
               <PopularServices
@@ -3116,49 +3115,9 @@ export default function App() {
             setSelectedTableForModal(1);
             setSelectedModeForStoreModal(storeData.businessMode || 'qr_menu');
           }}
-          onOpenStoryShare={(prefill) => {
-            setStorySharePrefill(prefill || null);
-            setIsEsnafStoryShareOpen(true);
-          }}
           onSyncStoreProducts={handleSyncStoreProducts}
           onUpdateStoreDetails={handleUpdateStoreDetails}
           onOpenJobs={() => setIsJobsModalOpen(true)}
-        />
-
-        {/* Tam Ekran Esnaf Hikaye İzleyici (Video & Görsel) */}
-        <StoryViewerModal
-          isOpen={isStoryViewerOpen}
-          stories={storiesList}
-          initialStoryIndex={selectedStoryIndex}
-          onClose={() => setIsStoryViewerOpen(false)}
-          onOpenStore={(storeNameOrId) => {
-            setIsStoryViewerOpen(false);
-            const foundStore = restaurantsList.find(
-              (r) =>
-                r.id === storeNameOrId ||
-                r.name.toLowerCase().includes(storeNameOrId.toLowerCase())
-            );
-            if (foundStore) {
-              setSelectedRestaurant(foundStore);
-              setSelectedTableForModal(1);
-              setSelectedModeForStoreModal(foundStore.businessMode || 'qr_menu');
-            } else {
-              setCurrentTab('yemek');
-            }
-          }}
-        />
-
-        {/* Esnaf Hikayede Paylaş Modalı */}
-        <EsnafStoryShareModal
-          isOpen={isEsnafStoryShareOpen}
-          onClose={() => setIsEsnafStoryShareOpen(false)}
-          onPublishStory={handlePublishEsnafStory}
-          merchantName={userProfile?.businessName || userProfile?.name || 'Kayıtlı İşletme'}
-          merchantCategory={userProfile?.businessCategory || 'Esnaf & Mağaza'}
-          merchantPhone={userProfile?.phone || ''}
-          merchantAddress={userProfile?.businessAddress || 'Mehmet Akif Mahallesi Osmangazi Bursa'}
-          initialCampaignTitle={storySharePrefill?.title}
-          initialBadge={storySharePrefill?.badge}
         />
 
         {/* Usta Yönetim Paneli (Verdiğim Teklifler & Hizmet Havuzu) */}

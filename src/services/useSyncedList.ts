@@ -69,11 +69,17 @@ export function useSyncedList<T extends { id: string }>(
         listRef.current = items;
         setListState(items);
         setReady(true);
+        try {
+          window.dispatchEvent(new CustomEvent('mp-load-ok', { detail: { path } }));
+        } catch {}
       },
-      (err) => {
+      (err: any) => {
+        // Okuma hatası: kullanıcıya "işlem yetkisi yok" denmez; yalnızca yönetici şeridi için olay yayılır
         console.error('[sync]', path, err);
-        notifySyncError(friendly(err));
-        setReady(true);
+        try {
+          window.dispatchEvent(new CustomEvent('mp-load-error', { detail: { path, code: err?.code || 'unknown' } }));
+        } catch {}
+        setReady(false);
       }
     );
     return () => unsub();
