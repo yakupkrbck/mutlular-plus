@@ -12,10 +12,9 @@ export async function initNative() {
       import('@capacitor/splash-screen'),
     ]);
 
-    // Geri tuşu: önce sayfa geçmişinde geri git, yoksa uygulamadan çık
-    App.addListener('backButton', ({ canGoBack }) => {
-      if (canGoBack || window.history.length > 1) window.history.back();
-      else App.exitApp();
+    // Geri tuşu: kararı uygulama verir (her zaman ana sayfa; ana sayfadayken çıkış onayı)
+    App.addListener('backButton', () => {
+      window.dispatchEvent(new CustomEvent('mp-back'));
     });
 
     await StatusBar.setStyle({ style: Style.Light }).catch(() => {});
@@ -23,5 +22,15 @@ export async function initNative() {
     await SplashScreen.hide().catch(() => {});
   } catch (e) {
     console.warn('[native] başlatılamadı', e);
+  }
+}
+
+// Uygulamadan çık (Android)
+export async function exitNativeApp() {
+  try {
+    const { App } = await import('@capacitor/app');
+    await App.exitApp();
+  } catch (e) {
+    console.warn('[native] çıkış yapılamadı', e);
   }
 }

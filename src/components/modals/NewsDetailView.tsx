@@ -25,10 +25,10 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col relative">
+    <div className="fixed inset-0 z-50 bg-white animate-in fade-in duration-200">
+      <div className="bg-white w-full h-full overflow-hidden flex flex-col relative sm:max-w-2xl sm:mx-auto">
         {/* Top Header Buttons */}
-        <div className="absolute top-3 inset-x-3 z-10 flex items-center justify-between pointer-events-none">
+        <div className="absolute inset-x-3 z-10 flex items-center justify-between pointer-events-none" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center pointer-events-auto transition"
@@ -44,7 +44,7 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
         </div>
 
         {/* Featured Image */}
-        <div className="relative h-56 w-full bg-neutral-900 shrink-0">
+        <div className="relative h-64 w-full bg-neutral-900 shrink-0">
           <img
             src={news.image || PLACEHOLDER_IMG}
             alt={news.title}
@@ -62,11 +62,6 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
                 {news.date}
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                1.420 Okunma
               </span>
             </div>
           </div>
@@ -93,7 +88,7 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
         </div>
 
         {/* Footer Action */}
-        <div className="p-3 bg-white border-t border-neutral-200 flex items-center gap-2">
+        <div className="p-3 bg-white border-t border-neutral-200 flex items-center gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}>
           <button
             onClick={handleShare}
             className="flex-1 bg-rose-600 hover:bg-rose-700 active:scale-98 text-white font-bold text-[12px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs"

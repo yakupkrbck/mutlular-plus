@@ -139,6 +139,7 @@ import {
 import { PLACEHOLDER_IMG } from './utils/placeholder';
 import { hizmetAlaniId, HizmetAlani } from './data/hizmetAlanlari';
 import { syncUstaFields } from './services/hizmetAlanlari';
+import { isNative, exitNativeApp } from './native';
 
 export default function App() {
   // Navigation State (URL Senkronizasyonu & Deep-linking)
@@ -599,43 +600,6 @@ export default function App() {
       };
     }
   }, []);
-
-  // 3. Tarayıcı İleri / Geri butonları (popstate) dinleyicisi
-  useEffect(() => {
-    const handlePopState = () => {
-      if (typeof window === 'undefined') return;
-      const route = parseCurrentPath(window.location.pathname);
-      setCurrentTab(route.tab);
-
-      if (route.esnafSlug) {
-        const matched = findMatchingRestaurant(route.esnafSlug, restaurantsList);
-        setSelectedRestaurant(matched || null);
-        if (matched) {
-          setSelectedTableForModal(1);
-          setSelectedModeForStoreModal(matched.businessMode || 'qr_menu');
-        }
-      } else {
-        setSelectedRestaurant(null);
-      }
-
-      if (route.newsId) {
-        const matchedNews = findMatchingNews(route.newsId, newsList);
-        setSelectedNews(matchedNews || null);
-      } else {
-        setSelectedNews(null);
-      }
-
-      if (route.adId) {
-        const matchedAd = findMatchingAd(route.adId, classifiedList);
-        setSelectedAd(matchedAd || null);
-      } else {
-        setSelectedAd(null);
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [restaurantsList, newsList, classifiedList]);
 
   // 4. Durum değiştikçe Tarayıcı URL çubuğunu temiz / semantik adreslerle güncelle (Www.mutlularhaber.com/...)
   const isInitialUrlSync = useRef(true);
@@ -1498,8 +1462,172 @@ export default function App() {
     });
   };
 
+  // ---------------------------------------------------------------------------
+  // Geri tuşu: her zaman ana sayfaya döner; ana sayfadayken çıkış onayı sorar.
+  // (Android uygulamasında donanım geri tuşu, mobil tarayıcıda geri düğmesi.)
+  // ---------------------------------------------------------------------------
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+
+  const closeAllOverlays = () => {
+    setIsAdminOpen(false);
+    setIsSearchOpen(false);
+    setIsLoginOpen(false);
+    setIsBusinessRegisterOpenRaw(false);
+    setIsLiveSupportOpen(false);
+    setIsMenuOpen(false);
+    setIsPharmacyOpen(false);
+    setIsPrayersOpen(false);
+    setIsNewsTipOpenRaw(false);
+    setIsDavetOpen(false);
+    setIsKursuOpen(false);
+    setIsLostFoundOpen(false);
+    setIsCampaignOpen(false);
+    setIsEmergencyOpen(false);
+    setIsLiveStreamOpen(false);
+    setIsCreditOpen(false);
+    setIsQuoteWizardOpenRaw(false);
+    setIsBusOpen(false);
+    setIsMarketListingOpenRaw(false);
+    setIsVefatOpen(false);
+    setIsEBelediyeOpen(false);
+    setIsSaglikOcagiOpen(false);
+    setIsMuhtarlikOpen(false);
+    setIsKesintilerOpen(false);
+    setIsQuickActionOpen(false);
+    setIsEsnafPaneliOpen(false);
+    setIsUstaPaneliOpen(false);
+    setIsEditorPanelOpen(false);
+    setIsMahalleSakiniPaneliOpen(false);
+    setIsJobsModalOpen(false);
+    setIsStoryViewerOpen(false);
+    setIsEsnafStoryShareOpen(false);
+    setIsQrScannerOpen(false);
+    setSelectedNews(null);
+    setSelectedRestaurant(null);
+    setSelectedAd(null);
+  };
+
+  const handleBackPress = () => {
+    const overlayOpen =
+      isAdminOpen ||
+    isSearchOpen ||
+    isLoginOpen ||
+    isBusinessRegisterOpen ||
+    isLiveSupportOpen ||
+    isMenuOpen ||
+    isPharmacyOpen ||
+    isPrayersOpen ||
+    isNewsTipOpen ||
+    isDavetOpen ||
+    isKursuOpen ||
+    isLostFoundOpen ||
+    isCampaignOpen ||
+    isEmergencyOpen ||
+    isLiveStreamOpen ||
+    isCreditOpen ||
+    isQuoteWizardOpen ||
+    isBusOpen ||
+    isMarketListingOpen ||
+    isVefatOpen ||
+    isEBelediyeOpen ||
+    isSaglikOcagiOpen ||
+    isMuhtarlikOpen ||
+    isKesintilerOpen ||
+    isQuickActionOpen ||
+    isEsnafPaneliOpen ||
+    isUstaPaneliOpen ||
+    isEditorPanelOpen ||
+    isMahalleSakiniPaneliOpen ||
+    isJobsModalOpen ||
+    isStoryViewerOpen ||
+    isEsnafStoryShareOpen ||
+    isQrScannerOpen ||
+      !!selectedNews ||
+      !!selectedRestaurant ||
+      !!selectedAd;
+    if (isExitConfirmOpen) {
+      setIsExitConfirmOpen(false);
+      return;
+    }
+    if (overlayOpen || currentTab !== 'anasayfa') {
+      closeAllOverlays();
+      setCurrentTab('anasayfa');
+      return;
+    }
+    setIsExitConfirmOpen(true);
+  };
+
+  // Dinleyiciler her zaman güncel durumu görsün diye son sürümü ref'te tutarız
+  const backHandlerRef = useRef(handleBackPress);
+  const exitingRef = useRef(false);
+  backHandlerRef.current = handleBackPress;
+
+  useEffect(() => {
+    // Android uygulaması: donanım geri tuşu (native.ts bu olayı gönderir)
+    const onNativeBack = () => backHandlerRef.current();
+    window.addEventListener('mp-back', onNativeBack);
+
+    // Mobil tarayıcı: geri düğmesini yakala (geçmişe bir "bekçi" kaydı ekleyip her basışta yeniden koy)
+    let onPop: (() => void) | null = null;
+    if (!isNative()) {
+      const guard = () =>
+        window.history.pushState({ mpGuard: true }, '', window.location.pathname + window.location.search);
+      guard();
+      onPop = () => {
+        if (exitingRef.current) return; // çıkış sırasında geri tuşunu yakalama
+        backHandlerRef.current();
+        guard();
+      };
+      window.addEventListener('popstate', onPop);
+    }
+    return () => {
+      window.removeEventListener('mp-back', onNativeBack);
+      if (onPop) window.removeEventListener('popstate', onPop);
+    };
+  }, []);
+
+  const confirmExit = () => {
+    setIsExitConfirmOpen(false);
+    if (isNative()) {
+      exitNativeApp();
+    } else {
+      // Tarayıcıda: eklediğimiz bekçi kayıtlarını geri sararak siteden çık (en iyi çaba)
+      exitingRef.current = true;
+      window.history.go(-2);
+      setTimeout(() => {
+        exitingRef.current = false;
+      }, 1000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-200/90 text-neutral-800 flex flex-col items-center justify-start antialiased py-0 sm:py-4">
+      {/* Çıkış onayı (ana sayfada geri tuşu) */}
+      {isExitConfirmOpen && (
+        <div className="fixed inset-0 z-[400] bg-black/55 flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl p-5 w-full max-w-xs shadow-2xl text-center space-y-3">
+            <h3 className="text-[16px] font-black text-neutral-900">Uygulamadan çıkılsın mı?</h3>
+            <p className="text-[12px] text-neutral-500">Çıkmak istediğinize emin misiniz?</p>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsExitConfirmOpen(false)}
+                className="bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-black text-[13px] rounded-xl py-2.5"
+              >
+                Hayır
+              </button>
+              <button
+                type="button"
+                onClick={confirmExit}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[13px] rounded-xl py-2.5"
+              >
+                Evet, Çık
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Senkron / yetki hata şeridi */}
       {syncError && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] max-w-[92vw] bg-rose-600 text-white text-[12px] font-bold px-4 py-2.5 rounded-2xl shadow-xl">
