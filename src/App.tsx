@@ -1479,6 +1479,15 @@ export default function App() {
     setTimeout(() => setInfoMsg(null), 4000);
   };
 
+  /** Yönetim: tüm kayıtlı cihazlara gerçek push gönderir */
+  const handleBroadcastPush = (title: string, body: string, actionTab = 'profil') => {
+    sendBroadcastPush(title, body, actionTab).then((r) => {
+      if (r.ok) showInfo('Bildirim tüm cihazlara gönderildi.');
+      else
+        window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: `Cihaz bildirimi gönderilemedi: ${r.error}` }));
+    });
+  };
+
   useEffect(() => {
     if (!isLoggedIn || !myUid) return;
     let alive = true;
@@ -3157,13 +3166,7 @@ export default function App() {
           onBroadcastNotification={(notif) => {
             setAnnouncements((prev) => [notif, ...prev]);
             // Gerçek push: tüm kayıtlı cihazlara (uygulama kapalıyken de) ulaşır
-            sendBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil').then((r) => {
-              if (r.ok) showInfo('Bildirim tüm cihazlara gönderildi.');
-              else
-                window.dispatchEvent(
-                  new CustomEvent('mp-sync-error', { detail: `Cihaz bildirimi gönderilemedi: ${r.error}` })
-                );
-            });
+            handleBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil');
           }}
           onApproveObituary={handleApproveObituary}
           onRejectObituary={handleRejectObituary}
@@ -3209,6 +3212,7 @@ export default function App() {
           classifiedList={classifiedList}
           pendingAds={pendingClassifieds}
           onRejectAd={handleAdminRejectAd}
+          onBroadcastPush={handleBroadcastPush}
           newsList={newsList}
           obituaryList={obituaryList}
           merchantsList={merchantsList}
