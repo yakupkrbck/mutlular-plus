@@ -9,12 +9,17 @@ export interface Pharmacy {
   ilce: string;
   bolge?: string;
   address: string;
+  /** Adres tarifi (örn. "Çarşamba Sağlık Ocağı karşı arası") */
+  landmark?: string;
   phone: string;
+  /** Tüm telefon numaraları (ilki ana numara) */
+  phones: string[];
   mapsUrl: string;
-  /** Mahalle (veya ilçe) merkezine göre YAKLAŞIK konum; yalnızca yakınlık sıralaması için kullanılır */
+  /** Konum: 'tam' = kaynağın verdiği GPS, diğerleri mahalle/ilçe merkezine göre yaklaşık. Yalnızca sıralama için kullanılır */
   lat: number;
   lng: number;
-  approx: 'mahalle' | 'ilce';
+  approx: 'tam' | 'mahalle' | 'ilce';
+  source?: 'beo' | 'eczaneleri';
   dutyStart: string;
   dutyEnd: string;
   dutyLabel: string;
@@ -24,6 +29,9 @@ export interface Pharmacy {
 export interface PharmacyApiResponse {
   success: boolean;
   source?: string;
+  sources?: string[];
+  sourceNotes?: string[];
+  pageTitle?: string;
   sourceUrl?: string;
   date?: string;
   count?: number;
@@ -80,4 +88,11 @@ export function sortByProximity(list: Pharmacy[], from: Coords): Pharmacy[] {
 export function directionsUrl(p: Pharmacy): string {
   const dest = encodeURIComponent(`${p.name} ${p.address} ${p.ilce} Bursa`);
   return `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`;
+}
+
+/** BEO sayfası adresleri BÜYÜK HARFLE verir; okunaklı hâle getirir ("BAHAR MAH." → "Bahar Mah.") */
+export function titleTr(text: string): string {
+  return (text || '')
+    .toLocaleLowerCase('tr-TR')
+    .replace(/(^|[\s(\-/.])([a-zçğıöşü])/g, (_m, pre, ch) => pre + ch.toLocaleUpperCase('tr-TR'));
 }

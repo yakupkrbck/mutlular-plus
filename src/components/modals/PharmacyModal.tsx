@@ -7,6 +7,7 @@ import {
   fetchNobetciEczaneler,
   sortByProximity,
   directionsUrl,
+  titleTr,
 } from '../../services/pharmacyService';
 
 interface PharmacyModalProps {
@@ -24,6 +25,7 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
   const [from, setFrom] = useState<Coords>(HOME_LOCATION);
   const [locState, setLocState] = useState<'home' | 'asking' | 'gps' | 'denied'>('home');
   const [copied, setCopied] = useState<string | null>(null);
+  const [sources, setSources] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +37,7 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
     } else {
       setPharmacies(res.pharmacies);
       setListDate(res.date || '');
+      setSources(res.sources || []);
     }
     setLoading(false);
   }, []);
@@ -75,7 +78,7 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
   };
 
   const copyPhone = (p: Pharmacy) => {
-    navigator.clipboard?.writeText(p.phone.replace(/\s/g, '')).then(() => {
+    navigator.clipboard?.writeText((p.phones?.[0] || p.phone).replace(/\s/g, '')).then(() => {
       setCopied(p.id);
       setTimeout(() => setCopied(null), 1500);
     });
@@ -204,7 +207,14 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
 
               <div className="flex items-start gap-1.5 text-[12px] text-neutral-700 font-medium">
                 <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-500" />
-                <span>{p.address}</span>
+                <span>
+                  {titleTr(p.address)}
+                  {p.landmark && (
+                    <span className="block text-[11px] text-neutral-500 font-semibold mt-0.5">
+                      Tarif: {titleTr(p.landmark)}
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 font-semibold">
                 <Clock className="w-3.5 h-3.5 shrink-0" />
@@ -213,7 +223,7 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
 
               <div className="grid grid-cols-3 gap-2 pt-0.5">
                 <a
-                  href={`tel:${p.phone.replace(/\s/g, '')}`}
+                  href={`tel:${(p.phones?.[0] || p.phone).replace(/\s/g, '')}`}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2.5 text-[12px] font-black flex items-center justify-center gap-1.5"
                 >
                   <Phone className="w-3.5 h-3.5" />
@@ -233,9 +243,19 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
                   className="bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl py-2.5 text-[12px] font-black flex items-center justify-center gap-1.5"
                 >
                   {copied === p.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{p.phone}</span>
+                  <span>{p.phones?.[0] || p.phone}</span>
                 </button>
               </div>
+              {p.phones && p.phones.length > 1 && (
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-neutral-600">
+                  <span className="text-neutral-400">Diğer numara:</span>
+                  {p.phones.slice(1).map((n) => (
+                    <a key={n} href={`tel:${n.replace(/\s/g, '')}`} className="text-emerald-700 underline">
+                      {n}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 
@@ -243,8 +263,9 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
         {!loading && !error && (
           <div className="pt-1 pb-6 space-y-2 text-center">
             <p className="text-[10.5px] text-neutral-500 leading-snug px-2">
-              Sıralama, mahalle merkezlerine göre yaklaşık yakınlıktır. Gitmeden önce telefonla teyit etmenizi öneririz.
-              Veri kaynağı: eczaneleri.org. Resmi liste için{' '}
+              Sıralama konuma yakınlığa göredir{visible.some((x) => x.approx !== 'tam') ? ' (bazı eczanelerde konum yaklaşıktır)' : ''}.
+              Gitmeden önce telefonla teyit etmenizi öneririz. Veri kaynağı:{' '}
+              {sources.includes('beo') ? 'Bursa Eczacı Odası' : 'eczaneleri.org'}. Resmi liste için{' '}
               <a href="https://www.beo.org.tr/" target="_blank" rel="noreferrer" className="font-bold text-emerald-700 underline inline-flex items-center gap-0.5">
                 Bursa Eczacı Odası <ExternalLink className="w-3 h-3" />
               </a>
