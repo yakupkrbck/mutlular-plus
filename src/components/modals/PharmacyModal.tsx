@@ -9,6 +9,7 @@ import {
   directionsUrl,
   titleTr,
 } from '../../services/pharmacyService';
+import { getCachedLocation, requestLocation } from '../../services/locationService';
 
 interface PharmacyModalProps {
   isOpen: boolean;
@@ -61,20 +62,25 @@ export const PharmacyModal: React.FC<PharmacyModalProps> = ({ isOpen, onClose, o
     return sortByProximity(base, from);
   }, [pharmacies, ilceFilter, from]);
 
-  const useMyLocation = () => {
-    if (!navigator.geolocation) {
-      setLocState('denied');
-      return;
+  // Giriş sonrası alınan konum varsa otomatik kullan
+  useEffect(() => {
+    if (!isOpen) return;
+    const c = getCachedLocation();
+    if (c) {
+      setFrom({ lat: c.lat, lng: c.lng });
+      setLocState('gps');
     }
+  }, [isOpen]);
+
+  const useMyLocation = async () => {
     setLocState('asking');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setFrom({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocState('gps');
-      },
-      () => setLocState('denied'),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
-    );
+    const r = await requestLocation();
+    if (r.ok) {
+      setFrom({ lat: r.loc.lat, lng: r.loc.lng });
+      setLocState('gps');
+    } else {
+      setLocState('denied');
+    }
   };
 
   const copyPhone = (p: Pharmacy) => {

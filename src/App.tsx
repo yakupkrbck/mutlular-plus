@@ -76,6 +76,7 @@ import { BildirimMerkeziView } from './components/profile/BildirimMerkeziView';
 import { AndroidHeadsUpNotification } from './components/AndroidHeadsUpNotification';
 import {
   registerAndroidServiceWorker,
+  getAndroidNotificationPermission,
   sendAndroidAppNotification,
   updateAppIconBadge,
 } from './services/androidNotificationService';
@@ -136,6 +137,9 @@ import { PLACEHOLDER_IMG } from './utils/placeholder';
 import { hizmetAlaniId, HizmetAlani } from './data/hizmetAlanlari';
 import { syncUstaFields } from './services/hizmetAlanlari';
 import { isNative, exitNativeApp } from './native';
+import { PermissionPrompt } from './components/modals/PermissionPrompt';
+import { refreshPushIfGranted, sendBroadcastPush } from './services/pushService';
+import { getLocationPermissionState, requestLocation, wasLocationAsked } from './services/locationService';
 
 export default function App() {
   // Navigation State (URL Senkronizasyonu & Deep-linking)
@@ -1465,6 +1469,43 @@ export default function App() {
   };
 
   // ---------------------------------------------------------------------------
+  // Giriş sonrası izinler: bildirim + konum. İzin verilmişse sessizce yenilenir.
+  // ---------------------------------------------------------------------------
+  const [isPermPromptOpen, setIsPermPromptOpen] = useState(false);
+  const [permNeeds, setPermNeeds] = useState<{ notif: boolean; loc: boolean }>({ notif: false, loc: false });
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
+  const showInfo = (msg: string) => {
+    setInfoMsg(msg);
+    setTimeout(() => setInfoMsg(null), 4000);
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn || !myUid) return;
+    let alive = true;
+    (async () => {
+      const notif = getAndroidNotificationPermission();
+      if (notif === 'granted') refreshPushIfGranted();
+      const loc = await getLocationPermissionState();
+      if (loc === 'granted') requestLocation().catch(() => {});
+
+      const needNotif = notif === 'default';
+      const needLoc = loc === 'prompt' || (loc === 'unknown' && !wasLocationAsked());
+      let dismissedAt = 0;
+      try {
+        dismissedAt = Number(localStorage.getItem('mp_perm_dismissed_at') || 0);
+      } catch {}
+      const recently = Date.now() - dismissedAt < 3 * 24 * 60 * 60 * 1000;
+      if (alive && (needNotif || needLoc) && !recently) {
+        setPermNeeds({ notif: needNotif, loc: needLoc });
+        setIsPermPromptOpen(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [isLoggedIn, myUid]);
+
+  // ---------------------------------------------------------------------------
   // Geri tuşu: her zaman ana sayfaya döner; ana sayfadayken çıkış onayı sorar.
   // (Android uygulamasında donanım geri tuşu, mobil tarayıcıda geri düğmesi.)
   // ---------------------------------------------------------------------------
@@ -1508,6 +1549,10 @@ export default function App() {
   };
 
   const handleBackPress = () => {
+    if (isPermPromptOpen) {
+      setIsPermPromptOpen(false);
+      return;
+    }
     const overlayOpen =
       isAdminOpen ||
     isSearchOpen ||
@@ -1610,6 +1655,21 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-200/90 text-neutral-800 flex flex-col items-center justify-start antialiased py-0 sm:py-4">
+      {/* Giriş sonrası bildirim ve konum izinleri */}
+      <PermissionPrompt
+        isOpen={isPermPromptOpen}
+        needNotif={permNeeds.notif}
+        needLoc={permNeeds.loc}
+        onClose={() => setIsPermPromptOpen(false)}
+      />
+
+      {/* Bilgi mesajı (başarılı işlem) */}
+      {infoMsg && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] max-w-[92vw] bg-emerald-600 text-white text-[12px] font-bold px-4 py-2.5 rounded-2xl shadow-xl">
+          {infoMsg}
+        </div>
+      )}
+
       {/* Çıkış onayı (ana sayfada geri tuşu) */}
       {isExitConfirmOpen && (
         <div className="fixed inset-0 z-[400] bg-black/55 flex items-center justify-center p-6">
@@ -3094,7 +3154,17 @@ export default function App() {
           onAddNewNews={handleAdminAddNewNews}
           onUpdateNews={handleAdminUpdateNews}
           onDeleteNews={handleAdminDeleteNews}
-          onBroadcastNotification={(notif) => setAnnouncements((prev) => [notif, ...prev])}
+          onBroadcastNotification={(notif) => {
+            setAnnouncements((prev) => [notif, ...prev]);
+            // Gerçek push: tüm kayıtlı cihazlara (uygulama kapalıyken de) ulaşır
+            sendBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil').then((r) => {
+              if (r.ok) showInfo('Bildirim tüm cihazlara gönderildi.');
+              else
+                window.dispatchEvent(
+                  new CustomEvent('mp-sync-error', { detail: `Cihaz bildirimi gönderilemedi: ${r.error}` })
+                );
+            });
+          }}
           onApproveObituary={handleApproveObituary}
           onRejectObituary={handleRejectObituary}
           onDeleteObituary={handleDeleteObituary}
