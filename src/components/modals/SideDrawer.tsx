@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { ROLE_CONFIGS } from '../../data/rolesData';
+import { APP_VERSION } from '../../version';
 
 interface SideDrawerProps {
   isOpen: boolean;
@@ -643,7 +644,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
         {/* Footer */}
         <div className="p-3 border-t border-neutral-100 bg-neutral-50 text-center">
           <p className="text-[10px] text-neutral-400 font-bold">
-            Mutlular Plus • Şehrin Dijital Merkezi v1.2
+            Mutlular Plus • Şehrin Dijital Merkezi • {APP_VERSION}
           </p>
           <p className="text-[9px] text-neutral-400 mt-0.5">
             Tüm hakları saklıdır © 2026

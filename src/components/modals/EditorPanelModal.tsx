@@ -31,6 +31,8 @@ interface EditorPanelModalProps {
   obituaryList?: ObituaryItem[];
   merchantsList?: PendingMerchantItem[];
   pendingAds?: ClassifiedItem[];
+  /** Tüm cihazlara gerçek push gönderir (Worker yetkiyi doğrular) */
+  onBroadcastPush?: (title: string, body: string, actionTab?: string) => void;
   onRejectAd?: (adId: string) => void;
   onApproveAd?: (ad: ClassifiedItem) => void;
   onDeleteAd?: (adId: string) => void;
@@ -47,6 +49,7 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
   userProfile,
   classifiedList = [],
   pendingAds = [],
+  onBroadcastPush,
   onRejectAd,
   newsList = [],
   obituaryList = [],
@@ -90,6 +93,12 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
     // Mevcut ilan kaydı onaylanır (yeni kayıt uydurulmaz)
     onApproveAd?.(ad);
     showToast(`✓ "${String(ad.title).slice(0, 24)}" ilanı onaylandı ve yayına alındı.`);
+  };
+
+  // Son dakika haberini TÜM cihazlara bildirim olarak gönderir
+  const handleBroadcastNewsPush = (item: NewsItem) => {
+    onBroadcastPush?.(`🚨 SON DAKİKA: ${item.title}`, item.summary, 'haber');
+    showToast(`"${item.title}" Son Dakika bildirimi tüm cihazlara gönderiliyor…`);
   };
 
   const handleRejectPendingAd = (adId: string) => {
