@@ -19,7 +19,7 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
         url: window.location.href,
       }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(`${news.title} - Mutlular Plus Haber`);
+      navigator.clipboard?.writeText(`${news.title}\n${window.location.href}`);
       alert('Haber bağlantısı kopyalandı!');
     }
   };

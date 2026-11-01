@@ -215,7 +215,7 @@ export default function App() {
   };
 
   // Classified Ads list with live add support
-  const [allClassifieds, setClassifiedList] = useSyncedList<ClassifiedItem>('plus_ilanlar', {
+  const [allClassifieds, setClassifiedList, adsReady] = useSyncedList<ClassifiedItem>('plus_ilanlar', {
     stampOwner: true,
     key: visKey,
     constraints: approvedOrMine('status'),
@@ -236,7 +236,7 @@ export default function App() {
   );
 
   // News list with live add & remove support (Haber vitrini & akışı)
-  const [newsList, setNewsList] = useSyncedList<NewsItem>('plus_haberler', { stampOwner: true });
+  const [newsList, setNewsList, newsReady] = useSyncedList<NewsItem>('plus_haberler', { stampOwner: true });
 
   // Admin Panel Modal Open State
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -607,9 +607,66 @@ export default function App() {
     }
   }, []);
 
+  // Paylaşılan bağlantı (haber / ilan / esnaf) ile açıldıysa: ilk adresi hatırla, veriler yüklenince ilgili sayfayı aç.
+  // Veri gelene kadar adres çubuğu temizlenmez (eskiden hemen "/haber"e düşüyordu).
+  const deepLinkRef = useRef<ReturnType<typeof parseCurrentPath> | null>(
+    typeof window !== 'undefined'
+      ? (() => {
+          const p = parseCurrentPath(window.location.pathname);
+          return p.newsId || p.adId || p.esnafSlug ? p : null;
+        })()
+      : null
+  );
+  const [deepLinkTick, setDeepLinkTick] = useState(0);
+
+  useEffect(() => {
+    const dl = deepLinkRef.current;
+    if (!dl) return;
+    let resolved = false;
+    let failed = false;
+    if (dl.newsId) {
+      const f = findMatchingNews(dl.newsId, newsList);
+      if (f) {
+        setSelectedNews(f);
+        resolved = true;
+      } else if (newsReady) failed = true;
+    } else if (dl.adId) {
+      const f = findMatchingAd(dl.adId, classifiedList);
+      if (f) {
+        setSelectedAd(f);
+        resolved = true;
+      } else if (adsReady) failed = true;
+    } else if (dl.esnafSlug) {
+      const f = findMatchingRestaurant(dl.esnafSlug, restaurantsList);
+      if (f) {
+        setSelectedRestaurant(f);
+        resolved = true;
+      } else if (restaurantsReady) failed = true;
+    }
+    if (resolved || failed) {
+      deepLinkRef.current = null;
+      setDeepLinkTick((t) => t + 1);
+      if (failed) {
+        window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'Bağlantıdaki içerik bulunamadı ya da kaldırılmış.' }));
+      }
+    }
+  }, [newsList, newsReady, classifiedList, adsReady, restaurantsList, restaurantsReady]);
+
+  // Veri hiç gelmezse (bağlantı sorunu) bekleme sonsuza kadar sürmesin
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (deepLinkRef.current) {
+        deepLinkRef.current = null;
+        setDeepLinkTick((x) => x + 1);
+      }
+    }, 10000);
+    return () => clearTimeout(t);
+  }, []);
+
   // 4. Durum değiştikçe Tarayıcı URL çubuğunu temiz / semantik adreslerle güncelle (Www.mutlularhaber.com/...)
   const isInitialUrlSync = useRef(true);
   useEffect(() => {
+    if (deepLinkRef.current) return; // paylaşılan bağlantı çözülene kadar adresi değiştirme
     const { path, title } = generateCanonicalPath({
       tab: currentTab,
       selectedRestaurant,
@@ -623,7 +680,7 @@ export default function App() {
     } else {
       syncUrlToBrowser(path, title, false); // Kullanıcı etkileşimlerinde pushState ile geçmişe yaz
     }
-  }, [currentTab, selectedRestaurant, selectedNews, selectedAd]);
+  }, [currentTab, selectedRestaurant, selectedNews, selectedAd, deepLinkTick]);
 
   // Action Handlers
   const handleOpenSearchWithQuery = (q: string) => {
@@ -684,6 +741,7 @@ export default function App() {
   };
 
   const handleAddNewJob = (newJob: JobItem) => {
+    if (requireLogin('İş ilanı vermek için giriş yapmalısınız.')) return;
     setJobList((prev) => [newJob, ...prev]);
     const notif: UserNotification = {
       id: `job-notif-${Date.now()}`,
@@ -715,6 +773,7 @@ export default function App() {
   };
 
   const handleAddNewAd = (newAd: ClassifiedItem) => {
+    if (requireLogin('İlan vermek için giriş yapmalısınız.')) return;
     // Yönetim ilanı doğrudan yayınlar; diğer kullanıcıların ilanları onay bekler
     setClassifiedList((prev) => [{ ...newAd, status: isStaffRole ? 'approved' : 'pending' }, ...prev]);
   };
@@ -873,6 +932,7 @@ export default function App() {
   };
 
   const handleAddNewObituary = (newOb: ObituaryItem) => {
+    if (requireLogin('Vefat ilanı vermek için giriş yapmalısınız.')) return;
     setObituaryList((prev) => [newOb, ...prev]);
   };
 
@@ -1037,32 +1097,6 @@ export default function App() {
     }
     quoteSeenRef.current = { uid: myUid, map };
   }, [quotesAll, quotesReady, myUid, canSeeAllQuotes]);
-
-  // Doğrudan bağlantılar (esnaf / haber / ilan) veri yüklendikten sonra açılsın
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const parsed = parseCurrentPath(window.location.pathname);
-    if (parsed.esnafSlug && !selectedRestaurant && restaurantsList.length > 0) {
-      const found = findMatchingRestaurant(parsed.esnafSlug, restaurantsList);
-      if (found) setSelectedRestaurant(found);
-    }
-  }, [restaurantsList.length]);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const parsed = parseCurrentPath(window.location.pathname);
-    if (parsed.newsId && !selectedNews && newsList.length > 0) {
-      const found = findMatchingNews(parsed.newsId, newsList);
-      if (found) setSelectedNews(found);
-    }
-  }, [newsList.length]);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const parsed = parseCurrentPath(window.location.pathname);
-    if (parsed.adId && !selectedAd && classifiedList.length > 0) {
-      const found = findMatchingAd(parsed.adId, classifiedList);
-      if (found) setSelectedAd(found);
-    }
-  }, [classifiedList.length]);
 
   // Usta faaliyet alanları: profile kaydedilir ve alanlar herkese açılır/kapanır
   const handleUpdateUstaActivities = async (next: string[]) => {
@@ -1763,7 +1797,15 @@ export default function App() {
         {/* Mobile App Header */}
         <Header
           currentTab={currentTab}
-          onOpenSearch={() => setIsSearchOpen(true)}
+          onOpenNotifications={() => {
+            if (!isLoggedIn) {
+              promptLogin('Bildirimlerinizi görmek için giriş yapmalısınız.');
+              return;
+            }
+            closeAllOverlays();
+            setProfileSubTab('bildirimler');
+            setCurrentTab('profil');
+          }}
           onOpenLogin={() => setIsLoginOpen(true)}
           onOpenProfile={() => setCurrentTab('profil')}
           onOpenMenu={() => setIsMenuOpen(true)}

@@ -1,12 +1,13 @@
 import React from 'react';
-import { Search, Menu, User, Sparkles, ShieldCheck, Download } from 'lucide-react';
+import { Bell, Menu, User, Sparkles, ShieldCheck, Download } from 'lucide-react';
 import { UserProfile } from '../types';
 import { ROLE_CONFIGS } from '../data/rolesData';
 import { NavTab } from './BottomNav';
 
 interface HeaderProps {
   currentTab: NavTab;
-  onOpenSearch: () => void;
+  /** Kişisel bildirimleri açar (giriş yoksa giriş penceresi açılır) */
+  onOpenNotifications: () => void;
   onOpenLogin: () => void;
   onOpenProfile: () => void;
   onOpenMenu: () => void;
@@ -22,7 +23,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
-  onOpenSearch,
+  onOpenNotifications,
   onOpenLogin,
   onOpenProfile,
   onOpenMenu,
@@ -202,13 +203,18 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Search Button */}
+          {/* Bildirim Butonu: kişisel bildirimler */}
           <button
-            onClick={onOpenSearch}
-            aria-label="Ara"
-            className="w-9 h-9 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition flex items-center justify-center text-neutral-700"
+            onClick={onOpenNotifications}
+            aria-label="Bildirimler"
+            className="relative w-9 h-9 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition flex items-center justify-center text-neutral-800"
           >
-            <Search className="w-4 h-4 stroke-[2.2]" />
+            <Bell className="w-4 h-4 stroke-[2.2]" />
+            {isLoggedIn && unreadNotificationCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center justify-center border border-white">
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </span>
+            )}
           </button>
 
           {/* Admin Panel Quick Access Button when Logged In as Yönetici */}

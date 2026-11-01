@@ -107,6 +107,12 @@ export const JobsModal: React.FC<JobsModalProps> = ({
     return true;
   });
 
+  // Eleman ilanı formu yalnızca giriş yapmış kullanıcıya açılır
+  const openCreateForm = () => {
+    if (onRequireLogin?.('İş ilanı vermek için giriş yapmalısınız.')) return;
+    setIsCreateFormOpen(true);
+  };
+
   const handleCreateJobSubmit = (e: React.FormEvent) => {
     if (onRequireLogin?.('İş ilanı vermek için giriş yapmalısınız.')) {
       e.preventDefault();
@@ -260,7 +266,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
           {/* "+ Eleman Talebi / İlan Aç" Button */}
           <button
             onClick={() => {
-              setIsCreateFormOpen(true);
+              openCreateForm();
               setSelectedJob(null);
             }}
             className="bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer whitespace-nowrap"
