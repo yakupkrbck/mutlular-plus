@@ -123,7 +123,10 @@ self.addEventListener('notificationclick', (event) => {
   const notificationData = event.notification.data || {};
   const actionTab = notificationData.actionTab || 'profil';
   const subTab = notificationData.subTab || 'bildirimler';
-  const targetUrl = `/?tab=${encodeURIComponent(actionTab)}&subTab=${encodeURIComponent(subTab)}`;
+  const relatedId = notificationData.relatedId;
+  const targetUrl =
+    `/?tab=${encodeURIComponent(actionTab)}&subTab=${encodeURIComponent(subTab)}` +
+    (relatedId ? `&relatedId=${encodeURIComponent(relatedId)}` : '');
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
