@@ -62,7 +62,7 @@ import { VefatModal } from './components/modals/VefatModal';
 import { EBelediyeModal } from './components/modals/EBelediyeModal';
 import { SaglikOcagiModal } from './components/modals/SaglikOcagiModal';
 import { MuhtarlikModal } from './components/modals/MuhtarlikModal';
-import { KesintilerModal } from './components/modals/KesintilerModal';
+import { KesintilerModal, type KesintiModalTab } from './components/modals/KesintilerModal';
 import { QuickActionSheet } from './components/modals/QuickActionSheet';
 import { AdminPanelModal } from './components/modals/AdminPanelModal';
 import { EsnafPaneliModal } from './components/modals/EsnafPaneliModal';
@@ -569,6 +569,60 @@ export default function App() {
     updateAppIconBadge(unread);
   }, [userNotifications]);
 
+  // ---- Bildirimden yönlendirme: Kesintiler (elektrik / su sekmesi) ve haber detayı (tam ekran)
+  const [kesintiInitialTab, setKesintiInitialTab] = useState<KesintiModalTab>('tumu');
+  useEffect(() => {
+    // Modal kapanınca sekme sıfırlanır; menüden açılınca yine "Tümü" ile başlar
+    if (!isKesintilerOpen) setKesintiInitialTab('tumu');
+  }, [isKesintilerOpen]);
+
+  const newsListRef = useRef<NewsItem[]>(newsList);
+  newsListRef.current = newsList;
+  const pendingNewsIdRef = useRef<string | null>(null);
+
+  const openNewsFromNotification = (id: string) => {
+    const found = newsListRef.current.find((n) => n.id === id);
+    if (found) {
+      pendingNewsIdRef.current = null;
+      setSelectedNews(found);
+      return;
+    }
+    // Uygulama bildirimle yeni açıldıysa haber listesi henüz gelmemiş olabilir: gelince açılır
+    pendingNewsIdRef.current = id;
+    setCurrentTab('haber');
+    setTimeout(() => {
+      if (pendingNewsIdRef.current === id) pendingNewsIdRef.current = null;
+    }, 20000);
+  };
+
+  useEffect(() => {
+    const id = pendingNewsIdRef.current;
+    if (!id) return;
+    const found = newsList.find((n) => n.id === id);
+    if (found) {
+      pendingNewsIdRef.current = null;
+      setSelectedNews(found);
+    }
+  }, [newsList]);
+
+  /** true dönerse yönlendirme burada yapılmıştır (kesinti sekmesi / haber detayı) */
+  const handleSpecialNotificationNav = (tab?: string, subTab?: string, relatedId?: string): boolean => {
+    if (tab === 'kesinti' || tab === 'kesintiler') {
+      setKesintiInitialTab(
+        subTab === 'buski' || subTab === 'su' ? 'buski' : subTab === 'uedas' || subTab === 'elektrik' ? 'uedas' : 'tumu'
+      );
+      setIsKesintilerOpen(true);
+      return true;
+    }
+    if ((tab === 'haber' || tab === 'haberler' || tab === 'haber_detay') && relatedId) {
+      openNewsFromNotification(relatedId);
+      return true;
+    }
+    return false;
+  };
+  const specialNavRef = useRef(handleSpecialNotificationNav);
+  specialNavRef.current = handleSpecialNotificationNav;
+
   // Handle incoming Android Push Notification clicks and deep links
   useEffect(() => {
     // 1. Check URL parameters on mount (if opened from cold notification click or shortcut)
@@ -577,11 +631,12 @@ export default function App() {
       const tabParam = params.get('tab');
       const subTabParam = params.get('subTab');
       const actionParam = params.get('action');
+      const relatedParam = params.get('relatedId');
 
       if (actionParam === 'ulasim') {
         setIsBusOpen(true);
       }
-      if (tabParam) {
+      if (tabParam && !specialNavRef.current(tabParam, subTabParam || undefined, relatedParam || undefined)) {
         if (tabParam === 'tekliflerim') {
           setCurrentTab('profil');
           setProfileSubTab('tekliflerim');
@@ -604,6 +659,8 @@ export default function App() {
           const payload = event.data.payload || {};
           const actionTab = payload.actionTab;
           const subTab = payload.subTab;
+
+          if (specialNavRef.current(actionTab, subTab, payload.relatedId)) return;
 
           if (actionTab === 'canli_yayin') {
             setIsLiveStreamOpen(true);
@@ -1356,8 +1413,8 @@ export default function App() {
   }, []);
 
   /** Yönetim: tüm kayıtlı cihazlara gerçek push gönderir */
-  const handleBroadcastPush = (title: string, body: string, actionTab = 'profil') => {
-    sendBroadcastPush(title, body, actionTab).then((r) => {
+  const handleBroadcastPush = (title: string, body: string, actionTab = 'profil', relatedId?: string) => {
+    sendBroadcastPush(title, body, actionTab, relatedId).then((r) => {
       if (r.ok) showInfo('Bildirim tüm cihazlara gönderildi.');
       else
         window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: `Cihaz bildirimi gönderilemedi: ${r.error}` }));
@@ -1611,7 +1668,8 @@ export default function App() {
       <div className="w-full max-w-md bg-neutral-100 min-h-screen sm:min-h-[920px] sm:rounded-[36px] sm:shadow-2xl sm:border-[6px] sm:border-neutral-900 overflow-hidden flex flex-col relative transition-all duration-300">
         {/* Android Native Heads-Up Push Notification Banner */}
         <AndroidHeadsUpNotification
-          onNavigateTab={(tab, subTab) => {
+          onNavigateTab={(tab, subTab, relatedId) => {
+            if (handleSpecialNotificationNav(tab, subTab, relatedId)) return;
             if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
               setMuhtarlikInitialTab('basvurular');
               setIsMuhtarlikOpen(true);
@@ -2042,7 +2100,8 @@ export default function App() {
                   onNavigateToClassifieds={() => {
                     setCurrentTab('alim-satim');
                   }}
-                  onNavigateTab={(tab, subTab) => {
+                  onNavigateTab={(tab, subTab, relatedId) => {
+                    if (handleSpecialNotificationNav(tab, subTab, relatedId)) return;
                     if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
                       setMuhtarlikInitialTab('basvurular');
                       setIsMuhtarlikOpen(true);
@@ -2857,6 +2916,7 @@ export default function App() {
         <KesintilerModal
           isOpen={isKesintilerOpen}
           onClose={() => setIsKesintilerOpen(false)}
+          initialTab={kesintiInitialTab}
         />
 
         <PrayerTimesModal
@@ -3054,7 +3114,7 @@ export default function App() {
           onBroadcastNotification={(notif) => {
             setAnnouncements((prev) => [notif, ...prev]);
             // Gerçek push: tüm kayıtlı cihazlara (uygulama kapalıyken de) ulaşır
-            handleBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil');
+            handleBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil', notif.relatedId);
           }}
           onApproveObituary={handleApproveObituary}
           onRejectObituary={handleRejectObituary}
