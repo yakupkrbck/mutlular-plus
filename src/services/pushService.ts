@@ -57,7 +57,15 @@ async function enableNative(): Promise<PushResult> {
       nativeListenersAdded = true;
       // Uygulama açıkken gelen bildirimi uygulama içi uyarı olarak göster
       PushNotifications.addListener('pushNotificationReceived', (n) => {
-        sendAndroidAppNotification({ title: n.title || 'Mutlular Plus', body: n.body || '', type: 'duyuru' });
+        const dd: any = (n as any).data || {};
+        sendAndroidAppNotification({
+          title: n.title || 'Mutlular Plus',
+          body: n.body || '',
+          type: 'duyuru',
+          actionTab: dd.actionTab,
+          subTab: dd.subTab,
+          relatedId: dd.relatedId,
+        });
       });
       // Bildirime dokunulunca ilgili sekmeye git (web'deki service worker tıklamasıyla aynı akış)
       PushNotifications.addListener('pushNotificationActionPerformed', (a) => {
@@ -144,7 +152,9 @@ export async function refreshPushIfGranted(): Promise<void> {
 export async function sendBroadcastPush(
   title: string,
   body: string,
-  actionTab = 'profil'
+  actionTab = 'profil',
+  relatedId?: string,
+  subTab?: string
 ): Promise<{ ok: boolean; error?: string }> {
   const user = auth.currentUser;
   if (!user) return { ok: false, error: 'Giriş gerekli' };
@@ -153,7 +163,7 @@ export async function sendBroadcastPush(
     const res = await fetch(`${API_BASE}/api/push/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({ title, body, actionTab }),
+      body: JSON.stringify({ title, body, actionTab, relatedId, subTab }),
     });
     const json: any = await res.json().catch(() => ({}));
     if (res.status === 503) return { ok: false, error: 'Bildirim sunucusu henüz yapılandırılmadı.' };
@@ -242,8 +252,8 @@ export async function scanKesintiNow(): Promise<{ ok: boolean; yeni?: number; er
 }
 
 /** Yönetim arayüzlerinden tek tuşla "tüm cihazlara" duyuru. Sonuç ekranda kısa mesajla gösterilir. */
-export async function broadcastPush(title: string, body: string, actionTab = 'profil') {
-  const r = await sendBroadcastPush(title, body, actionTab);
+export async function broadcastPush(title: string, body: string, actionTab = 'profil', relatedId?: string, subTab?: string) {
+  const r = await sendBroadcastPush(title, body, actionTab, relatedId, subTab);
   try {
     window.dispatchEvent(
       new CustomEvent(r.ok ? 'mp-info' : 'mp-sync-error', {
