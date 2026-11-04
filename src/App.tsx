@@ -1369,7 +1369,8 @@ export default function App() {
     let alive = true;
     (async () => {
       const notif = getAndroidNotificationPermission();
-      if (notif === 'granted') refreshPushIfGranted();
+      // Yerel (Capacitor) uygulamada Notification API yoktur; izin kontrolünü refreshPushIfGranted kendisi yapar
+      refreshPushIfGranted();
       const loc = await getLocationPermissionState();
       if (loc === 'granted') requestLocation().catch(() => {});
 
