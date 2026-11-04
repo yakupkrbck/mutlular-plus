@@ -32,7 +32,7 @@ self.addEventListener('push', (event) => {
   let pushData = {
     title: 'Mutlular Plus • Mahalle Bildirimi',
     body: 'Yeni bir duyuru veya usta teklifi iletildi.',
-    tag: 'mutlular-push',
+    tag: 'mutlular-' + Date.now(), // her bildirim ayrı görünsün (aynı etiket önceki bildirimi eziyordu)
     channel: 'genel',
     badgeText: 'Yeni',
     data: {},
