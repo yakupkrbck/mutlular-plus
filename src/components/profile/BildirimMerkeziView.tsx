@@ -57,7 +57,6 @@ interface BildirimMerkeziViewProps {
   onMarkAllAsRead: () => void;
   onDeleteNotification: (id: string) => void;
   onClearAll: () => void;
-  onAddTestNotification: (type: NotificationType) => void;
   onNavigateToQuotes: (relatedId?: string) => void;
   onNavigateToClassifieds: () => void;
   onNavigateTab?: (tab: string, subTab?: string, relatedId?: string) => void;
@@ -69,7 +68,6 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
   onMarkAllAsRead,
   onDeleteNotification,
   onClearAll,
-  onAddTestNotification,
   onNavigateToQuotes,
   onNavigateToClassifieds,
   onNavigateTab,
@@ -78,9 +76,7 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
   const [permissionStatus, setPermissionStatus] = useState<AndroidPermissionStatus>('default');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [vibrateEnabled, setVibrateEnabled] = useState<boolean>(true);
-  const [countdownTimer, setCountdownTimer] = useState<number | null>(null);
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   const [channels, setChannels] = useState(getAllChannelsWithState());
   const deviceFcmToken = getOrGenerateDevicePushToken();
@@ -118,124 +114,6 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
     setChannels((prev) =>
       prev.map((c) => (c.id === channelId ? { ...c, enabled: nextState } : c))
     );
-  };
-
-  const handleCopyFcmToken = () => {
-    navigator.clipboard?.writeText(deviceFcmToken);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2000);
-  };
-
-  const handleSendAndroidTestNotification = (
-    type: AndroidPayloadType,
-    customTitle?: string,
-    customBody?: string
-  ) => {
-    onAddTestNotification(
-      type === 'kullanici_teklif' || type === 'usta_talep' || type === 'teklif'
-        ? 'teklif'
-        : type === 'ilan'
-        ? 'ilan'
-        : type === 'son_dakika' || type === 'haber'
-        ? 'haber'
-        : type === 'canli_yayin'
-        ? 'canli_yayin'
-        : type === 'vefat'
-        ? 'vefat'
-        : type === 'duyuru'
-        ? 'duyuru'
-        : 'ozel'
-    );
-
-    let defaultTitle = '📢 Mutlular Bildirim';
-    let defaultBody = 'Yeni bir mahalle bildirimi aldınız.';
-    let actionTab = 'profil';
-    let badgeText = 'BİLDİRİM';
-
-    switch (type) {
-      case 'son_dakika':
-        defaultTitle = '🚨 SON DAKİKA: Nilüfer Çayı Park Projesi Başladı';
-        defaultBody = 'Belediye ekipleri yürüyüş ve yeşil alan düzenleme çalışmalarına bu sabah başladı.';
-        actionTab = 'haber';
-        badgeText = 'SON DAKİKA';
-        break;
-      case 'canli_yayin':
-        defaultTitle = '🔴 Mutlular Canlı Yayın Başladı!';
-        defaultBody = 'Mutlular TV Mahalle Meclisi Canlı Yayını başladı. İzlemek için dokunun.';
-        actionTab = 'canli_yayin';
-        badgeText = 'CANLI YAYIN';
-        break;
-      case 'vefat':
-        defaultTitle = '🕊️ Vefat & Taziye: Hacı Ahmet Yılmaz Hakka Yürüdü';
-        defaultBody = 'Cenazesi bugün İkindi namazını müteakip Mutlular Merkez Camiinden kaldırılacaktır.';
-        actionTab = 'vefat';
-        badgeText = 'VEFAT & TAZİYE';
-        break;
-      case 'duyuru':
-        defaultTitle = '📢 BUSKİ Planlı Su Kesintisi Duyurusu';
-        defaultBody = 'Yarın 09:00 - 15:00 saatleri arasında Mutlular Caddesi genelinde şebeke bakımı yapılacaktır.';
-        actionTab = 'profil';
-        badgeText = 'DUYURU';
-        break;
-      case 'ilan':
-        defaultTitle = '🏷️ Öne Çıkan İlan: Satılık 3+1 Bahçeli Müstakil Ev';
-        defaultBody = '3.450.000 ₺ • Köy İçi Meydanı 200m mesafede. Fırsat ilanı inceleyin.';
-        actionTab = 'alim_satim';
-        badgeText = 'ÖNE ÇIKAN İLAN';
-        break;
-      case 'usta_talep':
-        defaultTitle = '🔨 Yeni Usta Talebi: Sıhhi Tesisat & Su Kaçağı';
-        defaultBody = 'Cumhuriyet Mahallesinden acil banyo kaçak tespiti talebi geldi. Teklif vermek için dokunun.';
-        actionTab = 'hizmet';
-        badgeText = 'YENİ TALEP';
-        break;
-      case 'kullanici_teklif':
-      case 'teklif':
-        defaultTitle = '💼 Ustanızdan Teklif Geldi! (1.250 ₺)';
-        defaultBody = 'Usta Mehmet Çelik talebinize garanti kapsamlı fiyat teklifi sundu. İnceleyin.';
-        actionTab = 'tekliflerim';
-        badgeText = 'TEKLİF GELDİ';
-        break;
-      case 'ozel':
-        defaultTitle = '💬 Yeni Özel Mesaj: Usta Mehmet Çelik';
-        defaultBody = 'Malzemeleri temin ettim, yarın saat 10:00 gibi adreste olacağım.';
-        actionTab = 'profil';
-        badgeText = 'ÖZEL MESAJ';
-        break;
-      default:
-        break;
-    }
-
-    sendAndroidAppNotification({
-      title: customTitle || defaultTitle,
-      body: customBody || defaultBody,
-      type,
-      tag: `android-${type}-${Date.now()}`,
-      badgeText,
-      actionTab,
-      timestamp: Date.now(),
-    });
-  };
-
-  const handleStartDelayedPushSimulation = () => {
-    if (countdownTimer !== null) return;
-    setCountdownTimer(5);
-
-    const interval = setInterval(() => {
-      setCountdownTimer((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(interval);
-          // Trigger push notification after timer expires
-          handleSendAndroidTestNotification(
-            'teklif',
-            '📲 Android Arka Plan Push: Usta Teklifi!',
-            'Ahmet Usta (Kombi & Tesisat) talebinize özel indirimli 600 ₺ teklif gönderdi.'
-          );
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -333,9 +211,7 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-black text-white">Bildirim Merkezi</h3>
-                  <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-emerald-500/30">
-                    Google Play Ready
-                  </span>
+                  
                 </div>
                 <p className="text-[11px] text-neutral-400">
                   {unreadCount > 0 ? `${unreadCount} yeni okunmamış bildirim` : 'Tüm bildirimler güncel'}
@@ -355,25 +231,6 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
             )}
           </div>
 
-          {/* Play Store Info Strip */}
-          <div className="bg-white/5 rounded-2xl p-2.5 text-[10.5px] text-neutral-300 flex items-center justify-between border border-white/10 gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="truncate">
-                Paket: <code className="text-rose-300 font-mono">com.mutlularplus.app</code> • TWA & FCM Aktif
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={handleCopyFcmToken}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition cursor-pointer"
-                title="Cihaz Push Belirtecini Kopyala"
-              >
-                {copiedToken ? <CheckIcon className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedToken ? 'Kopyalandı' : 'FCM Token'}</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -522,103 +379,6 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
           )}
         </div>
 
-        {/* Real Push Notification Test Action Buttons */}
-        <div className="pt-2 border-t border-neutral-100">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-wider">
-              Gerçek Cihaz Bildirim Testi (Play Store)
-            </span>
-            <span className="text-[9.5px] text-neutral-500 font-semibold">
-              Kilit ekranında &amp; çubukta görünür
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            <button
-              onClick={() => handleSendAndroidTestNotification('son_dakika')}
-              className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 active:scale-95 border border-rose-200/80 text-rose-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-              <span className="truncate">🚨 Son Dakika</span>
-            </button>
-
-            <button
-              onClick={() => handleSendAndroidTestNotification('canli_yayin')}
-              className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 active:scale-95 border border-red-200/80 text-red-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <Radio className="w-3.5 h-3.5 text-red-600 shrink-0" />
-              <span className="truncate">🔴 Canlı Yayın</span>
-            </button>
-
-            <button
-              onClick={() => handleSendAndroidTestNotification('vefat')}
-              className="p-2 rounded-xl bg-neutral-200 hover:bg-neutral-300 active:scale-95 border border-neutral-300 text-neutral-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <span className="text-xs">🕊️</span>
-              <span className="truncate">Vefat & Taziye</span>
-            </button>
-
-            <button
-              onClick={() => handleSendAndroidTestNotification('duyuru')}
-              className="p-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 border border-blue-200/80 text-blue-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <Bell className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span className="truncate">📢 Yönetici Duyuru</span>
-            </button>
-
-            <button
-              onClick={() => handleSendAndroidTestNotification('ilan')}
-              className="p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 border border-emerald-200/80 text-emerald-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <ShoppingBag className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="truncate">🏷️ İlan Bildirimi</span>
-            </button>
-
-            <button
-              onClick={() => handleSendAndroidTestNotification('usta_talep')}
-              className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-200/80 text-amber-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <span className="text-xs">🔨</span>
-              <span className="truncate">Ustaya Talep</span>
-            </button>
-
-            <button
-              onClick={() => handleSendAndroidTestNotification('kullanici_teklif')}
-              className="p-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 active:scale-95 border border-cyan-200/80 text-cyan-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-              <span className="truncate">💼 Teklif Geldi</span>
-            </button>
-
-            <button
-              onClick={() => handleSendAndroidTestNotification('ozel')}
-              className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 active:scale-95 border border-purple-200/80 text-purple-800 text-[10px] font-black flex items-center gap-1.5 transition text-left cursor-pointer"
-            >
-              <span className="text-xs">💬</span>
-              <span className="truncate">Özel Mesaj</span>
-            </button>
-          </div>
-
-          {/* 5-second countdown background tester */}
-          <div className="mt-2">
-            <button
-              onClick={handleStartDelayedPushSimulation}
-              disabled={countdownTimer !== null}
-              className={`w-full py-2 px-3 rounded-xl text-[10.5px] font-black flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer ${
-                countdownTimer !== null
-                  ? 'bg-amber-500 text-white animate-pulse'
-                  : 'bg-neutral-900 hover:bg-neutral-800 text-white shadow-xs'
-              }`}
-            >
-              <Send className="w-3.5 h-3.5 text-amber-300" />
-              <span>
-                {countdownTimer !== null
-                  ? `⏱️ ${countdownTimer} sn sonra bildirim gelecek (Sekmeyi küçültüp/kapatıp test edin)...`
-                  : '📲 5 Sn Sonra Arka Plan Push Testi (Sekmeyi değiştirip kilit ekranından bakın)'}
-              </span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* 3. Filter Pills */}

@@ -16,6 +16,7 @@ import {
   BellRing,
 } from 'lucide-react';
 import { sendAndroidAppNotification } from '../../services/androidNotificationService';
+import { broadcastPush } from '../../services/pushService';
 
 interface LiveStreamModalProps {
   isOpen: boolean;
@@ -104,14 +105,7 @@ export const LiveStreamModal: React.FC<LiveStreamModalProps> = ({ isOpen, onClos
   const [broadcastSent, setBroadcastSent] = useState(false);
 
   const handleBroadcastLiveStart = async () => {
-    await sendAndroidAppNotification({
-      title: '🔴 Mutlular Canlı Yayın Başladı!',
-      body: `"${activeChannel.title}" yayını şu an canlı yayında! İzlemek ve sohbete katılmak için dokunun.`,
-      type: 'canli_yayin',
-      actionTab: 'canli_yayin',
-      badgeText: 'CANLI YAYIN',
-      timestamp: Date.now(),
-    });
+    broadcastPush('🔴 Mutlular Canlı Yayın Başladı!', `"${activeChannel.title}" yayını şu an canlı yayında! İzlemek ve sohbete katılmak için dokunun.`, 'canli_yayin');
     setBroadcastSent(true);
     setTimeout(() => setBroadcastSent(false), 3500);
   };

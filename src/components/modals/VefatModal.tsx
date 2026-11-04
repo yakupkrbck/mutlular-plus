@@ -28,6 +28,7 @@ import {
   EDEVLET_BURSA_VEFAT_URL,
   GENC_GAZETE_VEFAT_URL,
 } from '../../services/vefat_dogrulama_servisi';
+import { broadcastPush } from '../../services/pushService';
 
 interface VefatModalProps {
   /** Giriş yoksa giriş penceresini açıp true döner; işlem durdurulmalı */
@@ -113,14 +114,7 @@ export const VefatModal: React.FC<VefatModalProps> = ({
   if (!isOpen) return null;
 
   const handleBroadcastVefat = async (ob: ObituaryItem) => {
-    await sendAndroidAppNotification({
-      title: `🕊️ Vefat & Taziye: ${ob.name}`,
-      body: `Cenazesi ${ob.date} vakti ${ob.mosque} camiinden kaldırılacaktır. Defin: ${ob.cemetery}. Taziye Tel: ${ob.phone}.`,
-      type: 'vefat',
-      actionTab: 'vefat',
-      badgeText: 'VEFAT & TAZİYE',
-      timestamp: Date.now(),
-    });
+    broadcastPush(`🕊️ Vefat & Taziye: ${ob.name}`, `Cenazesi ${ob.date} vakti ${ob.mosque} camiinden kaldırılacaktır. Defin: ${ob.cemetery}. Taziye Tel: ${ob.phone}.`, 'vefat');
     setBroadcastedId(ob.id);
     showToast('🕊️ Tüm mahalleye vefat & taziye bildirimi gönderildi!');
     setTimeout(() => setBroadcastedId(null), 3000);
@@ -173,14 +167,7 @@ export const VefatModal: React.FC<VefatModalProps> = ({
     onAddNewObituary(newOb);
 
     if (status === 'approved') {
-      sendAndroidAppNotification({
-        title: `🕊️ Yeni Cenaze İlanı: ${newOb.name}`,
-        body: `Cenazesi ${newOb.date} vakti ${newOb.mosque} camiinden kaldırılacaktır. Defin: ${newOb.cemetery}.`,
-        type: 'vefat',
-        actionTab: 'vefat',
-        badgeText: 'VEFAT & TAZİYE',
-        timestamp: Date.now(),
-      });
+      
       showToast('✓ Cenaze ilanı onaylandı ve vitrinde yayınlandı!');
       setActiveTab('vitrin');
     } else {

@@ -41,7 +41,7 @@ const friendly = (err: any): string => {
 export function useSyncedList<T extends { id: string }>(
   path: string,
   opts: SyncOptions = {}
-): [T[], Dispatch<SetStateAction<T[]>>, boolean] {
+): [T[], (upd: SetStateAction<T[]>) => Promise<boolean>, boolean] {
   const { enabled = true, key = '', stampOwner = false } = opts;
   const [list, setListState] = useState<T[]>([]);
   const [ready, setReady] = useState(false);
@@ -85,11 +85,11 @@ export function useSyncedList<T extends { id: string }>(
     return () => unsub();
   }, [path, enabled, key]);
 
-  const setList: Dispatch<SetStateAction<T[]>> = useCallback(
-    (upd) => {
+  const setList = useCallback(
+    (upd: SetStateAction<T[]>): Promise<boolean> => {
       const prev = listRef.current;
       const next = typeof upd === 'function' ? (upd as (p: T[]) => T[])(prev) : upd;
-      if (next === prev) return;
+      if (next === prev) return Promise.resolve(true);
 
       const prevMap = new Map(prev.map((i) => [i.id, i]));
       const nextIds = new Set(next.map((i) => i.id));
@@ -110,13 +110,13 @@ export function useSyncedList<T extends { id: string }>(
 
       if ((toWrite.length || toDelete.length) && !auth.currentUser) {
         notifySyncError('Bu işlem için giriş yapmalısınız.');
-        return;
+        return Promise.resolve(false);
       }
 
       listRef.current = finalNext;
       setListState(finalNext);
 
-      if (!toWrite.length && !toDelete.length) return;
+      if (!toWrite.length && !toDelete.length) return Promise.resolve(true);
       const jobs: Promise<unknown>[] = [
         ...toWrite.map(async (data) => {
           const clean = await uploadDataUrlsDeep(data);
@@ -124,11 +124,12 @@ export function useSyncedList<T extends { id: string }>(
         }),
         ...toDelete.map((o) => deleteDoc(doc(db, path, o.id))),
       ];
-      Promise.all(jobs).catch((err) => {
+      return Promise.all(jobs).then(() => true).catch((err) => {
         console.error('[sync write]', path, err);
         notifySyncError(friendly(err));
         listRef.current = serverRef.current;
         setListState(serverRef.current);
+        return false;
       });
     },
     [path, stampOwner]

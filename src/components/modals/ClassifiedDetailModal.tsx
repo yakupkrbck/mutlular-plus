@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, MapPin, Calendar, Heart, Share2, Phone, BellRing, CheckCircle2 } from 'lucide-react';
 import { ClassifiedItem } from '../../types';
 import { sendAndroidAppNotification } from '../../services/androidNotificationService';
+import { broadcastPush } from '../../services/pushService';
 
 interface ClassifiedDetailModalProps {
   ad: ClassifiedItem | null;
@@ -24,15 +25,7 @@ export const ClassifiedDetailModal: React.FC<ClassifiedDetailModalProps> = ({
   };
 
   const handleBroadcastAd = async () => {
-    await sendAndroidAppNotification({
-      title: `🏷️ Öne Çıkan İlan: ${ad.title}`,
-      body: `${ad.price} • ${ad.location} - İlanı incelemek için dokunun.`,
-      type: 'ilan',
-      actionTab: 'alim_satim',
-      relatedId: ad.id,
-      badgeText: ad.mainCategory?.toUpperCase() || 'ÖNE ÇIKAN İLAN',
-      timestamp: Date.now(),
-    });
+    broadcastPush(`🏷️ Öne Çıkan İlan: ${ad.title}`, `${ad.price} • ${ad.location} - İlanı incelemek için dokunun.`, 'alim_satim');
     setPushSent(true);
     setTimeout(() => setPushSent(false), 3000);
   };

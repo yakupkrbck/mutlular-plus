@@ -21,7 +21,7 @@ export type PushResult = {
 
 const TOKEN_KEY = 'mp_fcm_token';
 
-async function registerWithWorker(token: string): Promise<{ ok: boolean; error?: string }> {
+async function registerWithWorker(token: string, removeFields: string[] = []): Promise<{ ok: boolean; error?: string }> {
   const user = auth.currentUser;
   if (!user) return { ok: false, error: 'Giriş gerekli' };
   const idToken = await user.getIdToken();
@@ -30,7 +30,7 @@ async function registerWithWorker(token: string): Promise<{ ok: boolean; error?:
     res = await fetch(`${API_BASE}/api/push/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, removeFields }),
     });
   } catch {
     return { ok: false, error: 'Sunucuya ulaşılamadı' };
@@ -143,4 +143,94 @@ export async function sendBroadcastPush(
   } catch {
     return { ok: false, error: 'Sunucuya ulaşılamadı.' };
   }
+}
+
+/** Rol / hizmet alanı değişince konu aboneliklerini yeniler (yeni jeton almadan). */
+export async function resyncPushTopics(removedFields: string[] = []): Promise<void> {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token || !auth.currentUser) return;
+    await registerWithWorker(token, removedFields);
+  } catch {}
+}
+
+/** Çıkış yaparken: bu cihazı kişiye özel / yönetim / usta konularından çıkarır (herkese açık duyurular sürer). */
+export async function unregisterPush(): Promise<void> {
+  const user = auth.currentUser;
+  const token = (() => {
+    try {
+      return localStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  })();
+  if (!user || !token) return;
+  try {
+    const idToken = await user.getIdToken();
+    await fetch(`${API_BASE}/api/push/unregister`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ token }),
+    });
+  } catch {}
+}
+
+/**
+ * Olay bildirimi: "ne oldu"yu sunucuya bildirir; alıcıları ve içeriği sunucu KENDİSİ belirler
+ * (talep → o alandaki ustalar, teklif → talep sahibi, onay bekleyen kayıt → yönetim, vb.).
+ * Sonuç beklenmez; başarısız olursa kullanıcı akışı etkilenmez.
+ */
+export async function notifyEvent(
+  type: string,
+  payload: Record<string, unknown> = {}
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  const user = auth.currentUser;
+  if (!user) return { ok: false, error: 'Giriş gerekli' };
+  try {
+    const idToken = await user.getIdToken();
+    const res = await fetch(`${API_BASE}/api/push/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ type, ...payload }),
+    });
+    const json: any = await res.json().catch(() => ({}));
+    if (res.status === 503) return { ok: false, error: 'Bildirim sunucusu henüz yapılandırılmadı.' };
+    if (!res.ok || !json.success) return { ok: false, error: json.error || `HTTP ${res.status}` };
+    return { ok: true, skipped: !!json.skipped };
+  } catch (e) {
+    console.warn('[bildirim olayı]', type, e);
+    return { ok: false, error: 'Sunucuya ulaşılamadı.' };
+  }
+}
+
+/** Yönetim: UEDAŞ / BUSKİ'yi şimdi tara; yeni kesintiler onay listesine düşer ve yöneticilere bildirilir. */
+export async function scanKesintiNow(): Promise<{ ok: boolean; yeni?: number; error?: string }> {
+  const user = auth.currentUser;
+  if (!user) return { ok: false, error: 'Giriş gerekli' };
+  try {
+    const idToken = await user.getIdToken();
+    const res = await fetch(`${API_BASE}/api/push/kesinti-tara`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: '{}',
+    });
+    const j: any = await res.json().catch(() => ({}));
+    if (!res.ok || !j.success) return { ok: false, error: j.error || `HTTP ${res.status}` };
+    return { ok: true, yeni: (j.uedas?.yeni || 0) + (j.buski?.yeni || 0) };
+  } catch {
+    return { ok: false, error: 'Sunucuya ulaşılamadı.' };
+  }
+}
+
+/** Yönetim arayüzlerinden tek tuşla "tüm cihazlara" duyuru. Sonuç ekranda kısa mesajla gösterilir. */
+export async function broadcastPush(title: string, body: string, actionTab = 'profil') {
+  const r = await sendBroadcastPush(title, body, actionTab);
+  try {
+    window.dispatchEvent(
+      new CustomEvent(r.ok ? 'mp-info' : 'mp-sync-error', {
+        detail: r.ok ? 'Bildirim tüm cihazlara gönderildi.' : `Cihaz bildirimi gönderilemedi: ${r.error}`,
+      })
+    );
+  } catch {}
+  return r;
 }

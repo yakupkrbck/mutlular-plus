@@ -104,6 +104,7 @@ import {
   UserQuoteRequest,
   MasterOffer,
   HeroBannerItem,
+  KesintiOnayItem,
   UserNotification,
   NotificationType,
   StoreShowcaseProduct,
@@ -140,6 +141,7 @@ import { isNative, exitNativeApp } from './native';
 import { PermissionPrompt } from './components/modals/PermissionPrompt';
 import { refreshPushIfGranted, sendBroadcastPush } from './services/pushService';
 import { getLocationPermissionState, requestLocation, wasLocationAsked } from './services/locationService';
+import { notifyEvent, unregisterPush, resyncPushTopics, scanKesintiNow } from './services/pushService';
 
 export default function App() {
   // Navigation State (URL Senkronizasyonu & Deep-linking)
@@ -209,7 +211,8 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    firebaseLogout().catch(() => {});
+    // Önce bu cihazı kişiye özel konulardan çıkar, sonra oturumu kapat
+    unregisterPush().finally(() => firebaseLogout().catch(() => {}));
     setIsLoggedIn(false);
     setUserProfile(null);
   };
@@ -390,6 +393,33 @@ export default function App() {
     [hizmetAlanlari]
   );
   const activeFieldNames = useMemo(() => activeFields.map((f) => f.name), [activeFields]);
+
+  // Kesinti onayı: tarama yeni kesinti bulunca kayıt açar ve yöneticilere bildirir; yönetici onaylarsa herkese gider
+  const [kesintiOnay] = useSyncedList<KesintiOnayItem>('plus_kesinti_onay', {
+    enabled: isStaffRole && !!myUid,
+    key: visKey,
+  });
+  const handleApproveKesinti = async (id: string) => {
+    const r = await notifyEvent('kesinti-onay', { id });
+    window.dispatchEvent(
+      r.ok
+        ? new CustomEvent('mp-info', { detail: r.skipped ? 'Bu kesinti daha önce işlenmiş.' : 'Kesinti onaylandı; tüm kullanıcılara bildirildi.' })
+        : new CustomEvent('mp-sync-error', { detail: `Onaylanamadı: ${r.error}` })
+    );
+  };
+  const handleRejectKesinti = (id: string) => {
+    updateDoc(fsDoc(db, 'plus_kesinti_onay', id), { status: 'reddedildi' }).catch(() =>
+      window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'Reddedilemedi. Yetkinizi kontrol edin.' }))
+    );
+  };
+  const handleScanKesinti = async () => {
+    const r = await scanKesintiNow();
+    window.dispatchEvent(
+      r.ok
+        ? new CustomEvent('mp-info', { detail: r.yeni ? `${r.yeni} yeni kesinti bulundu; onay listesine eklendi.` : 'Yeni kesinti bulunmadı.' })
+        : new CustomEvent('mp-sync-error', { detail: `Tarama yapılamadı: ${r.error}` })
+    );
+  };
 
   const setIsMarketListingOpen = (v: boolean) => {
     if (v && requireLogin('İlan vermek için giriş yapmalısınız.')) return;
@@ -767,7 +797,9 @@ export default function App() {
     setJobApplications((prev) => [
       { ...application, applicantUid: myUid, jobOwnerUid: job.ownerUid, status: 'beklemede' },
       ...prev,
-    ]);
+    ]).then((ok) => {
+      if (ok) notifyEvent('is-basvuru', { id: application.id });
+    });
     // Herkese açık yalnızca sayaç artar
     updateDoc(fsDoc(db, 'plus_isler', jobId), { applicationCount: increment(1) }).catch(() => {});
   };
@@ -775,7 +807,10 @@ export default function App() {
   const handleAddNewAd = (newAd: ClassifiedItem) => {
     if (requireLogin('İlan vermek için giriş yapmalısınız.')) return;
     // Yönetim ilanı doğrudan yayınlar; diğer kullanıcıların ilanları onay bekler
-    setClassifiedList((prev) => [{ ...newAd, status: isStaffRole ? 'approved' : 'pending' }, ...prev]);
+    setClassifiedList((prev) => [{ ...newAd, status: isStaffRole ? 'approved' : 'pending' }, ...prev]).then((ok) => {
+      // Onay bekleyen ilan için yönetime bildirim gider
+      if (ok && !isStaffRole) notifyEvent('ilan-bekliyor', { id: newAd.id });
+    });
   };
 
   // Notification handlers
@@ -783,33 +818,9 @@ export default function App() {
   const pendingMuhtarApplicationsCount = muhtarlikApplications.filter((a) => a.status === 'bekliyor').length;
 
   const handleNewMuhtarlikApplication = async (newApp: MuhtarlikApplication) => {
-    setMuhtarlikApplications((prev) => [newApp, ...prev]);
-
-    const notif: UserNotification = {
-      id: `notif-muhtar-${Date.now()}`,
-      type: 'muhtarlik',
-      title: '🏛️ Yeni Muhtarlık Başvurusu & Talebi Geldi!',
-      message: `${newApp.citizenName} (${newApp.street}): ${newApp.category} talebi iletildi: "${newApp.message}"`,
-      date: 'Az önce',
-      read: false,
-      relatedId: newApp.id,
-      badgeText: 'RESMİ TALEP',
-      sender: 'Mehmet Akif Mahalle Muhtarlığı',
-      actionTab: 'muhtar_paneli',
-    };
-    setUserNotifications((prev) => [notif, ...prev]);
-
-    try {
-      await sendAndroidAppNotification({
-        id: `push-muhtar-${Date.now()}`,
-        title: '🏛️ T.C. Mahalle Muhtarlığı - Yeni Başvuru!',
-        body: `${newApp.citizenName} (${newApp.street}): ${newApp.category} - "${newApp.message.slice(0, 75)}..."`,
-        type: 'muhtarlik',
-        badgeText: 'RESMİ TALEP',
-        actionTab: 'muhtar_paneli',
-        relatedId: newApp.id,
-      });
-    } catch {}
+    // Başvuru kaydedilince yönetime / muhtara gerçek bildirim gider
+    const ok = await setMuhtarlikApplications((prev) => [newApp, ...prev]);
+    if (ok) notifyEvent('muhtarlik-basvuru', { id: newApp.id });
   };
 
   const handleUpdateMuhtarlikApplicationStatus = (
@@ -828,7 +839,10 @@ export default function App() {
             }
           : item
       )
-    );
+    ).then((ok) => {
+      // Başvuru sahibine "başvurunuz güncellendi" bildirimi gider
+      if (ok) notifyEvent('muhtarlik-durum', { id });
+    });
   };
 
   const isAnnouncementId = (id: string) => announcements.some((a) => a.id === id);
@@ -861,56 +875,22 @@ export default function App() {
     setUserNotifications([]);
   };
 
-  const handleAddTestNotification = (type: NotificationType) => {
-    const title =
-      type === 'teklif'
-        ? 'Yeni Usta Teklifi Geldi!'
-        : type === 'ilan'
-        ? 'İlanınız Onaylandı!'
-        : 'Sistem Duyurusu';
-    const message =
-      type === 'teklif'
-        ? 'Mutlular Bölge Ustası talebinize 750 ₺ teklif iletti. Detayları inceleyebilirsiniz.'
-        : type === 'ilan'
-        ? 'Verdiğiniz ilan denetimden geçti ve Alım Satım vitrininde yayına alındı.'
-        : 'Mutlular Plus güncel mahalle duyuruları ve servisleri aktif.';
-
-    const newNotif: UserNotification = {
-      id: `notif-${Date.now()}`,
-      type,
-      title,
-      message,
-      date: 'Az önce',
-      read: false,
-      badgeText: type === 'teklif' ? '750 ₺ Teklif' : type === 'ilan' ? 'Yayında' : 'Bilgi',
-      sender: type === 'teklif' ? 'Bölge Ustası' : 'Yönetim Masası',
-      actionTab: type === 'teklif' ? 'tekliflerim' : 'alim-satim',
-    };
-    setUserNotifications((prev) => [newNotif, ...prev]);
-
-    // Send native Android notification + sound + haptic vibration
-    sendAndroidAppNotification({
-      title: `📲 ${title}`,
-      body: message,
-      type,
-      tag: `notif-${type}`,
-      badgeText: newNotif.badgeText,
-      actionTab: newNotif.actionTab,
-    });
-  };
-
   // Admin moderation handlers
   const handleAdminApproveAd = (approvedAd: ClassifiedItem) => {
     // Mevcut kaydın durumu "onaylandı" olur (yeni kayıt oluşturulmaz)
     setClassifiedList((prev) =>
       prev.map((item) => (item.id === approvedAd.id ? { ...item, status: 'approved' as const } : item))
-    );
+    ).then((ok) => {
+      if (ok) notifyEvent('ilan-sonuc', { id: approvedAd.id });
+    });
   };
 
   const handleAdminRejectAd = (adId: string) => {
     setClassifiedList((prev) =>
       prev.map((item) => (item.id === adId ? { ...item, status: 'rejected' as const } : item))
-    );
+    ).then((ok) => {
+      if (ok) notifyEvent('ilan-sonuc', { id: adId });
+    });
   };
 
   const handleAdminDeleteAd = (adId: string) => {
@@ -937,32 +917,13 @@ export default function App() {
   };
 
   const handleApproveObituary = async (obId: string) => {
-    let approvedItem: ObituaryItem | null = null;
-    setObituaryList((prev) =>
-      prev.map((item) => {
-        if (item.id === obId) {
-          approvedItem = {
-            ...item,
-            status: 'approved',
-            approvedBy: userProfile?.name || 'Yönetici / Editör',
-          };
-          return approvedItem;
-        }
-        return item;
-      })
+    const ok = await setObituaryList((prev) =>
+      prev.map((item) =>
+        item.id === obId ? { ...item, status: 'approved', approvedBy: userProfile?.name || 'Yönetici / Editör' } : item
+      )
     );
-
-    if (approvedItem) {
-      const ob: ObituaryItem = approvedItem;
-      await sendAndroidAppNotification({
-        title: `🕊️ Vefat & Taziye: ${ob.name}`,
-        body: `Cenazesi ${ob.date} vakti ${ob.mosque} camiinden kaldırılacaktır. Memleketi: ${ob.hometown}. Taziye: ${ob.phone}. Başsağlığı dileriz.`,
-        type: 'vefat',
-        actionTab: 'vefat',
-        badgeText: 'VEFAT & TAZİYE',
-        timestamp: Date.now(),
-      });
-    }
+    // Onaylanınca tüm kullanıcılara vefat duyurusu gider
+    if (ok) notifyEvent('vefat-yayin', { id: obId });
   };
 
   const handleRejectObituary = (obId: string) => {
@@ -977,7 +938,9 @@ export default function App() {
 
   const applyMerchantDecision = (mId: string, decision: 'approved' | 'rejected') => {
     const merchant = merchantsList.find((m) => m.id === mId);
-    setMerchantsList((prev) => prev.map((m) => (m.id === mId ? { ...m, status: decision } : m)));
+    setMerchantsList((prev) => prev.map((m) => (m.id === mId ? { ...m, status: decision } : m))).then((ok) => {
+      if (ok) notifyEvent('esnaf-sonuc', { id: mId });
+    });
     if (merchant?.storeId) {
       setRestaurantsList((prev) =>
         prev.map((r) => (r.id === merchant.storeId ? { ...r, approvalStatus: decision } : r))
@@ -1045,7 +1008,9 @@ export default function App() {
             },
             ...prev,
           ]
-    );
+    ).then((ok) => {
+      if (ok) notifyEvent('esnaf-basvuru', { id: `merch-${myUid}` });
+    });
   }, [myUid, userProfile?.role, userProfile?.businessName, restaurantsReady, merchantsReady, allRestaurants.length]);
 
   // Onay durumu işletme kaydından profile yansısın (yönetici onaylayınca esnaf panelinde görünür)
@@ -1057,47 +1022,6 @@ export default function App() {
     }
   }, [ownStore?.approvalStatus]);
 
-  // Canlı hizmet talebi bildirimleri: usta yeni talep, sakin yeni teklif görür
-  const quoteSeenRef = useRef<{ uid: string | null; map: Map<string, number> } | null>(null);
-  useEffect(() => {
-    if (!quotesReady || !myUid) {
-      quoteSeenRef.current = null;
-      return;
-    }
-    const map = new Map<string, number>(quotesAll.map((q) => [q.id, (q.offers || []).length]));
-    const prevSeen = quoteSeenRef.current;
-    if (prevSeen && prevSeen.uid === myUid) {
-      quotesAll.forEach((q) => {
-        const before = prevSeen.map.get(q.id);
-        if (before === undefined && q.ownerUid !== myUid && canSeeAllQuotes) {
-          sendAndroidAppNotification({
-            title: `🔨 Yeni Usta Talebi: ${q.category}`,
-            body: `"${q.subCategory}" için mahalleden yeni talep geldi (${q.urgency}). Teklif vermek için tıklayın.`,
-            type: 'usta_talep',
-            channelId: 'usta_talep',
-            actionTab: 'hizmet',
-            badgeText: 'YENİ TALEP',
-            timestamp: Date.now(),
-          });
-        }
-        if (before !== undefined && q.ownerUid === myUid && (q.offers || []).length > before) {
-          const last = (q.offers || [])[(q.offers || []).length - 1];
-          sendAndroidAppNotification({
-            title: `💼 Ustanızdan Teklif Geldi! (${last?.price || ''})`,
-            body: `${last?.masterTitle || 'Usta'} "${q.subCategory}" talebinize teklif iletti.`,
-            type: 'kullanici_teklif',
-            channelId: 'kullanici_teklif',
-            actionTab: 'tekliflerim',
-            badgeText: 'YENİ TEKLİF',
-            relatedId: q.id,
-            timestamp: Date.now(),
-          });
-        }
-      });
-    }
-    quoteSeenRef.current = { uid: myUid, map };
-  }, [quotesAll, quotesReady, myUid, canSeeAllQuotes]);
-
   // Usta faaliyet alanları: profile kaydedilir ve alanlar herkese açılır/kapanır
   const handleUpdateUstaActivities = async (next: string[]) => {
     if (!myUid || !userProfile) return;
@@ -1106,6 +1030,8 @@ export default function App() {
     try {
       await saveProfile(myUid, { ...userProfile, activities: next });
       await syncUstaFields(myUid, next, prevList);
+      // Yeni alanlara abone ol, bırakılanlardan çık
+      resyncPushTopics(prevList.filter((n) => !next.includes(n)));
     } catch {
       setUserProfile((p) => (p ? { ...p, activities: prevList } : p));
       window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'Faaliyet alanları kaydedilemedi.' }));
@@ -1168,7 +1094,9 @@ export default function App() {
       status: 'pending',
       date: 'Az önce',
     };
-    setMerchantsList((prev) => [newMerchant, ...prev.filter((m) => m.id !== newMerchant.id)]);
+    setMerchantsList((prev) => [newMerchant, ...prev.filter((m) => m.id !== newMerchant.id)]).then((ok) => {
+      if (ok) notifyEvent('esnaf-basvuru', { id: newMerchant.id });
+    });
 
     // Update or activate user profile as esnaf
     const updatedProfile: UserProfile = {
@@ -1191,30 +1119,7 @@ export default function App() {
       saveProfile(authUidRef.current, { ...updatedProfile, businessApproved: false }).catch(() => {});
     }
     setIsLoggedIn(true);
-
-    // Add user notification
-    const notif: UserNotification = {
-      id: `notif-biz-${Date.now()}`,
-      type: 'sistem',
-      title: `🏪 Esnaf Kaydınız Başarıyla Oluşturuldu!`,
-      message: `"${data.businessName}" dükkanınız yönetim onayına gönderildi. Onaylandığında vitrinde herkese görünür olacak; panelinizden ürünlerinizi şimdiden hazırlayabilirsiniz.`,
-      date: 'Az önce',
-      read: false,
-      badgeText: 'Esnaf Bağlandı',
-      sender: 'Esnaf İşletme Masası',
-      actionTab: 'yemek',
-    };
-    setUserNotifications((prev) => [notif, ...prev]);
-
-    // Send Android push notification
-    sendAndroidAppNotification({
-      title: `🏪 Yeni Esnaf Katıldı: ${data.businessName}`,
-      body: `${data.businessName} Mutlular Esnaf Vitrinine katıldı! İncelemek veya sipariş vermek için dokunun.`,
-      type: 'duyuru',
-      actionTab: 'yemek',
-      badgeText: 'YENİ ESNAF',
-      timestamp: Date.now(),
-    });
+    window.dispatchEvent(new CustomEvent('mp-info', { detail: 'İşletme başvurunuz yönetime iletildi; onaylanınca vitrinde görünür.' }));
   };
 
   const handleSyncStoreProducts = useCallback(
@@ -1356,7 +1261,13 @@ export default function App() {
       offersCount: 0,
       offers: [],
     };
-    setUserQuotes((prev) => [formattedRequest, ...prev]);
+    setUserQuotes((prev) => [formattedRequest, ...prev]).then((ok) => {
+      // Talep kaydedilince YALNIZCA o hizmet alanındaki ustalara bildirim gider
+      if (ok) {
+        notifyEvent('talep-olustu', { id: formattedRequest.id });
+        window.dispatchEvent(new CustomEvent('mp-info', { detail: 'Talebiniz yayınlandı; alandaki ustalara bildirildi.' }));
+      }
+    });
     if (myUid) {
       // İletişim bilgisi: yalnızca talep sahibi, yönetim ve teklifi kabul edilen usta okuyabilir
       setDoc(fsDoc(db, 'plus_talepler', formattedRequest.id, 'iletisim', 'bilgi'), {
@@ -1367,44 +1278,6 @@ export default function App() {
         window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'İletişim bilgisi kaydedilemedi.' }));
       });
     }
-
-    // Add confirmation notification
-    const notif: UserNotification = {
-      id: `notif-quote-${Date.now()}`,
-      type: 'teklif',
-      title: `Teklif Talebiniz Yayında: ${newReq.subCategory}`,
-      message: `"${newReq.category}" alanındaki talebiniz ustalara iletildi. Teklif geldiğinde bildirileceksiniz.`,
-      date: 'Az önce',
-      read: false,
-      relatedId: formattedRequest.id,
-      badgeText: 'İnceleniyor',
-      sender: 'Mutlular Hizmet Havuzu',
-      actionTab: 'tekliflerim',
-    };
-    setUserNotifications((prev) => [notif, ...prev]);
-
-    // 1. Müşteri Bilgilendirme Bildirimi
-    sendAndroidAppNotification({
-      title: '📋 Teklif Talebiniz Alındı',
-      body: `"${newReq.subCategory}" talebiniz ustalara iletildi. Teklif geldiğinde anlık bildirim alacaksınız.`,
-      type: 'teklif',
-      badgeText: 'İNCELENİYOR',
-      actionTab: 'tekliflerim',
-      timestamp: Date.now(),
-    });
-
-    // 2. Ustaya Talep Bildirimi (Özel Bildirim Simülasyonu)
-    setTimeout(() => {
-      sendAndroidAppNotification({
-        title: `🔨 Yeni Usta Talebi: ${newReq.category}`,
-        body: `"${newReq.subCategory}" için mahalleden yeni talep geldi (${newReq.urgency}). Teklif vermek için tıklayın.`,
-        type: 'usta_talep',
-        channelId: 'usta_talep',
-        actionTab: 'hizmet',
-        badgeText: 'YENİ TALEP',
-        timestamp: Date.now(),
-      });
-    }, 1200);
   };
 
   const handleAcceptOffer = (requestId: string, offer: MasterOffer) => {
@@ -1418,30 +1291,12 @@ export default function App() {
             }
           : q
       )
-    );
-
-    // Add acceptance notification
-    const notif: UserNotification = {
-      id: `notif-accept-${Date.now()}`,
-      type: 'teklif',
-      title: `Teklif Kabul Edildi: ${offer.masterTitle}`,
-      message: `${offer.price} tutarındaki teklifi kabul ettiniz. Ustanız adresinize yönlendirildi.`,
-      date: 'Az önce',
-      read: false,
-      relatedId: requestId,
-      badgeText: 'Anlaşıldı',
-      sender: offer.masterTitle,
-      actionTab: 'tekliflerim',
-    };
-    setUserNotifications((prev) => [notif, ...prev]);
-
-    sendAndroidAppNotification({
-      title: `🤝 Teklif Kabul Edildi: ${offer.price}`,
-      body: `${offer.masterTitle} teklifinizi onayladınız. Usta adresinize yönlendirildi.`,
-      type: 'teklif',
-      badgeText: 'ONAYLANDI',
-      actionTab: 'tekliflerim',
-      timestamp: Date.now(),
+    ).then((ok) => {
+      // Seçilen ustaya "teklifiniz kabul edildi", diğerlerine "talep sonuçlandı" bildirimi gider
+      if (ok) {
+        notifyEvent('teklif-kabul', { id: requestId });
+        window.dispatchEvent(new CustomEvent('mp-info', { detail: 'Teklifi onayladınız; usta bilgilendirildi.' }));
+      }
     });
   };
 
@@ -1471,35 +1326,16 @@ export default function App() {
         offers: arrayUnion(offer),
         offersCount: increment(1),
         status: 'teklif-geldi',
-      }).catch(() => {
+      })
+        .then(() => {
+          // Talep sahibine "teklif geldi" bildirimi (onay için) gider
+          notifyEvent('teklif-verildi', { id: offerData.requestId, offerId: offer.id });
+          window.dispatchEvent(new CustomEvent('mp-info', { detail: 'Teklifiniz talep sahibine iletildi.' }));
+        })
+        .catch(() => {
         window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: 'Teklif gönderilemedi. Yetkinizi ve bağlantınızı kontrol edin.' }));
       });
     }
-
-    const notif: UserNotification = {
-      id: `notif-usta-${Date.now()}`,
-      type: 'teklif',
-      title: `Teklifiniz İletildi: ${offerData.price}`,
-      message: `${offerData.customerName} adlı sakinin talebine verdiğiniz ${offerData.price} tutarındaki teklif sisteme kaydedildi.`,
-      date: 'Az önce',
-      read: false,
-      badgeText: 'Usta Teklifi',
-      actionTab: 'tekliflerim',
-      sender: userProfile?.name || 'Usta',
-    };
-    setUserNotifications((prev) => [notif, ...prev]);
-
-    // Talepte bulunan kullanıcıya teklif bildirimi (Özel Bildirim)
-    sendAndroidAppNotification({
-      title: `💼 Ustanızdan Teklif Geldi! (${offerData.price})`,
-      body: `${offerData.customerName || 'Sayın Mahalle Sakini'}, ${userProfile?.name || 'Usta'} teklif iletti: "${offerData.message || 'Teklif sunuldu.'}". İnceleyin.`,
-      type: 'kullanici_teklif',
-      channelId: 'kullanici_teklif',
-      actionTab: 'tekliflerim',
-      badgeText: 'YENİ TEKLİF',
-      relatedId: offerData.requestId,
-      timestamp: Date.now(),
-    });
   };
 
   // ---------------------------------------------------------------------------
@@ -1512,6 +1348,12 @@ export default function App() {
     setInfoMsg(msg);
     setTimeout(() => setInfoMsg(null), 4000);
   };
+
+  useEffect(() => {
+    const onInfo = (e: Event) => showInfo(String((e as CustomEvent).detail || ''));
+    window.addEventListener('mp-info', onInfo);
+    return () => window.removeEventListener('mp-info', onInfo);
+  }, []);
 
   /** Yönetim: tüm kayıtlı cihazlara gerçek push gönderir */
   const handleBroadcastPush = (title: string, body: string, actionTab = 'profil') => {
@@ -2193,7 +2035,6 @@ export default function App() {
                   onMarkAllAsRead={handleMarkAllAsRead}
                   onDeleteNotification={handleDeleteNotification}
                   onClearAll={handleClearAllNotifications}
-                  onAddTestNotification={handleAddTestNotification}
                   onNavigateToQuotes={(relatedId) => {
                     setProfileSubTab('tekliflerim');
                   }}
@@ -3194,6 +3035,10 @@ export default function App() {
           classifiedList={classifiedList}
           newsList={newsList}
           heroBanners={heroBanners}
+          kesintiOnay={kesintiOnay}
+          onApproveKesinti={handleApproveKesinti}
+          onRejectKesinti={handleRejectKesinti}
+          onScanKesinti={handleScanKesinti}
           pendingAds={pendingClassifieds}
           onRejectAd={handleAdminRejectAd}
           onAddHeroBanner={(b) => setHeroBanners((prev) => [b, ...prev])}

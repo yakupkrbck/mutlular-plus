@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import {
   ClassifiedItem,
-  NewsItem, HeroBannerItem,
+  NewsItem, HeroBannerItem, KesintiOnayItem,
   ObituaryItem,
   ClassifiedMainCategory,
   ClassifiedSubCategory,
@@ -58,6 +58,7 @@ import {
 } from '../../services/androidNotificationService';
 import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 import { ImageCropField } from '../ImageCropField';
+import { broadcastPush } from '../../services/pushService';
 
 export interface PendingAdItem extends ClassifiedItem {
   status: 'pending' | 'approved' | 'rejected';
@@ -94,6 +95,10 @@ interface AdminPanelModalProps {
   classifiedList: ClassifiedItem[];
   newsList: NewsItem[];
   heroBanners?: HeroBannerItem[];
+  kesintiOnay?: KesintiOnayItem[];
+  onApproveKesinti?: (id: string) => void;
+  onRejectKesinti?: (id: string) => void;
+  onScanKesinti?: () => void;
   pendingAds?: ClassifiedItem[];
   onRejectAd?: (adId: string) => void;
   onAddHeroBanner?: (b: HeroBannerItem) => void;
@@ -120,6 +125,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   classifiedList,
   newsList,
   heroBanners = [],
+  kesintiOnay = [],
+  onApproveKesinti,
+  onRejectKesinti,
+  onScanKesinti,
   pendingAds: pendingAdsProp = [],
   onRejectAd,
   onAddHeroBanner,
@@ -141,7 +150,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -329,14 +338,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
     onAddNewNews(created);
     if (created.urgent) {
-      sendAndroidAppNotification({
-        title: `🚨 SON DAKİKA: ${created.title}`,
-        body: created.summary,
-        type: 'son_dakika',
-        actionTab: 'haber',
-        badgeText: 'SON DAKİKA',
-        timestamp: Date.now(),
-      });
+      broadcastPush(`🚨 SON DAKİKA: ${created.title}`, created.summary, 'haber');
       if (onBroadcastNotification) {
         onBroadcastNotification({
           id: `news-urgent-${Date.now()}`,
@@ -465,15 +467,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // Push Notification Dispatchers for Admin
   const handleBroadcastAdPush = async (ad: ClassifiedItem) => {
-    await sendAndroidAppNotification({
-      title: `🏷️ Öne Çıkan İlan: ${ad.title}`,
-      body: `${ad.price} • ${ad.location} - İlanı incelemek için dokunun.`,
-      type: 'ilan',
-      actionTab: 'alim_satim',
-      relatedId: ad.id,
-      badgeText: ad.mainCategory?.toUpperCase() || 'İLAN',
-      timestamp: Date.now(),
-    });
+    broadcastPush(`🏷️ Öne Çıkan İlan: ${ad.title}`, `${ad.price} • ${ad.location} - İlanı incelemek için dokunun.`, 'alim_satim');
 
     if (onBroadcastNotification) {
       onBroadcastNotification({
@@ -494,15 +488,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   };
 
   const handleBroadcastNewsPush = async (item: NewsItem) => {
-    await sendAndroidAppNotification({
-      title: `🚨 SON DAKİKA: ${item.title}`,
-      body: item.summary,
-      type: 'son_dakika',
-      actionTab: 'haber',
-      relatedId: item.id,
-      badgeText: 'SON DAKİKA',
-      timestamp: Date.now(),
-    });
+    broadcastPush(`🚨 SON DAKİKA: ${item.title}`, item.summary, 'haber');
 
     if (onBroadcastNotification) {
       onBroadcastNotification({
@@ -530,14 +516,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     }
 
     setIsSendingPush(true);
-    await sendAndroidAppNotification({
-      title: broadcastTitle,
-      body: broadcastBody,
-      type: broadcastType,
-      actionTab: broadcastActionTab,
-      badgeText: broadcastBadgeText || 'DUYURU',
-      timestamp: Date.now(),
-    });
+    broadcastPush(broadcastTitle, broadcastBody, broadcastActionTab);
 
     if (onBroadcastNotification) {
       onBroadcastNotification({
@@ -681,6 +660,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 {pendingObituariesCount} bekliyor
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('kesinti-onay')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'kesinti-onay'
+                ? 'bg-amber-500 text-neutral-900 shadow-xs'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Kesinti Onayı ({kesintiOnay.filter((k) => k.status === 'bekliyor').length})</span>
           </button>
 
           <button
@@ -1632,14 +1623,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={async () => {
-                              await sendAndroidAppNotification({
-                                title: `🕊️ Vefat & Taziye: ${ob.name}`,
-                                body: `Cenazesi ${ob.date} vakti ${ob.mosque} camiinden kaldırılacaktır. Memleketi: ${ob.hometown}. Taziye: ${ob.phone}.`,
-                                type: 'vefat',
-                                actionTab: 'vefat',
-                                badgeText: 'VEFAT & TAZİYE',
-                                timestamp: Date.now(),
-                              });
+                              broadcastPush(`🕊️ Vefat & Taziye: ${ob.name}`, `Cenazesi ${ob.date} vakti ${ob.mosque} camiinden kaldırılacaktır. Memleketi: ${ob.hometown}. Taziye: ${ob.phone}.`, 'vefat');
                               showToast(`🕊️ "${ob.name}" için mahalleye taziye bildirimi iletildi.`);
                             }}
                             className="py-1.5 px-3 rounded-xl bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold flex items-center gap-1.5 transition"
@@ -1670,6 +1654,82 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           )}
 
           {/* TAB 2: TÜM HABERLERİ YÖNETME, DÜZENLEME, SİLME VE YENİ HABER GİRME */}
+          {activeTab === 'kesinti-onay' && (
+            <div className="space-y-3">
+              <div className="p-4 rounded-2xl bg-neutral-800/80 border border-neutral-700 space-y-2">
+                <h3 className="text-sm font-black text-white">Kesinti Bildirimi Onayı</h3>
+                <p className="text-[11px] text-neutral-400 leading-snug">
+                  UEDAŞ ve BUSKİ'de yeni kesinti çıkınca önce size bildirim gelir. Onaylarsanız tüm kullanıcılara bildirim gider, reddederseniz kimseye gitmez.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onScanKesinti?.()}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-neutral-900 font-black text-xs rounded-xl py-2.5"
+                >
+                  Şimdi Tara
+                </button>
+              </div>
+
+              {kesintiOnay.filter((k) => k.status === 'bekliyor').length === 0 && (
+                <p className="text-[11px] text-neutral-400 px-1">Onay bekleyen kesinti yok.</p>
+              )}
+
+              {kesintiOnay
+                .filter((k) => k.status === 'bekliyor')
+                .map((k) => (
+                  <div key={k.id} className="p-3.5 rounded-2xl bg-neutral-800/80 border border-amber-500/40 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black uppercase text-amber-300">
+                        {k.tip === 'Elektrik' ? '⚡ Elektrik' : '💧 Su'} • {k.kaynak}
+                      </span>
+                      <span className="text-[10px] text-neutral-400">
+                        {k.tarih} {k.saat}
+                      </span>
+                    </div>
+                    <div className="text-xs font-bold text-white">{k.mahalle}</div>
+                    {k.aciklama && <p className="text-[11px] text-neutral-300 leading-snug">{k.aciklama}</p>}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => onApproveKesinti?.(k.id)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl py-2.5"
+                      >
+                        Onayla ve Herkese Gönder
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('Bu kesinti kimseye bildirilmeden reddedilsin mi?')) onRejectKesinti?.(k.id);
+                        }}
+                        className="bg-neutral-700 hover:bg-neutral-600 text-white font-black text-xs rounded-xl py-2.5"
+                      >
+                        Reddet
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {kesintiOnay.filter((k) => k.status !== 'bekliyor').length > 0 && (
+                <div className="pt-1 space-y-1.5">
+                  <h4 className="text-[11px] font-black text-neutral-400 uppercase">Son kararlar</h4>
+                  {kesintiOnay
+                    .filter((k) => k.status !== 'bekliyor')
+                    .slice(0, 6)
+                    .map((k) => (
+                      <div key={k.id} className="flex items-center justify-between gap-2 text-[11px] text-neutral-300 bg-neutral-800/60 rounded-xl px-3 py-2">
+                        <span className="truncate">
+                          {k.tip === 'Elektrik' ? '⚡' : '💧'} {k.mahalle}
+                        </span>
+                        <span className={k.status === 'onaylandi' ? 'text-emerald-400 font-bold' : 'text-neutral-500 font-bold'}>
+                          {k.status === 'onaylandi' ? 'Gönderildi' : 'Reddedildi'}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'vitrin-afisleri' && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-neutral-800/80 border border-neutral-700 space-y-3">

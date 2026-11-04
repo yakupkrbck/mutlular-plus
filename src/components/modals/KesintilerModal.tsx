@@ -203,14 +203,7 @@ export const KesintilerModal: React.FC<KesintilerModalProps> = ({
           );
 
           if (matchingNeighborhood) {
-            sendAndroidAppNotification({
-              title: `⚡ Kesinti Alarmı: ${matchingNeighborhood.name}`,
-              body: `${outage.saat} saatlerinde planlı elektrik kesintisi: ${
-                outage.neden || 'Bakım onarım'
-              }`,
-              type: 'acil',
-              channelId: 'yonetici_duyuru',
-            });
+            
             newNotifiedIds.push(outage.id);
           }
         }
@@ -228,12 +221,7 @@ export const KesintilerModal: React.FC<KesintilerModalProps> = ({
           );
 
           if (matchingNeighborhood) {
-            sendAndroidAppNotification({
-              title: `💧 Kesinti Alarmı: ${matchingNeighborhood.name}`,
-              body: `${item.baslik} (${item.saat || 'Duyuru'})`,
-              type: 'acil',
-              channelId: 'yonetici_duyuru',
-            });
+            
             newNotifiedIds.push(item.id);
           }
         }
@@ -340,12 +328,7 @@ export const KesintilerModal: React.FC<KesintilerModalProps> = ({
   const handleTestNotification = async () => {
     const status = await requestAndroidNotificationPermission();
     setNotificationPermission(status);
-    sendAndroidAppNotification({
-      title: `🔔 Kesinti Alarmı: ${selectedNeighborhood.name}`,
-      body: 'Kesinti alarm sistemi aktif. Bu mahallede planlı bakım veya kesinti olduğunda anında bildirim alacaksınız.',
-      type: 'duyuru',
-      channelId: 'yonetici_duyuru',
-    });
+    
     setTestNotificationSent(true);
     setTimeout(() => setTestNotificationSent(false), 3500);
   };

@@ -329,3 +329,17 @@ export interface HeroBannerItem {
   tag?: string;
   ownerUid?: string;
 }
+
+// UEDAŞ / BUSKİ taramasının bulduğu kesinti; yönetici onaylarsa tüm kullanıcılara bildirilir
+export interface KesintiOnayItem {
+  id: string;
+  kaynak: string;
+  tip: 'Elektrik' | 'Su' | string;
+  baslik?: string;
+  aciklama?: string;
+  mahalle: string;
+  tarih?: string;
+  saat?: string;
+  status: 'bekliyor' | 'onaylandi' | 'reddedildi';
+  createdAtMs?: number;
+}

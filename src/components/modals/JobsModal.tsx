@@ -149,14 +149,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
     onAddNewJob(createdJob);
 
     // Send Real Android Push Notification to town
-    sendAndroidAppNotification({
-      title: `💼 Yeni Eleman Aranıyor: ${createdJob.title}`,
-      body: `${createdJob.company} (${createdJob.location}) - ${createdJob.salary || 'Başvurular Açık'}. İncelemek için dokunun.`,
-      type: 'duyuru',
-      actionTab: 'hizmet',
-      badgeText: createdJob.isUrgent ? 'ACİL ELEMAN' : 'İŞ İLANI',
-      timestamp: Date.now(),
-    });
+    
 
     setIsCreateFormOpen(false);
     // Reset Form
@@ -204,14 +197,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
     });
 
     // Send Android confirmation notification
-    sendAndroidAppNotification({
-      title: `📄 İş Başvurunuz Alındı!`,
-      body: `"${selectedJob.title}" pozisyonu için başvurunuz ${selectedJob.company} işverenine iletildi.`,
-      type: 'teklif',
-      actionTab: 'profil',
-      badgeText: 'BAŞVURU YAPILDI',
-      timestamp: Date.now(),
-    });
+    
 
     setIsApplyModalOpen(false);
     showToast(`✓ "${selectedJob.title}" pozisyonuna başvurunuz başarıyla iletildi!`);

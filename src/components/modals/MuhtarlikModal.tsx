@@ -239,15 +239,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
 
     // Play native notification chime & vibration
     try {
-      await sendAndroidAppNotification({
-        id: `push-muhtar-${Date.now()}`,
-        title: '🏛️ Yeni Muhtarlık Başvurusu & Talebi Geldi!',
-        body: `${formData.name} (${formData.street || 'Mehmet Akif Mah.'}): ${formData.category} - "${formData.message.slice(0, 75)}..."`,
-        type: 'muhtarlik',
-        badgeText: 'RESMİ TALEP',
-        actionTab: 'muhtar_paneli',
-        relatedId: generatedId,
-      });
+      
     } catch (err) {
       console.warn('Push error:', err);
     }
