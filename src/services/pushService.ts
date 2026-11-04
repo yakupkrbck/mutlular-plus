@@ -44,6 +44,7 @@ async function registerWithWorker(token: string, removeFields: string[] = []): P
 }
 
 let nativeListenersAdded = false;
+let nativePending: ((r: PushResult) => void) | null = null;
 
 async function enableNative(): Promise<PushResult> {
   try {
@@ -51,27 +52,45 @@ async function enableNative(): Promise<PushResult> {
     const perm = await PushNotifications.requestPermissions();
     if (perm.receive !== 'granted') return { ok: false, reason: 'denied' };
 
+    // Dinleyiciler yalnızca BİR kez eklenir (eskiden her çağrıda yenisi ekleniyor, Worker'a çoklu kayıt gidiyordu)
+    if (!nativeListenersAdded) {
+      nativeListenersAdded = true;
+      // Uygulama açıkken gelen bildirimi uygulama içi uyarı olarak göster
+      PushNotifications.addListener('pushNotificationReceived', (n) => {
+        sendAndroidAppNotification({ title: n.title || 'Mutlular Plus', body: n.body || '', type: 'duyuru' });
+      });
+      // Bildirime dokunulunca ilgili sekmeye git (web'deki service worker tıklamasıyla aynı akış)
+      PushNotifications.addListener('pushNotificationActionPerformed', (a) => {
+        const payload = ((a as any)?.notification?.data as Record<string, unknown>) || {};
+        try {
+          navigator.serviceWorker?.dispatchEvent(
+            new MessageEvent('message', { data: { type: 'NOTIFICATION_CLICKED', payload } })
+          );
+        } catch {}
+      });
+      // Jeton her geldiğinde (ilk kayıt ya da FCM'in yenilemesi) Worker'a bildirilir
+      PushNotifications.addListener('registration', async (t) => {
+        const r = await registerWithWorker(t.value);
+        const cb = nativePending;
+        nativePending = null;
+        cb?.(r.ok ? { ok: true } : { ok: false, reason: 'register_failed', detail: r.error });
+      });
+      PushNotifications.addListener('registrationError', (e) => {
+        const cb = nativePending;
+        nativePending = null;
+        cb?.({ ok: false, reason: 'native_error', detail: String((e as any)?.error || '') });
+      });
+    }
+
     return await new Promise<PushResult>((resolve) => {
       let done = false;
       const finish = (r: PushResult) => {
         if (done) return;
         done = true;
+        if (nativePending === finish) nativePending = null;
         resolve(r);
       };
-      if (!nativeListenersAdded) {
-        nativeListenersAdded = true;
-        // Uygulama açıkken gelen bildirimi uygulama içi uyarı olarak göster
-        PushNotifications.addListener('pushNotificationReceived', (n) => {
-          sendAndroidAppNotification({ title: n.title || 'Mutlular Plus', body: n.body || '', type: 'duyuru' });
-        });
-      }
-      PushNotifications.addListener('registration', async (t) => {
-        const r = await registerWithWorker(t.value);
-        finish(r.ok ? { ok: true } : { ok: false, reason: 'register_failed', detail: r.error });
-      });
-      PushNotifications.addListener('registrationError', (e) =>
-        finish({ ok: false, reason: 'native_error', detail: String((e as any)?.error || '') })
-      );
+      nativePending = finish;
       PushNotifications.register();
       setTimeout(() => finish({ ok: false, reason: 'timeout' }), 12000);
     });
