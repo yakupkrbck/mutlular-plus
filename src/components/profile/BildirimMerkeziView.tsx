@@ -495,7 +495,7 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
               onClick={() => {
                 if (!item.read) onMarkAsRead(item.id);
                 if (onNavigateTab && item.actionTab) {
-                  onNavigateTab(item.actionTab, undefined, item.relatedId);
+                  onNavigateTab(item.actionTab, item.subTab, item.relatedId);
                 } else if (item.actionTab === 'tekliflerim') {
                   onNavigateToQuotes(item.relatedId);
                 } else if (item.actionTab === 'alim-satim' || item.actionTab === 'alim_satim') {
