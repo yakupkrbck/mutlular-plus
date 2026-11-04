@@ -304,6 +304,7 @@ export interface UserNotification {
   badgeText?: string;
   sender?: string;
   actionTab?: string;
+  subTab?: string;
   imageUrl?: string;
 }
 
