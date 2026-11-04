@@ -32,7 +32,7 @@ interface EditorPanelModalProps {
   merchantsList?: PendingMerchantItem[];
   pendingAds?: ClassifiedItem[];
   /** Tüm cihazlara gerçek push gönderir (Worker yetkiyi doğrular) */
-  onBroadcastPush?: (title: string, body: string, actionTab?: string) => void;
+  onBroadcastPush?: (title: string, body: string, actionTab?: string, relatedId?: string) => void;
   onRejectAd?: (adId: string) => void;
   onApproveAd?: (ad: ClassifiedItem) => void;
   onDeleteAd?: (adId: string) => void;
@@ -97,7 +97,7 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
 
   // Son dakika haberini TÜM cihazlara bildirim olarak gönderir
   const handleBroadcastNewsPush = (item: NewsItem) => {
-    onBroadcastPush?.(`🚨 SON DAKİKA: ${item.title}`, item.summary, 'haber');
+    onBroadcastPush?.(`🚨 SON DAKİKA: ${item.title}`, item.summary, 'haber', item.id);
     showToast(`"${item.title}" Son Dakika bildirimi tüm cihazlara gönderiliyor…`);
   };
 

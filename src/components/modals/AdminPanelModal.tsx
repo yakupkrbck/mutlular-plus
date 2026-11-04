@@ -226,12 +226,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     category: string;
     urgent: boolean;
     image: string;
+    date: string;
   }>({
     title: '',
     summary: '',
     category: 'Şehir & Yaşam',
     urgent: false,
     image: '',
+    date: '',
   });
 
   // 2. Comments Moderation State
@@ -247,6 +249,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [newNewsCategory, setNewNewsCategory] = useState('Şehir & Yaşam');
   const [newNewsImage, setNewNewsImage] = useState('');
   const [newNewsUrgent, setNewNewsUrgent] = useState(false);
+  const [newNewsSendPush, setNewNewsSendPush] = useState(false);
   const [newsSuccessToast, setNewsSuccessToast] = useState(false);
 
   // Search inside admin lists
@@ -337,27 +340,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     };
 
     onAddNewNews(created);
-    if (created.urgent) {
-      broadcastPush(`🚨 SON DAKİKA: ${created.title}`, created.summary, 'haber');
-      if (onBroadcastNotification) {
-        onBroadcastNotification({
-          id: `news-urgent-${Date.now()}`,
-          type: 'haber',
-          title: `Son Dakika: ${created.title}`,
-          message: created.summary,
-          date: 'Şimdi',
-          read: false,
-          badgeText: 'Son Dakika',
-          sender: 'Haber Masası',
-          actionTab: 'haber',
-        });
-      }
-    }
+    // Bildirim yalnızca "Son Dakika" işaretliyse VE "Bildirim olarak gönder" seçildiyse gider
+    const sendPush = !!created.urgent && newNewsSendPush;
+    if (sendPush) handleBroadcastNewsPush(created);
     setNewNewsTitle('');
     setNewNewsSummary('');
+    setNewNewsSendPush(false);
       setNewNewsImage('');
     setNewsSuccessToast(true);
-    showToast(`✓ Yeni haber "${created.title.slice(0, 22)}..." başarıyla yayınlandı!`);
+    showToast(`✓ Yeni haber "${created.title.slice(0, 22)}..." başarıyla yayınlandı!${sendPush ? ' 🚨 Bildirim tüm cihazlara gönderildi.' : ''}`);
     setTimeout(() => setNewsSuccessToast(false), 3000);
   };
 
@@ -376,6 +367,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       category: item.category,
       urgent: !!item.urgent,
       image: item.image || '',
+      date: item.date || '',
     });
   };
 
@@ -388,6 +380,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         category: editNewsForm.category,
         urgent: editNewsForm.urgent,
         image: editNewsForm.image || item.image,
+        date: editNewsForm.date.trim() || item.date,
       });
       showToast('✓ Haber başarıyla güncellendi!');
     }
@@ -467,7 +460,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // Push Notification Dispatchers for Admin
   const handleBroadcastAdPush = async (ad: ClassifiedItem) => {
-    broadcastPush(`🏷️ Öne Çıkan İlan: ${ad.title}`, `${ad.price} • ${ad.location} - İlanı incelemek için dokunun.`, 'alim_satim');
+    if (!onBroadcastNotification) broadcastPush(`🏷️ Öne Çıkan İlan: ${ad.title}`, `${ad.price} • ${ad.location} - İlanı incelemek için dokunun.`, 'alim_satim');
 
     if (onBroadcastNotification) {
       onBroadcastNotification({
@@ -488,13 +481,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   };
 
   const handleBroadcastNewsPush = async (item: NewsItem) => {
-    broadcastPush(`🚨 SON DAKİKA: ${item.title}`, item.summary, 'haber');
-
+    const pushTitle = `🚨 SON DAKİKA: ${item.title}`;
     if (onBroadcastNotification) {
+      // App.tsx hem uygulama içi duyuruyu ekler hem gerçek push'u TEK sefer gönderir (haber id'siyle)
       onBroadcastNotification({
         id: `news-push-${Date.now()}`,
         type: 'haber',
-        title: `🚨 SON DAKİKA: ${item.title}`,
+        title: pushTitle,
         message: item.summary,
         date: 'Şimdi',
         read: false,
@@ -503,6 +496,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         sender: 'Mutlular Haber & Basın',
         actionTab: 'haber',
       });
+    } else {
+      broadcastPush(pushTitle, item.summary, 'haber', item.id);
     }
 
     showToast(`🚨 "${item.title}" haberi Son Dakika bildirimi olarak gönderildi!`);
@@ -516,7 +511,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     }
 
     setIsSendingPush(true);
-    broadcastPush(broadcastTitle, broadcastBody, broadcastActionTab);
+    if (!onBroadcastNotification) broadcastPush(broadcastTitle, broadcastBody, broadcastActionTab);
 
     if (onBroadcastNotification) {
       onBroadcastNotification({
@@ -1889,7 +1884,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <input
                         type="checkbox"
                         checked={newNewsUrgent}
-                        onChange={(e) => setNewNewsUrgent(e.target.checked)}
+                        onChange={(e) => {
+                          setNewNewsUrgent(e.target.checked);
+                          if (!e.target.checked) setNewNewsSendPush(false);
+                        }}
                         className="w-4 h-4 text-rose-600 rounded bg-neutral-900 border-neutral-700"
                       />
                       <span className="text-rose-400 font-bold">Acil / Son Dakika Rozeti Ekle</span>
@@ -1903,6 +1901,22 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <span>Haberi Yayınla</span>
                     </button>
                   </div>
+                  {newNewsUrgent && (
+                    <label className="flex items-start gap-2 cursor-pointer p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-semibold text-neutral-200">
+                      <input
+                        type="checkbox"
+                        checked={newNewsSendPush}
+                        onChange={(e) => setNewNewsSendPush(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 text-rose-600 rounded bg-neutral-900 border-neutral-700"
+                      />
+                      <span>
+                        <span className="text-rose-300 font-bold">Bildirim olarak gönder</span>
+                        <span className="block text-[10.5px] text-neutral-400 font-normal mt-0.5">
+                          Haber yayınlanınca tüm cihazlara bildirim gider; bildirime dokunan haberi tam ekran açar.
+                        </span>
+                      </span>
+                    </label>
+                  )}
                 </form>
               </div>
 
@@ -1957,10 +1971,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                             <div>
                               <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
-                                Haber Özeti
+                                Haber Özeti & Detayı
                               </label>
                               <textarea
-                                rows={2}
+                                rows={6}
                                 value={editNewsForm.summary}
                                 onChange={(e) =>
                                   setEditNewsForm((prev) => ({
@@ -1970,6 +1984,34 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                 }
                                 className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
                               />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                Yayın Tarihi (haberde görünen)
+                              </label>
+                              <input
+                                type="text"
+                                value={editNewsForm.date}
+                                onChange={(e) => setEditNewsForm((prev) => ({ ...prev, date: e.target.value }))}
+                                placeholder="05.11.2026 14:30"
+                                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                Haber Fotoğrafı
+                              </label>
+                              <div className="bg-white rounded-xl p-2">
+                                <ImageCropField
+                                  value={editNewsForm.image}
+                                  onChange={(v) => setEditNewsForm((prev) => ({ ...prev, image: v }))}
+                                  aspect={16 / 9}
+                                  outputWidth={1200}
+                                  hint="Değiştirmek için yeni fotoğraf yükleyin."
+                                />
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
