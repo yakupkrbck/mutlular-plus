@@ -80,6 +80,7 @@ function showAndroidSystemNotification(payload) {
 
   const notificationData = {
     ...data,
+    title,
     actionTab: payload.actionTab || (data && data.actionTab) || 'profil',
     subTab: payload.subTab || (data && data.subTab) || 'bildirimler',
     relatedId: payload.relatedId || (data && data.relatedId),

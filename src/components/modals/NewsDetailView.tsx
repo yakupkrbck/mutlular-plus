@@ -1,7 +1,8 @@
 import React from 'react';
-import { X, Calendar, Share2, Eye, Tag, ArrowLeft } from 'lucide-react';
+import { Calendar, Share2, ArrowLeft } from 'lucide-react';
 import { NewsItem } from '../../types';
 import { PLACEHOLDER_IMG } from '../../utils/placeholder';
+import { youtubeId } from '../../utils/newsVideo';
 
 interface NewsDetailViewProps {
   news: NewsItem | null;
@@ -10,6 +11,12 @@ interface NewsDetailViewProps {
 
 export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose }) => {
   if (!news) return null;
+
+  const yt = news.video ? youtubeId(news.video) : null;
+  const paragraphs = (news.content || '')
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -43,47 +50,83 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
           </button>
         </div>
 
-        {/* Featured Image */}
-        <div className="relative h-64 w-full bg-neutral-900 shrink-0">
-          <img
-            src={news.image || PLACEHOLDER_IMG}
-            alt={news.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-          <div className="absolute bottom-3 left-3 right-3 text-white">
-            <span className="bg-rose-600 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-              {news.category}
-            </span>
-            <h2 className="text-[15px] font-black leading-snug mt-1.5 drop-shadow-md">
-              {news.title}
-            </h2>
-            <div className="flex items-center gap-2 text-[10px] text-white/80 font-medium mt-1">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {news.date}
-              </span>
+        {news.video ? (
+          /* Video: oynatıcı üstte, başlık altta (kontroller görünür kalsın) */
+          <div className="w-full bg-black shrink-0" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 52px)' }}>
+            <div className="aspect-video w-full">
+              {yt ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${yt}?rel=0&playsinline=1`}
+                  title={news.title}
+                  allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              ) : (
+                <video
+                  src={news.video}
+                  poster={news.image || undefined}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full h-full bg-black"
+                />
+              )}
             </div>
           </div>
-        </div>
+        ) : (
+          /* Featured Image */
+          <div className="relative h-64 w-full bg-neutral-900 shrink-0">
+            <img
+              src={news.image || PLACEHOLDER_IMG}
+              alt={news.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+            <div className="absolute bottom-3 left-3 right-3 text-white">
+              <span className="bg-rose-600 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                {news.category}
+              </span>
+              <h2 className="text-[15px] font-black leading-snug mt-1.5 drop-shadow-md">
+                {news.title}
+              </h2>
+              <div className="flex items-center gap-2 text-[10px] text-white/80 font-medium mt-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {news.date}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Article Body */}
         <div className="p-4 overflow-y-auto space-y-3.5 flex-1 text-[13px] text-neutral-700 leading-relaxed">
+          {news.video && (
+            <div className="space-y-1.5">
+              <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                {news.category}
+              </span>
+              <h2 className="text-[17px] font-black leading-snug text-neutral-900">{news.title}</h2>
+              <div className="flex items-center gap-1 text-[10px] text-neutral-500 font-medium">
+                <Calendar className="w-3 h-3" />
+                {news.date}
+              </div>
+            </div>
+          )}
+
           <p className="font-bold text-neutral-900 leading-snug text-[14px]">
             {news.summary}
           </p>
 
-          <p>
-            Mutlular genelinde devam eden kalkınma ve istihdam hamlesi kapsamında yeni yatırımlar hayata geçiriliyor. Şehrin önde gelen sivil toplum kuruluşları, sanayiciler ve esnaf temsilcileri bir araya gelerek ortak yol haritasını değerlendirdi.
-          </p>
+          {paragraphs.map((p, i) => (
+            <p key={i} className="whitespace-pre-line">
+              {p}
+            </p>
+          ))}
 
-          <p>
-            Vatandaşların yoğun ilgi gösterdiği projede özellikle genç istihdamı, üniversite sanayi iş birliği ve Mutlular Plus dijital altyapısının yaygınlaştırılması ön planda tutuluyor.
-          </p>
-
-          <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200 text-[11px] space-y-1">
+          <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200 text-[11px]">
             <div className="font-extrabold text-neutral-800">Mutlular Plus Haber Masası</div>
-            <div className="text-neutral-500">Kaynak: Yerel Muhabir Ağı • Doğrulanmış Haber</div>
           </div>
         </div>
 

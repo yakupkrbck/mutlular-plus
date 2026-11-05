@@ -43,6 +43,25 @@ async function registerWithWorker(token: string, removeFields: string[] = []): P
   return { ok: true };
 }
 
+let clickListenerAdded = false;
+
+// Android uygulaması: bildirime dokunma dinleyicisi GİRİŞ BEKLEMEDEN, uygulama açılır açılmaz kurulmalı
+// (uygulama kapalıyken bildirime dokunulursa olay, dinleyici eklenince iletilir).
+export async function initNativePushClickListener(): Promise<void> {
+  if (clickListenerAdded || !Capacitor.isNativePlatform()) return;
+  clickListenerAdded = true;
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    await PushNotifications.addListener('pushNotificationActionPerformed', (a) => {
+      const n: any = (a as any)?.notification || {};
+      const detail = { ...(n.data || {}), title: n.title, body: n.body };
+      window.dispatchEvent(new CustomEvent('mp-notification-click', { detail }));
+    });
+  } catch {
+    clickListenerAdded = false;
+  }
+}
+
 let nativeListenersAdded = false;
 let nativePending: ((r: PushResult) => void) | null = null;
 
@@ -66,15 +85,6 @@ async function enableNative(): Promise<PushResult> {
           subTab: dd.subTab,
           relatedId: dd.relatedId,
         });
-      });
-      // Bildirime dokunulunca ilgili sekmeye git (web'deki service worker tıklamasıyla aynı akış)
-      PushNotifications.addListener('pushNotificationActionPerformed', (a) => {
-        const payload = ((a as any)?.notification?.data as Record<string, unknown>) || {};
-        try {
-          navigator.serviceWorker?.dispatchEvent(
-            new MessageEvent('message', { data: { type: 'NOTIFICATION_CLICKED', payload } })
-          );
-        } catch {}
       });
       // Jeton her geldiğinde (ilk kayıt ya da FCM'in yenilemesi) Worker'a bildirilir
       PushNotifications.addListener('registration', async (t) => {

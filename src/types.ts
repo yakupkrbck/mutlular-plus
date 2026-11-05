@@ -115,6 +115,10 @@ export interface NewsItem {
   date: string;
   urgent?: boolean;
   image?: string;
+  /** Haber videosu: YouTube bağlantısı ya da yüklenmiş video dosyası bağlantısı */
+  video?: string;
+  /** Haber metni (özetin altında paragraflar halinde gösterilir) */
+  content?: string;
   readCount?: string;
 }
 

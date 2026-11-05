@@ -11,10 +11,12 @@ import {
   ChevronRight,
   Sparkles,
   Building2,
-  Send
+  Send,
+  Play
 } from 'lucide-react';
 import { NewsItem, ObituaryItem } from '../types';
 import { PLACEHOLDER_IMG } from '../utils/placeholder';
+import { mergeNewsCategories } from '../data/newsCategories';
 
 interface HaberScreenProps {
   newsList: NewsItem[];
@@ -23,15 +25,12 @@ interface HaberScreenProps {
   onOpenNewsTip: () => void;
 }
 
-const NEWS_CATEGORIES = [
-  'Tümü',
-  'Şehir & Yaşam',
-  'Eğitim & Kampüs',
-  'Esnaf & Ekonomi',
-  'Kültür & Turizm',
-  'Spor',
-  'Belediye Duyurusu',
-];
+const VideoBadge: React.FC<{ pos?: string }> = ({ pos = 'bottom-1.5 left-1.5' }) => (
+  <span className={`absolute ${pos} flex items-center gap-1 bg-black/65 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md`}>
+    <Play className="w-2.5 h-2.5 fill-white" />
+    VİDEO
+  </span>
+);
 
 export const HaberScreen: React.FC<HaberScreenProps> = ({
   newsList,
@@ -74,7 +73,7 @@ export const HaberScreen: React.FC<HaberScreenProps> = ({
       {/* Category Pills */}
       <div className="px-3 overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-1.5 pb-1">
-          {NEWS_CATEGORIES.map((cat) => {
+          {['Tümü', ...mergeNewsCategories(newsList)].map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
               <button
@@ -130,6 +129,7 @@ export const HaberScreen: React.FC<HaberScreenProps> = ({
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+              {featured.video && <VideoBadge pos="top-3 right-3" />}
 
               <div className="absolute top-3 left-3 flex items-center gap-1.5">
                 <span className="bg-rose-600 text-white text-[9.5px] font-black uppercase px-2 py-0.5 rounded shadow-xs">
@@ -209,11 +209,14 @@ export const HaberScreen: React.FC<HaberScreenProps> = ({
                 onClick={() => onSelectNews(news)}
                 className="bg-white rounded-2xl p-3 border border-neutral-200/80 shadow-2xs flex gap-3 cursor-pointer hover:border-rose-400 active:scale-98 transition group"
               >
-                <img
-                  src={news.image || PLACEHOLDER_IMG}
-                  alt={news.title}
-                  className="w-24 h-24 rounded-xl object-cover shrink-0 bg-neutral-100 group-hover:scale-102 transition-transform"
-                />
+                <div className="relative shrink-0">
+                  <img
+                    src={news.image || PLACEHOLDER_IMG}
+                    alt={news.title}
+                    className="w-24 h-24 rounded-xl object-cover bg-neutral-100 group-hover:scale-102 transition-transform"
+                  />
+                  {news.video && <VideoBadge />}
+                </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">

@@ -16,13 +16,13 @@ interface Signature {
   signature: string;
 }
 
-async function getSignature(): Promise<Signature | null> {
+async function getSignature(kind: 'image' | 'video' = 'image'): Promise<Signature | null> {
   const user = auth.currentUser;
-  if (!user) throw new Error('Fotoğraf yüklemek için giriş yapmalısınız.');
+  if (!user) throw new Error('Yüklemek için giriş yapmalısınız.');
   const token = await user.getIdToken();
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/api/upload-signature`, {
+    res = await fetch(`${API_BASE}/api/upload-signature${kind === 'video' ? '?type=video' : ''}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -31,6 +31,7 @@ async function getSignature(): Promise<Signature | null> {
   }
   if (res.status === 503 || res.status === 404) return null; // henüz yapılandırılmamış
   if (res.status === 401) throw new Error('Oturumunuz doğrulanamadı. Çıkış yapıp tekrar girin.');
+  if (res.status === 403) throw new Error('Video yüklemek için yetkiniz yok.');
   if (res.status === 429) throw new Error('Çok fazla yükleme yapıldı. Biraz sonra tekrar deneyin.');
   if (!res.ok) throw new Error('Yükleme izni alınamadı.');
   return (await res.json()) as Signature;
@@ -89,4 +90,48 @@ export const uploadDataUrlsDeep = async <T,>(value: T, cache = new Map<string, P
     return Object.fromEntries(entries) as T;
   }
   return value;
+};
+
+export const MAX_VIDEO_MB = 80;
+
+// Haber videosu: dosya doğrudan Cloudinary'ye yüklenir (ilerleme yüzdesiyle), Firestore'a yalnızca bağlantı yazılır.
+export const uploadVideoFile = async (file: File, onProgress?: (percent: number) => void): Promise<string> => {
+  if (!file.type.startsWith('video/')) throw new Error('Lütfen bir video dosyası seçin.');
+  if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+    throw new Error(`Video ${MAX_VIDEO_MB} MB'tan küçük olmalı. Daha kısa bir video seçin.`);
+  }
+  const sig = await getSignature('video');
+  if (!sig) throw new Error('Video yükleme henüz yapılandırılmamış (Worker güncel değil ya da Cloudinary anahtarı yok).');
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('api_key', sig.apiKey);
+  fd.append('timestamp', String(sig.timestamp));
+  fd.append('signature', sig.signature);
+  fd.append('folder', sig.folder);
+  fd.append('allowed_formats', sig.allowedFormats);
+
+  return new Promise<string>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloudName}/video/upload`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+    };
+    xhr.onerror = () => reject(new Error('Video yüklenemedi. İnternet bağlantınızı kontrol edin.'));
+    xhr.ontimeout = () => reject(new Error('Video yüklemesi zaman aşımına uğradı.'));
+    xhr.onload = () => {
+      let json: any = null;
+      try {
+        json = JSON.parse(xhr.responseText);
+      } catch {}
+      if (xhr.status >= 200 && xhr.status < 300 && json?.secure_url) {
+        onProgress?.(100);
+        resolve(String(json.secure_url));
+      } else {
+        reject(new Error(json?.error?.message ? `Video yüklenemedi: ${json.error.message}` : 'Video yüklenemedi.'));
+      }
+    };
+    xhr.timeout = 10 * 60 * 1000;
+    xhr.send(fd);
+  });
 };

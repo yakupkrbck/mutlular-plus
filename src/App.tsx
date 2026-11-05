@@ -139,7 +139,7 @@ import { hizmetAlaniId, HizmetAlani } from './data/hizmetAlanlari';
 import { syncUstaFields } from './services/hizmetAlanlari';
 import { isNative, exitNativeApp } from './native';
 import { PermissionPrompt } from './components/modals/PermissionPrompt';
-import { refreshPushIfGranted, sendBroadcastPush } from './services/pushService';
+import { refreshPushIfGranted, sendBroadcastPush, initNativePushClickListener } from './services/pushService';
 import { getLocationPermissionState, requestLocation, wasLocationAsked } from './services/locationService';
 import { notifyEvent, unregisterPush, resyncPushTopics, scanKesintiNow } from './services/pushService';
 
@@ -606,7 +606,12 @@ export default function App() {
   }, [newsList]);
 
   /** true dönerse yönlendirme burada yapılmıştır (kesinti sekmesi / haber detayı) */
-  const handleSpecialNotificationNav = (tab?: string, subTab?: string, relatedId?: string): boolean => {
+  const handleSpecialNotificationNav = (tab?: string, subTab?: string, relatedId?: string, title?: string): boolean => {
+    // Eski Worker sürümü kesinti bildirimini 'anasayfa' ile gönderiyordu: başlıktan tanı
+    if ((!tab || tab === 'anasayfa') && title && /(Elektrik|Su) Kesintisi/i.test(title)) {
+      tab = 'kesinti';
+      subTab = /Elektrik/i.test(title) ? 'uedas' : 'buski';
+    }
     if (tab === 'kesinti' || tab === 'kesintiler') {
       setKesintiInitialTab(
         subTab === 'buski' || subTab === 'su' ? 'buski' : subTab === 'uedas' || subTab === 'elektrik' ? 'uedas' : 'tumu'
@@ -622,6 +627,43 @@ export default function App() {
   };
   const specialNavRef = useRef(handleSpecialNotificationNav);
   specialNavRef.current = handleSpecialNotificationNav;
+
+  // Özel olmayan bildirim hedefleri (sekmeler, paneller)
+  const handleGenericNotificationNav = (tab?: string, subTab?: string) => {
+    if (!tab) return;
+    if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
+      setMuhtarlikInitialTab('basvurular');
+      setIsMuhtarlikOpen(true);
+    } else if (tab === 'canli_yayin') {
+      setIsLiveStreamOpen(true);
+    } else if (tab === 'vefat') {
+      setIsVefatOpen(true);
+    } else if (tab === 'tekliflerim' || tab === 'bildirimler') {
+      setCurrentTab('profil');
+      setProfileSubTab(tab as 'tekliflerim' | 'bildirimler');
+    } else if (tab === 'haber' || tab === 'haberler') {
+      setCurrentTab('haber');
+    } else if (tab === 'alim_satim' || tab === 'alim-satim') {
+      setCurrentTab('alim-satim');
+    } else if (['anasayfa', 'esnaf', 'hizmet', 'profil'].includes(tab)) {
+      setCurrentTab(tab as NavTab);
+      if (subTab === 'tekliflerim' || subTab === 'bildirimler') setProfileSubTab(subTab);
+    }
+  };
+  const genericNavRef = useRef(handleGenericNotificationNav);
+  genericNavRef.current = handleGenericNotificationNav;
+
+  useEffect(() => {
+    // Android uygulaması: bildirime dokunma dinleyicisi giriş beklemeden, uygulama açılır açılmaz kurulur
+    initNativePushClickListener();
+    const onClick = (e: Event) => {
+      const p: any = (e as CustomEvent).detail || {};
+      if (specialNavRef.current(p.actionTab, p.subTab, p.relatedId, p.title)) return;
+      genericNavRef.current(p.actionTab, p.subTab);
+    };
+    window.addEventListener('mp-notification-click', onClick);
+    return () => window.removeEventListener('mp-notification-click', onClick);
+  }, []);
 
   // Handle incoming Android Push Notification clicks and deep links
   useEffect(() => {
@@ -660,7 +702,7 @@ export default function App() {
           const actionTab = payload.actionTab;
           const subTab = payload.subTab;
 
-          if (specialNavRef.current(actionTab, subTab, payload.relatedId)) return;
+          if (specialNavRef.current(actionTab, subTab, payload.relatedId, payload.title)) return;
 
           if (actionTab === 'canli_yayin') {
             setIsLiveStreamOpen(true);
