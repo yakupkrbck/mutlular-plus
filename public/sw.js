@@ -127,7 +127,8 @@ self.addEventListener('notificationclick', (event) => {
   const relatedId = notificationData.relatedId;
   const targetUrl =
     `/?tab=${encodeURIComponent(actionTab)}&subTab=${encodeURIComponent(subTab)}` +
-    (relatedId ? `&relatedId=${encodeURIComponent(relatedId)}` : '');
+    (relatedId ? `&relatedId=${encodeURIComponent(relatedId)}` : '') +
+    (notificationData.title ? `&nt=${encodeURIComponent(String(notificationData.title).slice(0, 160))}` : '');
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

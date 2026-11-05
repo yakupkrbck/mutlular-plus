@@ -110,6 +110,7 @@ import {
   StoreShowcaseProduct,
   BusinessTypeMode,
   MuhtarlikApplication,
+  NewsTipItem,
 } from './types';
 import {
   Smartphone,
@@ -141,6 +142,7 @@ import { isNative, exitNativeApp } from './native';
 import { PermissionPrompt } from './components/modals/PermissionPrompt';
 import { refreshPushIfGranted, sendBroadcastPush, initNativePushClickListener } from './services/pushService';
 import { getLocationPermissionState, requestLocation, wasLocationAsked } from './services/locationService';
+import { uploadFile } from './services/uploadService';
 import { notifyEvent, unregisterPush, resyncPushTopics, scanKesintiNow } from './services/pushService';
 
 export default function App() {
@@ -506,6 +508,75 @@ export default function App() {
     constraints: isStaffRole || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
 
+  // Vatandaş haber ihbarları: gönderen kendi ihbarını, yönetim hepsini görür
+  const [newsTipList, setNewsTipList] = useSyncedList<NewsTipItem>('plus_haber_ihbar', {
+    enabled: !!myUid,
+    stampOwner: true,
+    key: `${myUid}-${isStaffRole}`,
+    constraints: isStaffRole || !myUid ? [] : [where('ownerUid', '==', myUid)],
+  });
+
+  const nowStamp = () => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+
+  const handleSubmitNewsTip = async (data: {
+    title: string;
+    location: string;
+    description: string;
+    phone: string;
+    imageFiles: File[];
+  }): Promise<{ ok: boolean; error?: string }> => {
+    if (!myUid) return { ok: false, error: 'Haber göndermek için giriş yapmalısınız.' };
+    try {
+      const images = (await Promise.all(data.imageFiles.slice(0, 6).map((f) => uploadFile(f)))).filter(Boolean);
+      const item: NewsTipItem = {
+        id: `tip-${Date.now()}`,
+        ownerUid: myUid,
+        authorName: userProfile?.name || 'Vatandaş',
+        title: data.title,
+        location: data.location,
+        description: data.description,
+        phone: data.phone,
+        images,
+        status: 'pending',
+        date: nowStamp(),
+      };
+      const ok = await setNewsTipList((prev) => [item, ...prev]);
+      if (!ok) return { ok: false, error: 'İhbar kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.' };
+      notifyEvent('haber-ihbar', { id: item.id });
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'Fotoğraflar yüklenemedi.' };
+    }
+  };
+
+  const handleApproveNewsTip = async (tip: NewsTipItem) => {
+    const newsId = `news-${tip.id}`;
+    const desc = tip.description || '';
+    const news: NewsItem = {
+      id: newsId,
+      title: tip.title,
+      summary: desc.length > 200 ? `${desc.slice(0, 197)}…` : desc,
+      content: desc + (tip.location ? `\n\nKonum: ${tip.location}` : ''),
+      category: 'Şehir & Yaşam',
+      date: nowStamp(),
+      image: tip.images?.[0] || '',
+      readCount: '1 Okunma',
+    };
+    const ok = await setNewsList((prev) => [news, ...prev.filter((n) => n.id !== newsId)]);
+    if (!ok) return;
+    await setNewsTipList((prev) => prev.map((t) => (t.id === tip.id ? { ...t, status: 'approved', newsId } : t)));
+    notifyEvent('haber-ihbar-sonuc', { id: tip.id });
+  };
+
+  const handleRejectNewsTip = async (tip: NewsTipItem) => {
+    await setNewsTipList((prev) => prev.map((t) => (t.id === tip.id ? { ...t, status: 'rejected' } : t)));
+    notifyEvent('haber-ihbar-sonuc', { id: tip.id });
+  };
+
   // Ana sayfa vitrin afişleri (yönetici yükler)
   const [heroBanners, setHeroBanners] = useSyncedList<HeroBannerItem>('plus_vitrin', { stampOwner: true });
 
@@ -612,6 +683,16 @@ export default function App() {
       tab = 'kesinti';
       subTab = /Elektrik/i.test(title) ? 'uedas' : 'buski';
     }
+    // Eski sürüm haber bildirimi haber kimliği taşımıyordu: başlıktan haberi bul
+    if ((tab === 'haber' || tab === 'haberler') && !relatedId && title) {
+      const clean = title
+        .replace(/^[^\p{L}\p{N}]+/u, '')
+        .replace(/^SON DAKİKA:\s*/i, '')
+        .trim()
+        .toLocaleLowerCase('tr-TR');
+      const hit = newsListRef.current.find((n) => (n.title || '').trim().toLocaleLowerCase('tr-TR') === clean);
+      if (hit) relatedId = hit.id;
+    }
     if (tab === 'kesinti' || tab === 'kesintiler') {
       setKesintiInitialTab(
         subTab === 'buski' || subTab === 'su' ? 'buski' : subTab === 'uedas' || subTab === 'elektrik' ? 'uedas' : 'tumu'
@@ -674,11 +755,12 @@ export default function App() {
       const subTabParam = params.get('subTab');
       const actionParam = params.get('action');
       const relatedParam = params.get('relatedId');
+      const titleParam = params.get('nt');
 
       if (actionParam === 'ulasim') {
         setIsBusOpen(true);
       }
-      if (tabParam && !specialNavRef.current(tabParam, subTabParam || undefined, relatedParam || undefined)) {
+      if (tabParam && !specialNavRef.current(tabParam, subTabParam || undefined, relatedParam || undefined, titleParam || undefined)) {
         if (tabParam === 'tekliflerim') {
           setCurrentTab('profil');
           setProfileSubTab('tekliflerim');
@@ -1455,8 +1537,8 @@ export default function App() {
   }, []);
 
   /** Yönetim: tüm kayıtlı cihazlara gerçek push gönderir */
-  const handleBroadcastPush = (title: string, body: string, actionTab = 'profil', relatedId?: string) => {
-    sendBroadcastPush(title, body, actionTab, relatedId).then((r) => {
+  const handleBroadcastPush = (title: string, body: string, actionTab = 'profil', relatedId?: string, subTab?: string) => {
+    sendBroadcastPush(title, body, actionTab, relatedId, subTab).then((r) => {
       if (r.ok) showInfo('Bildirim tüm cihazlara gönderildi.');
       else
         window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: `Cihaz bildirimi gönderilemedi: ${r.error}` }));
@@ -1710,8 +1792,8 @@ export default function App() {
       <div className="w-full max-w-md bg-neutral-100 min-h-screen sm:min-h-[920px] sm:rounded-[36px] sm:shadow-2xl sm:border-[6px] sm:border-neutral-900 overflow-hidden flex flex-col relative transition-all duration-300">
         {/* Android Native Heads-Up Push Notification Banner */}
         <AndroidHeadsUpNotification
-          onNavigateTab={(tab, subTab, relatedId) => {
-            if (handleSpecialNotificationNav(tab, subTab, relatedId)) return;
+          onNavigateTab={(tab, subTab, relatedId, title) => {
+            if (handleSpecialNotificationNav(tab, subTab, relatedId, title)) return;
             if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
               setMuhtarlikInitialTab('basvurular');
               setIsMuhtarlikOpen(true);
@@ -2142,8 +2224,8 @@ export default function App() {
                   onNavigateToClassifieds={() => {
                     setCurrentTab('alim-satim');
                   }}
-                  onNavigateTab={(tab, subTab, relatedId) => {
-                    if (handleSpecialNotificationNav(tab, subTab, relatedId)) return;
+                  onNavigateTab={(tab, subTab, relatedId, title) => {
+                    if (handleSpecialNotificationNav(tab, subTab, relatedId, title)) return;
                     if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
                       setMuhtarlikInitialTab('basvurular');
                       setIsMuhtarlikOpen(true);
@@ -2995,6 +3077,7 @@ export default function App() {
         <NewsTipModal
           isOpen={isNewsTipOpen}
           onClose={() => setIsNewsTipOpen(false)}
+          onSubmitTip={handleSubmitNewsTip}
         />
 
         <DavetModal
@@ -3151,12 +3234,15 @@ export default function App() {
           onDeleteAd={handleAdminDeleteAd}
           onUpdateAd={handleAdminUpdateAd}
           onAddNewNews={handleAdminAddNewNews}
+          newsTips={newsTipList}
+          onApproveNewsTip={handleApproveNewsTip}
+          onRejectNewsTip={handleRejectNewsTip}
           onUpdateNews={handleAdminUpdateNews}
           onDeleteNews={handleAdminDeleteNews}
           onBroadcastNotification={(notif) => {
             setAnnouncements((prev) => [notif, ...prev]);
             // Gerçek push: tüm kayıtlı cihazlara (uygulama kapalıyken de) ulaşır
-            handleBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil', notif.relatedId);
+            handleBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil', notif.relatedId, notif.subTab);
           }}
           onApproveObituary={handleApproveObituary}
           onRejectObituary={handleRejectObituary}

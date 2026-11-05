@@ -51,6 +51,7 @@ import {
   ClassifiedSubCategory,
   AssignedEditor,
   UserNotification,
+  NewsTipItem,
 } from '../../types';
 import {
   sendAndroidAppNotification,
@@ -111,6 +112,9 @@ interface AdminPanelModalProps {
   onDeleteAd: (adId: string) => void;
   onUpdateAd?: (ad: ClassifiedItem) => void;
   onAddNewNews: (news: NewsItem) => void;
+  newsTips?: NewsTipItem[];
+  onApproveNewsTip?: (tip: NewsTipItem) => void;
+  onRejectNewsTip?: (tip: NewsTipItem) => void;
   onUpdateNews?: (news: NewsItem) => void;
   onDeleteNews: (newsId: string) => void;
   onBroadcastNotification?: (notif: UserNotification) => void;
@@ -141,6 +145,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onDeleteAd,
   onUpdateAd,
   onAddNewNews,
+  newsTips = [],
+  onApproveNewsTip,
+  onRejectNewsTip,
   onUpdateNews,
   onDeleteNews,
   onBroadcastNotification,
@@ -184,6 +191,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastBody, setBroadcastBody] = useState('');
   const [broadcastActionTab, setBroadcastActionTab] = useState('profil');
+  const [broadcastNewsId, setBroadcastNewsId] = useState('');
   const [broadcastBadgeText, setBroadcastBadgeText] = useState('YÖNETİCİ');
   const [isSendingPush, setIsSendingPush] = useState(false);
 
@@ -421,6 +429,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // Filtered lists and dashboard metrics
   const pendingCount = pendingAds.filter((a) => a.status === 'pending').length;
+  const pendingTips = newsTips.filter((t) => t.status === 'pending');
   const flaggedCommentsCount = commentsList.filter(
     (c) => c.status === 'flagged' || c.reportsCount > 0
   ).length;
@@ -508,8 +517,25 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       return;
     }
 
+    // Hedef sayfa: "Kesintiler — Elektrik" gibi seçenekler sekme + alt sekme olarak çözülür
+    let destTab = broadcastActionTab;
+    let destSub: string | undefined;
+    let destRelated: string | undefined;
+    if (destTab === 'haber_secili') {
+      if (!broadcastNewsId) {
+        showToast('Lütfen bildirimde açılacak haberi seçin.');
+        return;
+      }
+      destTab = 'haber';
+      destRelated = broadcastNewsId;
+    } else if (destTab.startsWith('kesinti:')) {
+      destSub = destTab.split(':')[1];
+      destTab = 'kesinti';
+      if (destSub === 'tumu') destSub = undefined;
+    }
+
     setIsSendingPush(true);
-    if (!onBroadcastNotification) broadcastPush(broadcastTitle, broadcastBody, broadcastActionTab);
+    if (!onBroadcastNotification) broadcastPush(broadcastTitle, broadcastBody, destTab, destRelated, destSub);
 
     if (onBroadcastNotification) {
       onBroadcastNotification({
@@ -534,7 +560,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         read: false,
         badgeText: broadcastBadgeText || 'Yönetici',
         sender: 'Mutlular Yönetim & Muhtarlık',
-        actionTab: broadcastActionTab,
+        actionTab: destTab,
+        subTab: destSub,
+        relatedId: destRelated,
       });
     }
 
@@ -543,6 +571,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       showToast('🚀 Bildirim tüm Android cihazlara ve Heads-up merkezine iletildi!');
       setBroadcastTitle('');
       setBroadcastBody('');
+      setBroadcastNewsId('');
     }, 500);
   };
 
@@ -689,6 +718,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Tüm Haberler ({newsList.length})</span>
+            {pendingTips.length > 0 && (
+              <span className="bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                {pendingTips.length} onay bekliyor
+              </span>
+            )}
           </button>
 
           <button
@@ -1260,6 +1294,629 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 <div className="space-y-2.5">
                   {filteredClassifiedList.map((ad) => {
                     const isEditing = editingAdId === ad.id;
+
+                    if (isEditing) {
+                      return (
+                        <div
+                          key={ad.id}
+                          className="p-3 bg-neutral-800 border-2 border-rose-500/70 rounded-2xl space-y-2.5 animate-in fade-in"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-rose-400 flex items-center gap-1">
+                              <Edit3 className="w-3.5 h-3.5" />
+                              İlanı Düzenle: {ad.id}
+                            </span>
+                            <button
+                              onClick={() => setEditingAdId(null)}
+                              className="text-neutral-400 hover:text-white text-xs"
+                            >
+                              İptal
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div>
+                              <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                İlan Başlığı
+                              </label>
+                              <input
+                                type="text"
+                                value={editAdForm.title}
+                                onChange={(e) =>
+                                  setEditAdForm((prev) => ({ ...prev, title: e.target.value }))
+                                }
+                                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                  Fiyat
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editAdForm.price}
+                                  onChange={(e) =>
+                                    setEditAdForm((prev) => ({ ...prev, price: e.target.value }))
+                                  }
+                                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                  Konum
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editAdForm.location}
+                                  onChange={(e) =>
+                                    setEditAdForm((prev) => ({ ...prev, location: e.target.value }))
+                                  }
+                                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                  Üst Kategori
+                                </label>
+                                <select
+                                  value={editAdForm.mainCategory}
+                                  onChange={(e) =>
+                                    setEditAdForm((prev) => ({
+                                      ...prev,
+                                      mainCategory: e.target.value as ClassifiedMainCategory,
+                                    }))
+                                  }
+                                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-white"
+                                >
+                                  <option value="kiralik">Kiralık</option>
+                                  <option value="satilik">Satılık</option>
+                                  <option value="ikinci-el">2. El</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                  Alt Kategori
+                                </label>
+                                <select
+                                  value={editAdForm.subCategory}
+                                  onChange={(e) =>
+                                    setEditAdForm((prev) => ({
+                                      ...prev,
+                                      subCategory: e.target.value as ClassifiedSubCategory,
+                                    }))
+                                  }
+                                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-white"
+                                >
+                                  <option value="ev">Ev / Konut</option>
+                                  <option value="tarla">Tarla</option>
+                                  <option value="arsa">Arsa</option>
+                                  <option value="depo">Depo</option>
+                                  <option value="arac">Araç</option>
+                                  <option value="elektronik">Elektronik</option>
+                                  <option value="diger">Diğer / Her Şey</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">
+                                Açıklama
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={editAdForm.description}
+                                onChange={(e) =>
+                                  setEditAdForm((prev) => ({
+                                    ...prev,
+                                    description: e.target.value,
+                                  }))
+                                }
+                                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg px-2.5 py-1 text-xs text-white"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleSaveEditAd(ad)}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <Save className="w-4 h-4" />
+                            <span>Değişiklikleri Kaydet & Yayına Al</span>
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={ad.id}
+                        className="p-3 bg-neutral-800/60 hover:bg-neutral-800 rounded-xl border border-neutral-700/60 flex items-center justify-between gap-3 transition"
+                      >
+                        <img
+                          src={ad.image}
+                          alt={ad.title}
+                          className="w-14 h-14 rounded-xl object-cover bg-neutral-900 shrink-0 border border-neutral-700"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span
+                              className={`text-[8.5px] font-black px-1.5 py-0.2 rounded uppercase ${
+                                ad.mainCategory === 'kiralik'
+                                  ? 'bg-emerald-600 text-white'
+                                  : ad.mainCategory === 'satilik'
+                                  ? 'bg-rose-600 text-white'
+                                  : 'bg-amber-600 text-white'
+                              }`}
+                            >
+                              {ad.mainCategory?.toUpperCase() || 'İLAN'}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 font-semibold truncate">
+                              {ad.location}
+                            </span>
+                          </div>
+                          <div className="text-[12.5px] font-bold text-white truncate leading-tight">
+                            {ad.title}
+                          </div>
+                          <div className="text-[11px] text-amber-400 font-extrabold mt-0.5">
+                            {ad.price}
+                          </div>
+                        </div>
+
+                        {/* Push, Edit and Delete Actions */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleBroadcastAdPush(ad)}
+                            title="Bu İlanı Android Push Bildirimi Olarak Gönder"
+                            className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-neutral-950 border border-amber-500/30 transition flex items-center gap-1 text-[10.5px] font-bold"
+                          >
+                            <BellRing className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Push</span>
+                          </button>
+                          <button
+                            onClick={() => handleStartEditAd(ad)}
+                            title="İlanı Düzenle"
+                            className="p-2 rounded-lg bg-neutral-700 hover:bg-amber-600 text-neutral-200 hover:text-neutral-950 transition"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteActiveAd(ad.id, ad.title)}
+                            title="İlanı Yayından Tamamen Sil"
+                            className="p-2 rounded-lg bg-rose-900/60 hover:bg-rose-600 text-rose-200 hover:text-white transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: CENAZE VE VEFAT İLANLARI ONAY & YÖNETİM MASASI */}
+          {activeTab === 'cenaze-onay' && (
+            <div className="space-y-4">
+              <div className="p-3.5 bg-neutral-800/80 rounded-2xl border border-neutral-700/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black text-white flex items-center gap-2">
+                      <HeartCrack className="w-4 h-4 text-rose-400" />
+                      <span>CENAZE & VEFAT İLANLARI ONAY MASASI</span>
+                    </h3>
+                    <p className="text-[11px] text-neutral-400">
+                      Kayıtlı sakinlerin gönderdiği vefat ilanlarını denetleyin, onaylayın veya vitrinden kaldırın.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {pendingObituariesCount} Onay Bekliyor
+                  </span>
+                </div>
+              </div>
+
+              {/* BEKLEYEN CENAZE İLANLARI */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                  <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                    ONAY BEKLEYEN İLANLAR ({pendingObituariesCount})
+                  </h4>
+                </div>
+
+                {obituaryList.filter((o) => o.status === 'pending').length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-neutral-800/40 border border-neutral-700/60 text-center text-neutral-400 space-y-1">
+                    <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-400" />
+                    <p className="text-xs font-bold text-white">Onay bekleyen cenaze ilanı bulunmuyor.</p>
+                    <p className="text-[11px]">Mahalle sakinlerinin paylaştığı tüm ilanlar incelenmiştir.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {obituaryList
+                      .filter((o) => o.status === 'pending')
+                      .map((ob) => {
+                        return (
+                          <div
+                            key={ob.id}
+                            className="p-4 rounded-2xl bg-neutral-800/90 border border-amber-500/40 space-y-3 shadow-md"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h5 className="text-[14px] font-black text-white">{ob.name}</h5>
+                                  <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                    İnceleme Bekliyor
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-neutral-300 mt-0.5">
+                                  Memleketi: <strong className="text-rose-300">{ob.hometown}</strong> | Gönderen: {ob.submittedBy?.name || 'Kayıtlı Sakin'} ({ob.submittedBy?.phone || ob.phone})
+                                </p>
+                              </div>
+                              <span className="text-[10px] text-neutral-400 font-semibold">{ob.submittedBy?.date || 'Bugün'}</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] bg-neutral-900/80 p-3 rounded-xl border border-neutral-700 text-neutral-300">
+                              <div>
+                                <div><strong className="text-white">Babasının İsmi:</strong> {ob.fatherName}</div>
+                                {ob.sonName && <div><strong className="text-white">Oğlu / Yakınları:</strong> {ob.sonName}</div>}
+                                <div><strong className="text-white">Cenaze Namazı:</strong> {ob.date}</div>
+                              </div>
+                              <div>
+                                <div><strong className="text-white">Cami:</strong> {ob.mosque}</div>
+                                <div><strong className="text-white">Defin Mezarlığı:</strong> {ob.cemetery}</div>
+                                <div><strong className="text-white">Taziye Telefonu:</strong> <a href={`tel:${ob.phone}`} className="text-emerald-400 font-bold underline">{ob.phone}</a></div>
+                              </div>
+                            </div>
+
+                            {ob.notes && (
+                              <div className="text-[11px] text-neutral-300 bg-neutral-900/50 p-2 rounded-lg border border-neutral-700/60">
+                                <span className="font-bold text-neutral-400">Not: </span>
+                                {ob.notes}
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                onClick={() => {
+                                  if (onApproveObituary) {
+                                    onApproveObituary(ob.id);
+                                    showToast(`✓ "${ob.name}" cenaze ilanı onaylandı ve vitrinde yayınlandı.`);
+                                  }
+                                }}
+                                className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 transition shadow-sm"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Onayla & Vitrinde Yayınla</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (onRejectObituary) {
+                                    onRejectObituary(ob.id);
+                                    showToast(`✕ Cenaze ilanı başvurusu reddedildi.`);
+                                  }
+                                }}
+                                className="py-2 px-3 rounded-xl bg-neutral-700 hover:bg-rose-900/60 text-rose-300 hover:text-white border border-neutral-600 hover:border-rose-500 font-bold text-xs flex items-center gap-1 transition"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Reddet</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* VİTRİNDE YAYINDA OLAN CENAZE İLANLARI */}
+              <div className="space-y-3 pt-3 border-t border-neutral-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <h4 className="text-xs font-black text-emerald-400 uppercase tracking-wider">
+                      VİTRİNDE YAYINDAKİ CENAZE İLANLARI ({obituaryList.filter((o) => o.status === 'approved').length})
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5">
+                  {obituaryList
+                    .filter((o) => o.status === 'approved')
+                    .map((ob) => (
+                      <div
+                        key={ob.id}
+                        className="p-3.5 rounded-2xl bg-neutral-800/70 border border-neutral-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-[13px] font-black text-white">{ob.name}</h5>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              Yayında
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-neutral-300 mt-0.5">
+                            Memleketi: <strong>{ob.hometown}</strong> • Babası: {ob.fatherName} {ob.sonName ? `• Oğlu: ${ob.sonName}` : ''}
+                          </p>
+                          <p className="text-[10px] text-neutral-400 mt-0.5">
+                            Namaz: {ob.date} ({ob.mosque}) • Mezarlık: {ob.cemetery} • Tel: {ob.phone}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={async () => {
+                              broadcastPush(`🕊️ Vefat & Taziye: ${ob.name}`, `Cenazesi ${ob.date} vakti ${ob.mosque} camiinden kaldırılacaktır. Memleketi: ${ob.hometown}. Taziye: ${ob.phone}.`, 'vefat');
+                              showToast(`🕊️ "${ob.name}" için mahalleye taziye bildirimi iletildi.`);
+                            }}
+                            className="py-1.5 px-3 rounded-xl bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold flex items-center gap-1.5 transition"
+                            title="Tüm mahalleye tekrar push bildirimi gönder"
+                          >
+                            <BellRing className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Tekrar Bildir</span>
+                          </button>
+
+                          {onDeleteObituary && (
+                            <button
+                              onClick={() => {
+                                onDeleteObituary(ob.id);
+                                showToast(`✓ İlan vitrinden silindi.`);
+                              }}
+                              className="p-2 rounded-xl bg-neutral-700/60 hover:bg-rose-900/50 text-neutral-400 hover:text-rose-300 border border-neutral-700 hover:border-rose-500/50 transition"
+                              title="İlanı Sil"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: TÜM HABERLERİ YÖNETME, DÜZENLEME, SİLME VE YENİ HABER GİRME */}
+          {activeTab === 'kesinti-onay' && (
+            <div className="space-y-3">
+              <div className="p-4 rounded-2xl bg-neutral-800/80 border border-neutral-700 space-y-2">
+                <h3 className="text-sm font-black text-white">Kesinti Bildirimi Onayı</h3>
+                <p className="text-[11px] text-neutral-400 leading-snug">
+                  UEDAŞ ve BUSKİ'de yeni kesinti çıkınca önce size bildirim gelir. Onaylarsanız tüm kullanıcılara bildirim gider, reddederseniz kimseye gitmez.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onScanKesinti?.()}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-neutral-900 font-black text-xs rounded-xl py-2.5"
+                >
+                  Şimdi Tara
+                </button>
+              </div>
+
+              {kesintiOnay.filter((k) => k.status === 'bekliyor').length === 0 && (
+                <p className="text-[11px] text-neutral-400 px-1">Onay bekleyen kesinti yok.</p>
+              )}
+
+              {kesintiOnay
+                .filter((k) => k.status === 'bekliyor')
+                .map((k) => (
+                  <div key={k.id} className="p-3.5 rounded-2xl bg-neutral-800/80 border border-amber-500/40 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black uppercase text-amber-300">
+                        {k.tip === 'Elektrik' ? '⚡ Elektrik' : '💧 Su'} • {k.kaynak}
+                      </span>
+                      <span className="text-[10px] text-neutral-400">
+                        {k.tarih} {k.saat}
+                      </span>
+                    </div>
+                    <div className="text-xs font-bold text-white">{k.mahalle}</div>
+                    {k.aciklama && <p className="text-[11px] text-neutral-300 leading-snug">{k.aciklama}</p>}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => onApproveKesinti?.(k.id)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl py-2.5"
+                      >
+                        Onayla ve Herkese Gönder
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('Bu kesinti kimseye bildirilmeden reddedilsin mi?')) onRejectKesinti?.(k.id);
+                        }}
+                        className="bg-neutral-700 hover:bg-neutral-600 text-white font-black text-xs rounded-xl py-2.5"
+                      >
+                        Reddet
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {kesintiOnay.filter((k) => k.status !== 'bekliyor').length > 0 && (
+                <div className="pt-1 space-y-1.5">
+                  <h4 className="text-[11px] font-black text-neutral-400 uppercase">Son kararlar</h4>
+                  {kesintiOnay
+                    .filter((k) => k.status !== 'bekliyor')
+                    .slice(0, 6)
+                    .map((k) => (
+                      <div key={k.id} className="flex items-center justify-between gap-2 text-[11px] text-neutral-300 bg-neutral-800/60 rounded-xl px-3 py-2">
+                        <span className="truncate">
+                          {k.tip === 'Elektrik' ? '⚡' : '💧'} {k.mahalle}
+                        </span>
+                        <span className={k.status === 'onaylandi' ? 'text-emerald-400 font-bold' : 'text-neutral-500 font-bold'}>
+                          {k.status === 'onaylandi' ? 'Gönderildi' : 'Reddedildi'}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'vitrin-afisleri' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-neutral-800/80 border border-neutral-700 space-y-3">
+                <h3 className="text-sm font-black text-white">Yeni Vitrin Afişi</h3>
+                <p className="text-[11px] text-neutral-400">
+                  Ana sayfanın en üstündeki kayan alanda haberlerden önce gösterilir.
+                </p>
+                <div className="bg-white rounded-xl p-2">
+                  <ImageCropField
+                    value={bannerImage}
+                    onChange={setBannerImage}
+                    aspect={16 / 10}
+                    outputWidth={1200}
+                    hint="Galeriden yükleyin, kadrajı ayarlayın."
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-300 uppercase mb-1">Başlık *</label>
+                  <input
+                    value={bannerTitle}
+                    onChange={(e) => setBannerTitle(e.target.value)}
+                    maxLength={80}
+                    placeholder="Örn: Mahalle Pazarı Cumartesi Kuruluyor"
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-300 uppercase mb-1">
+                    Etiket (isteğe bağlı)
+                  </label>
+                  <input
+                    value={bannerTag}
+                    onChange={(e) => setBannerTag(e.target.value)}
+                    maxLength={30}
+                    placeholder="Örn: Duyuru"
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-rose-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddBanner}
+                  className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl py-2.5"
+                >
+                  Afişi Yayınla
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-sm font-black text-white">Yayındaki Afişler ({heroBanners.length})</h3>
+                {heroBanners.length === 0 && (
+                  <p className="text-[11px] text-neutral-400">Henüz afiş yok. Ana sayfada yalnızca haberler görünür.</p>
+                )}
+                {heroBanners.map((b) => (
+                  <div key={b.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-neutral-800/80 border border-neutral-700">
+                    <img src={b.image} alt="" className="w-20 h-12 object-cover rounded-lg shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-white truncate">{b.title}</div>
+                      {b.tag && <div className="text-[10px] text-amber-300">{b.tag}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('Bu afiş silinsin mi?')) onDeleteHeroBanner?.(b.id);
+                      }}
+                      className="shrink-0 text-[11px] font-black text-rose-400 hover:text-rose-300 px-2 py-1"
+                    >
+                      Sil
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'haber-yonetimi' && (
+            <div className="space-y-4">
+              {/* Vatandaş haber ihbarları: onay bekleyenler */}
+              {pendingTips.length > 0 && (
+                <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/40 space-y-3">
+                  <h3 className="text-[13px] font-black text-amber-300">
+                    📰 ONAY BEKLEYEN VATANDAŞ HABERLERİ ({pendingTips.length})
+                  </h3>
+                  {pendingTips.map((tip) => (
+                    <div key={tip.id} className="p-3 bg-neutral-900/80 rounded-xl border border-neutral-700 space-y-2">
+                      <div>
+                        <div className="text-sm font-bold text-white">{tip.title}</div>
+                        <div className="text-[10.5px] text-neutral-400">
+                          {tip.authorName || 'Vatandaş'} • {tip.date}
+                          {tip.location ? ` • ${tip.location}` : ''}
+                          {tip.phone ? ` • ${tip.phone}` : ''}
+                        </div>
+                      </div>
+                      <p className="text-xs text-neutral-300 whitespace-pre-line">{tip.description}</p>
+                      {tip.images && tip.images.length > 0 && (
+                        <div className="flex gap-1.5 overflow-x-auto">
+                          {tip.images.map((src, i) => (
+                            <img key={i} src={src} alt="" className="h-20 w-28 object-cover rounded-lg shrink-0" />
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onApproveNewsTip?.(tip)}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl"
+                        >
+                          Haber olarak yayınla
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRejectNewsTip?.(tip)}
+                          className="px-4 bg-neutral-700 hover:bg-neutral-600 text-neutral-100 text-xs font-bold py-2 rounded-xl"
+                        >
+                          Reddet
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add New News Box */}
+              <div className="p-4 bg-neutral-800/80 rounded-2xl border border-neutral-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <PlusCircle className="w-4 h-4 text-rose-500" />
+                    <h3 className="text-[13px] font-black text-white">
+                      YENİ HABER YAYINLA
+                    </h3>
+                  </div>
+                  <span className="text-[10px] text-neutral-400">
+                    Haber vitrinine ve haberler sekmesine canlı aktarılır
+                  </span>
+                </div>
+
+                <NewsForm
+                  key={newsFormKey}
+                  mode="create"
+                  values={newsDraft}
+                  onChange={(patch) => setNewsDraft((prev) => ({ ...prev, ...patch }))}
+                  categories={newsCategories}
+                  onSubmit={handleCreateNews}
+                  submitLabel="Haberi Yayınla"
+                />
+              </div>
+
+              {/* News list with Edit & Delete */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] font-black text-neutral-300 uppercase tracking-wider">
+                    Sitedeki Mevcut Tüm Haberler ({filteredNewsList.length})
+                  </div>
+                  <span className="text-[10px] text-neutral-500">
+                    Düzenleme ve Anında Silme Yetkisi
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {filteredNewsList.map((item) => {
+                    const isEditing = editingNewsId === item.id;
 
                     if (isEditing) {
                       return (
@@ -2136,6 +2793,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
                     >
                       <option value="haber">Haberler Sekmesi</option>
+                      <option value="haber_secili">Belirli bir haber (tam ekran)</option>
+                      <option value="kesinti:tumu">Kesintiler</option>
+                      <option value="kesinti:uedas">Kesintiler — Elektrik (UEDAŞ)</option>
+                      <option value="kesinti:buski">Kesintiler — Su (BUSKİ)</option>
                       <option value="canli_yayin">Mutlular Canlı TV</option>
                       <option value="vefat">Vefat & Taziye Listesi</option>
                       <option value="alim_satim">İlanlar (Alım-Satım)</option>
@@ -2143,6 +2804,20 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <option value="tekliflerim">Tekliflerim</option>
                       <option value="profil">Profil & Bildirim Merkezi</option>
                     </select>
+                    {broadcastActionTab === 'haber_secili' && (
+                      <select
+                        value={broadcastNewsId}
+                        onChange={(e) => setBroadcastNewsId(e.target.value)}
+                        className="w-full mt-1.5 bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                      >
+                        <option value="">Haber seçin…</option>
+                        {newsList.slice(0, 80).map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {n.title.slice(0, 70)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   <div>

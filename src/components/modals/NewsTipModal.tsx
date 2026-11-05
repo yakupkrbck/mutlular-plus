@@ -16,9 +16,19 @@ import {
 } from 'lucide-react';
 import { COORDINATOR_WHATSAPP } from '../../config/site';
 
+export interface NewsTipSubmitData {
+  title: string;
+  location: string;
+  description: string;
+  phone: string;
+  imageFiles: File[];
+}
+
 interface NewsTipModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** İhbarı Firestore'a kaydeder (yönetimde onay bekleyenlere düşer) */
+  onSubmitTip?: (data: NewsTipSubmitData) => Promise<{ ok: boolean; error?: string }>;
 }
 
 interface AttachedMedia {
@@ -43,13 +53,14 @@ const MAX_TOTAL_PAYLOAD_BYTES = MAX_TOTAL_PAYLOAD_MB * 1024 * 1024; // 60 MB
 
 const MAX_FILES_COUNT = 5;
 
-export const NewsTipModal: React.FC<NewsTipModalProps> = ({ isOpen, onClose }) => {
+export const NewsTipModal: React.FC<NewsTipModalProps> = ({ isOpen, onClose, onSubmitTip }) => {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('');
   const [mediaList, setMediaList] = useState<AttachedMedia[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<{ title: string; message: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -193,8 +204,9 @@ export const NewsTipModal: React.FC<NewsTipModalProps> = ({ isOpen, onClose }) =
     resetFileInputs();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
 
     // Boyut güvenlik kontrolü
     if (totalUsedBytes > MAX_TOTAL_PAYLOAD_BYTES) {
@@ -203,6 +215,23 @@ export const NewsTipModal: React.FC<NewsTipModalProps> = ({ isOpen, onClose }) =
         message: `Yüklenen dosyaların toplamı ${MAX_TOTAL_PAYLOAD_MB} MB sınırını aşıyor. Lütfen bazı dosyaları çıkarın.`,
       });
       return;
+    }
+
+    if (onSubmitTip) {
+      setUploadError(null);
+      setSubmitting(true);
+      const r = await onSubmitTip({
+        title: title.trim(),
+        location: location.trim(),
+        description: description.trim(),
+        phone: phone.trim(),
+        imageFiles: mediaList.filter((m) => m.type === 'image').map((m) => m.file),
+      });
+      setSubmitting(false);
+      if (!r.ok) {
+        setUploadError({ title: 'İhbar gönderilemedi', message: r.error || 'Lütfen tekrar deneyin.' });
+        return;
+      }
     }
 
     setSubmitted(true);
@@ -288,6 +317,11 @@ export const NewsTipModal: React.FC<NewsTipModalProps> = ({ isOpen, onClose }) =
               )}
               editör masamıza ulaştı. Doğrulandıktan sonra Mutlular Plus bülteninde yayınlanacaktır.
             </p>
+            {videoCount > 0 && (
+              <p className="text-[11px] text-amber-700 font-semibold max-w-xs mx-auto">
+                Not: Videolar uygulamadan yüklenmez; WhatsApp ile de iletmeyi unutmayın.
+              </p>
+            )}
             <div className="inline-block bg-neutral-50 border border-neutral-200 px-3 py-1.5 rounded-xl text-[11px] font-medium text-neutral-500">
               Duyarlılığınız için teşekkür ederiz!
             </div>
@@ -586,11 +620,14 @@ export const NewsTipModal: React.FC<NewsTipModalProps> = ({ isOpen, onClose }) =
             <div className="pt-2 flex flex-col gap-2 shrink-0">
               <button
                 type="submit"
-                className="w-full bg-rose-600 hover:bg-rose-700 active:scale-98 text-white font-bold text-[13px] py-2.5 rounded-xl transition shadow-md shadow-rose-600/25 flex items-center justify-center gap-1.5"
+                disabled={submitting}
+                className="w-full bg-rose-600 hover:bg-rose-700 disabled:opacity-60 active:scale-98 text-white font-bold text-[13px] py-2.5 rounded-xl transition shadow-md shadow-rose-600/25 flex items-center justify-center gap-1.5"
               >
                 <Send className="w-4 h-4" />
                 <span>
-                  {mediaList.length > 0
+                  {submitting
+                    ? 'Gönderiliyor…'
+                    : mediaList.length > 0
                     ? `İhbarı & ${mediaList.length} Dosyayı Gönder (${formatFileSize(totalUsedBytes)})`
                     : 'İhbarı Haber Masasına Gönder'}
                 </span>

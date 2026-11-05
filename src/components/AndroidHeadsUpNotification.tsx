@@ -16,7 +16,7 @@ import {
 import { AndroidNotificationPayload } from '../services/androidNotificationService';
 
 interface AndroidHeadsUpNotificationProps {
-  onNavigateTab?: (tab: string, subTab?: string, relatedId?: string) => void;
+  onNavigateTab?: (tab: string, subTab?: string, relatedId?: string, title?: string) => void;
 }
 
 export const AndroidHeadsUpNotification: React.FC<AndroidHeadsUpNotificationProps> = ({
@@ -68,12 +68,13 @@ export const AndroidHeadsUpNotification: React.FC<AndroidHeadsUpNotificationProp
         activeNotification.actionTab === 'tekliflerim' ||
         activeNotification.actionTab === 'bildirimler'
       ) {
-        onNavigateTab?.('profil', activeNotification.actionTab, activeNotification.relatedId);
+        onNavigateTab?.('profil', activeNotification.actionTab, activeNotification.relatedId, activeNotification.title);
       } else {
         onNavigateTab?.(
           activeNotification.actionTab,
           activeNotification.subTab,
-          activeNotification.relatedId
+          activeNotification.relatedId,
+          activeNotification.title
         );
       }
     }

@@ -59,7 +59,7 @@ interface BildirimMerkeziViewProps {
   onClearAll: () => void;
   onNavigateToQuotes: (relatedId?: string) => void;
   onNavigateToClassifieds: () => void;
-  onNavigateTab?: (tab: string, subTab?: string, relatedId?: string) => void;
+  onNavigateTab?: (tab: string, subTab?: string, relatedId?: string, title?: string) => void;
 }
 
 export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
@@ -495,7 +495,7 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
               onClick={() => {
                 if (!item.read) onMarkAsRead(item.id);
                 if (onNavigateTab && item.actionTab) {
-                  onNavigateTab(item.actionTab, item.subTab, item.relatedId);
+                  onNavigateTab(item.actionTab, item.subTab, item.relatedId, item.title);
                 } else if (item.actionTab === 'tekliflerim') {
                   onNavigateToQuotes(item.relatedId);
                 } else if (item.actionTab === 'alim-satim' || item.actionTab === 'alim_satim') {

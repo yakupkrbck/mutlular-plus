@@ -348,3 +348,20 @@ export interface KesintiOnayItem {
   status: 'bekliyor' | 'onaylandi' | 'reddedildi';
   createdAtMs?: number;
 }
+
+/** Vatandaşın "Haber İhbar Masası"ndan gönderdiği haber; yönetim onaylarsa habere dönüşür. */
+export interface NewsTipItem {
+  id: string;
+  ownerUid?: string;
+  authorName?: string;
+  title: string;
+  location?: string;
+  description: string;
+  phone?: string;
+  images?: string[];
+  status: 'pending' | 'approved' | 'rejected';
+  date: string;
+  /** Onaylanınca oluşan haberin kimliği */
+  newsId?: string;
+  createdAtMs?: number;
+}
