@@ -52,6 +52,17 @@ export async function initNativePushClickListener(): Promise<void> {
   clickListenerAdded = true;
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications');
+    // Android: yüksek öncelikli bildirim kanalı (AndroidManifest'teki varsayılan kanal kimliği: "genel")
+    if (Capacitor.getPlatform() === 'android') {
+      await PushNotifications.createChannel({
+        id: 'genel',
+        name: 'Haberler ve Duyurular',
+        description: 'Son dakika haberleri, kesintiler ve duyurular',
+        importance: 4,
+        visibility: 1,
+        vibration: true,
+      }).catch(() => {});
+    }
     await PushNotifications.addListener('pushNotificationActionPerformed', (a) => {
       const n: any = (a as any)?.notification || {};
       const detail = { ...(n.data || {}), title: n.title, body: n.body };

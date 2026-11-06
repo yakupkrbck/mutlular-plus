@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PRIVACY_URL } from '../../config/legal';
 import {
   X,
   Phone,
@@ -955,7 +956,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             )}
 
             <p className="text-[9.5px] text-neutral-400 text-center leading-relaxed mt-2 pt-2 border-t border-neutral-100">
-              Devam ederek Mutlular Plus Kullanıcı Sözleşmesi ve KVKK Gizlilik Politikasını kabul etmiş olursunuz.
+              Devam ederek Mutlular Plus Kullanıcı Sözleşmesi ve{' '}
+              <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className="underline">
+                KVKK Gizlilik Politikasını
+              </a>{' '}
+              kabul etmiş olursunuz.
             </p>
           </div>
         )}

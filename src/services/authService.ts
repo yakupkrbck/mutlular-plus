@@ -3,6 +3,9 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithCredential,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  EmailAuthProvider,
   GoogleAuthProvider,
   signInWithRedirect,
   getRedirectResult,
@@ -14,6 +17,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 import { Capacitor } from '@capacitor/core';
+import { API_BASE } from '../config/api';
 import { UserProfile, UserRole } from '../types';
 import { ROLE_CONFIGS } from '../data/rolesData';
 import { syncUstaFields } from './hizmetAlanlari';
@@ -199,10 +203,54 @@ const finishGoogle = async (user: User): Promise<UserProfile> => {
 
 export const logout = () => signOut(auth);
 
+/** Hesabın e-posta/şifre ile mi açıldığı (silmeden önce şifre sorulur) */
+export const accountNeedsPassword = (): boolean => {
+  const u = auth.currentUser;
+  if (!u) return false;
+  const ids = u.providerData.map((p) => p.providerId);
+  return ids.includes('password') && !ids.includes('google.com');
+};
+
+/** Hesabı ve tüm verilerini kalıcı siler (Google Play hesap silme şartı). */
+export const deleteMyAccount = async (password?: string): Promise<void> => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Giriş yapmalısınız.');
+  // Güvenlik: silmeden önce kimlik yeniden doğrulanır
+  if (accountNeedsPassword()) {
+    if (!password || !user.email) throw new Error('Lütfen şifrenizi girin.');
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+  } else if (Capacitor.isNativePlatform()) {
+    const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+    const result = await FirebaseAuthentication.signInWithGoogle();
+    const idToken = result.credential?.idToken;
+    if (!idToken) throw new Error('Google doğrulaması tamamlanamadı.');
+    await reauthenticateWithCredential(user, GoogleAuthProvider.credential(idToken));
+  } else {
+    await reauthenticateWithPopup(user, googleProvider);
+  }
+  const token = await user.getIdToken(true);
+  const res = await fetch(`${API_BASE}/api/account/delete`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.success) {
+    throw new Error(
+      data?.error === 'reauth_required'
+        ? 'Güvenlik için yeniden doğrulama gerekiyor. Lütfen tekrar deneyin.'
+        : data?.error || 'Hesap silinemedi. Lütfen tekrar deneyin.'
+    );
+  }
+  await signOut(auth).catch(() => {});
+};
+
 export const subscribeAuth = (cb: (user: User | null) => void) => onAuthStateChanged(auth, cb);
 
 export const authErrorMessage = (e: any): string => {
   switch (e?.code) {
+    case 'auth/requires-recent-login':
+      return 'Güvenlik için yeniden doğrulama gerekiyor. Lütfen tekrar deneyin.';
     case 'auth/email-already-in-use':
       return 'Bu e-posta ile zaten bir hesap var. Giriş yapmayı deneyin.';
     case 'auth/invalid-email':

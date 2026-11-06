@@ -35,6 +35,8 @@ import { HizmetScreen } from './components/HizmetScreen';
 // Modals synchronized with Mutlular-Haber-GUNCEL zip
 import { SearchModal } from './components/modals/SearchModal';
 import { LoginModal } from './components/modals/LoginModal';
+import { DeleteAccountModal } from './components/modals/DeleteAccountModal';
+import { PRIVACY_URL } from './config/legal';
 import {
   BusinessRegisterModal,
   RegisteredBusinessPayload,
@@ -210,6 +212,14 @@ export default function App() {
     setIsLoggedIn(true);
     setIsLoginOpen(false);
     setCurrentTab('profil');
+  };
+
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const handleAccountDeleted = () => {
+    setIsDeleteAccountOpen(false);
+    setIsLoggedIn(false);
+    setUserProfile(null);
+    setCurrentTab('anasayfa');
   };
 
   const handleLogout = () => {
@@ -553,10 +563,10 @@ export default function App() {
     }
   };
 
-  const handleApproveNewsTip = async (tip: NewsTipItem) => {
+  const handleApproveNewsTip = async (tip: NewsTipItem, edited?: NewsItem) => {
     const newsId = `news-${tip.id}`;
     const desc = tip.description || '';
-    const news: NewsItem = {
+    const news: NewsItem = edited ? { ...edited, id: newsId } : {
       id: newsId,
       title: tip.title,
       summary: desc.length > 200 ? `${desc.slice(0, 197)}…` : desc,
@@ -2351,6 +2361,26 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Gizlilik ve hesap (Google Play: gizlilik politikası + uygulama içi hesap silme) */}
+              <div className="bg-white rounded-2xl border border-neutral-200/90 px-3.5 py-2.5 flex items-center justify-between gap-2 text-[11px] font-bold">
+                <a
+                  href={PRIVACY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-neutral-500 hover:text-rose-600 underline underline-offset-2"
+                >
+                  Gizlilik Politikası
+                </a>
+                {isLoggedIn && userProfile && (
+                  <button
+                    onClick={() => setIsDeleteAccountOpen(true)}
+                    className="text-neutral-400 hover:text-rose-600 transition"
+                  >
+                    Hesabımı Sil
+                  </button>
+                )}
+              </div>
+
               {/* 2. Aktif Hesap Rolü & Vasıf Bilgisi (Hesap hangi rol ile açıldı ise o aktif gözükür) */}
               <div className="bg-white rounded-3xl border border-neutral-200/90 p-4 shadow-xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
@@ -2910,6 +2940,12 @@ export default function App() {
             else if (type === 'job') handleApplyJob(item);
             else if (type === 'service') handleSelectService(item);
           }}
+        />
+
+        <DeleteAccountModal
+          isOpen={isDeleteAccountOpen}
+          onClose={() => setIsDeleteAccountOpen(false)}
+          onDeleted={handleAccountDeleted}
         />
 
         <LoginModal
