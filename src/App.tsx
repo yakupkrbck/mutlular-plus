@@ -38,6 +38,9 @@ import { LoginModal } from './components/modals/LoginModal';
 import { DeleteAccountModal } from './components/modals/DeleteAccountModal';
 import { PollsModal } from './components/modals/PollsModal';
 import { HomePollCard } from './components/HomePollCard';
+import { SecimModal } from './components/modals/SecimModal';
+import { SecimHomeCard } from './components/SecimHomeCard';
+import { useSecim } from './services/secimService';
 import { usePolls, useMyVotes, votePoll } from './services/pollService';
 import { PRIVACY_URL } from './config/legal';
 import {
@@ -533,6 +536,9 @@ export default function App() {
   const polls = usePolls();
   const myVotes = useMyVotes(myUid || undefined);
   const [isPollsOpen, setIsPollsOpen] = useState(false);
+  // Muhtarlık seçimi sonuçları (yönetim elle girer, herkes canlı görür)
+  const secim = useSecim();
+  const [isSecimOpen, setIsSecimOpen] = useState(false);
   const [focusPollId, setFocusPollId] = useState<string | undefined>(undefined);
   const handleVotePoll = async (pollId: string, optionIds: string[]): Promise<boolean> => {
     if (requireLogin('Oy vermek için giriş yapmalısınız.')) return false;
@@ -716,6 +722,10 @@ export default function App() {
         .toLocaleLowerCase('tr-TR');
       const hit = newsListRef.current.find((n) => (n.title || '').trim().toLocaleLowerCase('tr-TR') === clean);
       if (hit) relatedId = hit.id;
+    }
+    if (tab === 'secim') {
+      setIsSecimOpen(true);
+      return true;
     }
     if (tab === 'anket' || tab === 'anketler') {
       setFocusPollId(relatedId);
@@ -1618,6 +1628,7 @@ export default function App() {
     setIsPrayersOpen(false);
     setIsNewsTipOpenRaw(false);
     setIsPollsOpen(false);
+    setIsSecimOpen(false);
     setIsDavetOpen(false);
     setIsKursuOpen(false);
     setIsLostFoundOpen(false);
@@ -1661,6 +1672,7 @@ export default function App() {
     isPrayersOpen ||
     isNewsTipOpen ||
     isPollsOpen ||
+    isSecimOpen ||
     isDavetOpen ||
     isKursuOpen ||
     isLostFoundOpen ||
@@ -1900,6 +1912,9 @@ export default function App() {
 
               {/* 3. Canlı TV kısayolu */}
               <CanliTvBar onOpenCanliTv={() => setIsLiveStreamOpen(true)} />
+
+              {/* 3a. Muhtarlık seçimi canlı sonuçları (yayındaysa) */}
+              <SecimHomeCard veri={secim} onOpen={() => setIsSecimOpen(true)} />
 
               {/* 3b. Mahalle anketi */}
               <HomePollCard
@@ -3142,6 +3157,8 @@ export default function App() {
           onClose={() => setSelectedAd(null)}
         />
 
+        <SecimModal isOpen={isSecimOpen} onClose={() => setIsSecimOpen(false)} veri={secim} />
+
         <PollsModal
           isOpen={isPollsOpen}
           onClose={() => setIsPollsOpen(false)}
@@ -3313,6 +3330,7 @@ export default function App() {
           onAddNewNews={handleAdminAddNewNews}
           newsTips={newsTipList}
           polls={polls}
+          secim={secim}
           onApproveNewsTip={handleApproveNewsTip}
           onRejectNewsTip={handleRejectNewsTip}
           onUpdateNews={handleAdminUpdateNews}

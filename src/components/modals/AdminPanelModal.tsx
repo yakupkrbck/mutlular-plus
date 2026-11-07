@@ -62,6 +62,8 @@ import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 import { ImageCropField } from '../ImageCropField';
 import { NewsForm, EMPTY_NEWS_FORM, type NewsFormValues } from './NewsForm';
 import { PollAdmin } from './PollAdmin';
+import { SecimAdmin } from './SecimAdmin';
+import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
 import { mergeNewsCategories } from '../../data/newsCategories';
 import { broadcastPush } from '../../services/pushService';
 
@@ -116,6 +118,7 @@ interface AdminPanelModalProps {
   onAddNewNews: (news: NewsItem) => void;
   newsTips?: NewsTipItem[];
   polls?: PollItem[];
+  secim?: SecimVeri;
   onApproveNewsTip?: (tip: NewsTipItem, edited?: NewsItem) => void;
   onRejectNewsTip?: (tip: NewsTipItem) => void;
   onUpdateNews?: (news: NewsItem) => void;
@@ -150,6 +153,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onAddNewNews,
   newsTips = [],
   polls = [],
+  secim,
   onApproveNewsTip,
   onRejectNewsTip,
   onUpdateNews,
@@ -163,7 +167,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -246,6 +250,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   // 4. New News Form State
   const [newsDraft, setNewsDraft] = useState<NewsFormValues>(EMPTY_NEWS_FORM);
   const [newsFormKey, setNewsFormKey] = useState(0);
+  // Vatandaş haber ihbarını yayınlamadan önce düzenleme.
+  // DİKKAT: Tüm hook'lar `if (!isOpen) return null` satırından ÖNCE olmalı, yoksa panel açılırken çöker (beyaz ekran).
+  const [editingTipId, setEditingTipId] = useState<string | null>(null);
+  const [tipForm, setTipForm] = useState<NewsFormValues>(EMPTY_NEWS_FORM);
   const [newsSuccessToast, setNewsSuccessToast] = useState(false);
 
   // Search inside admin lists
@@ -469,9 +477,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const newsCategories = mergeNewsCategories(newsList);
 
-  // Vatandaş haber ihbarını yayınlamadan önce düzenleme
-  const [editingTipId, setEditingTipId] = useState<string | null>(null);
-  const [tipForm, setTipForm] = useState<NewsFormValues>(EMPTY_NEWS_FORM);
+  // Vatandaş haber ihbarını yayınlamadan önce düzenleme (state'ler en üstte tanımlı)
 
   const handleStartEditTip = (tip: NewsTipItem) => {
     const desc = tip.description || '';
@@ -770,6 +776,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               <span className="bg-amber-400 text-neutral-950 text-[9px] font-black px-1.5 py-0.2 rounded-full">
                 {pendingTips.length} onay bekliyor
               </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('secim')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'secim'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Seçim Sonuçları</span>
+            {secim?.yayinda && (
+              <span className="bg-emerald-400 text-neutral-950 text-[9px] font-black px-1.5 py-0.2 rounded-full">yayında</span>
             )}
           </button>
 
@@ -2121,6 +2142,37 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           )}
 
           {/* TAB 3: YORUM VE İÇERİK DENETİMİ (SİLME) */}
+          {activeTab === 'secim' && secim && (
+            <SecimAdmin
+              kayitli={secim}
+              showToast={showToast}
+              onSaved={(veri, sendPush) => {
+                if (!sendPush || !veri.yayinda) return;
+                const h = secimHesapla(veri);
+                const title = veri.durum === 'kesin' ? '🗳️ Muhtarlık seçimi sonuçları kesinleşti' : '🗳️ Muhtarlık seçimi sonuçları güncellendi';
+                const message =
+                  veri.durum === 'kesin'
+                    ? 'Sonuçları görmek için dokunun.'
+                    : `Sandık sayımı sürüyor: açılan sandık ${yuzdeYaz(h.acilanSandikYuzde)}. Güncel sonuçlar için dokunun.`;
+                if (onBroadcastNotification) {
+                  onBroadcastNotification({
+                    id: `secim-push-${Date.now()}`,
+                    type: 'duyuru',
+                    title,
+                    message,
+                    date: 'Şimdi',
+                    read: false,
+                    sender: 'Mutlular Plus',
+                    actionTab: 'secim',
+                  });
+                } else {
+                  broadcastPush(title, message, 'secim');
+                }
+                showToast('✓ Seçim bildirimi tüm cihazlara gönderildi.');
+              }}
+            />
+          )}
+
           {activeTab === 'anketler' && (
             <PollAdmin
               polls={polls}
