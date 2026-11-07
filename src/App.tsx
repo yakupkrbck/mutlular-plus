@@ -36,6 +36,9 @@ import { HizmetScreen } from './components/HizmetScreen';
 import { SearchModal } from './components/modals/SearchModal';
 import { LoginModal } from './components/modals/LoginModal';
 import { DeleteAccountModal } from './components/modals/DeleteAccountModal';
+import { PollsModal } from './components/modals/PollsModal';
+import { HomePollCard } from './components/HomePollCard';
+import { usePolls, useMyVotes, votePoll } from './services/pollService';
 import { PRIVACY_URL } from './config/legal';
 import {
   BusinessRegisterModal,
@@ -526,6 +529,17 @@ export default function App() {
     constraints: isStaffRole || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
 
+  // Mahalle anketleri: herkes okur, giriş yapan oy verir (oy sunucuda atomik sayılır)
+  const polls = usePolls();
+  const myVotes = useMyVotes(myUid || undefined);
+  const [isPollsOpen, setIsPollsOpen] = useState(false);
+  const [focusPollId, setFocusPollId] = useState<string | undefined>(undefined);
+  const handleVotePoll = async (pollId: string, optionIds: string[]): Promise<boolean> => {
+    if (requireLogin('Oy vermek için giriş yapmalısınız.')) return false;
+    await votePoll(pollId, optionIds);
+    return true;
+  };
+
   const nowStamp = () => {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, '0');
@@ -702,6 +716,11 @@ export default function App() {
         .toLocaleLowerCase('tr-TR');
       const hit = newsListRef.current.find((n) => (n.title || '').trim().toLocaleLowerCase('tr-TR') === clean);
       if (hit) relatedId = hit.id;
+    }
+    if (tab === 'anket' || tab === 'anketler') {
+      setFocusPollId(relatedId);
+      setIsPollsOpen(true);
+      return true;
     }
     if (tab === 'kesinti' || tab === 'kesintiler') {
       setKesintiInitialTab(
@@ -1598,6 +1617,7 @@ export default function App() {
     setIsPharmacyOpen(false);
     setIsPrayersOpen(false);
     setIsNewsTipOpenRaw(false);
+    setIsPollsOpen(false);
     setIsDavetOpen(false);
     setIsKursuOpen(false);
     setIsLostFoundOpen(false);
@@ -1640,6 +1660,7 @@ export default function App() {
     isPharmacyOpen ||
     isPrayersOpen ||
     isNewsTipOpen ||
+    isPollsOpen ||
     isDavetOpen ||
     isKursuOpen ||
     isLostFoundOpen ||
@@ -1879,6 +1900,17 @@ export default function App() {
 
               {/* 3. Canlı TV kısayolu */}
               <CanliTvBar onOpenCanliTv={() => setIsLiveStreamOpen(true)} />
+
+              {/* 3b. Mahalle anketi */}
+              <HomePollCard
+                polls={polls}
+                myVotes={myVotes}
+                onVote={handleVotePoll}
+                onOpenAll={() => {
+                  setFocusPollId(undefined);
+                  setIsPollsOpen(true);
+                }}
+              />
 
               {/* 4. Popüler Hizmetler Grid */}
               <PopularServices
@@ -3110,6 +3142,15 @@ export default function App() {
           onClose={() => setSelectedAd(null)}
         />
 
+        <PollsModal
+          isOpen={isPollsOpen}
+          onClose={() => setIsPollsOpen(false)}
+          polls={polls}
+          myVotes={myVotes}
+          onVote={handleVotePoll}
+          focusPollId={focusPollId}
+        />
+
         <NewsTipModal
           isOpen={isNewsTipOpen}
           onClose={() => setIsNewsTipOpen(false)}
@@ -3271,6 +3312,7 @@ export default function App() {
           onUpdateAd={handleAdminUpdateAd}
           onAddNewNews={handleAdminAddNewNews}
           newsTips={newsTipList}
+          polls={polls}
           onApproveNewsTip={handleApproveNewsTip}
           onRejectNewsTip={handleRejectNewsTip}
           onUpdateNews={handleAdminUpdateNews}

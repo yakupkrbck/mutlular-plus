@@ -52,6 +52,7 @@ import {
   AssignedEditor,
   UserNotification,
   NewsTipItem,
+  PollItem,
 } from '../../types';
 import {
   sendAndroidAppNotification,
@@ -60,6 +61,7 @@ import {
 import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 import { ImageCropField } from '../ImageCropField';
 import { NewsForm, EMPTY_NEWS_FORM, type NewsFormValues } from './NewsForm';
+import { PollAdmin } from './PollAdmin';
 import { mergeNewsCategories } from '../../data/newsCategories';
 import { broadcastPush } from '../../services/pushService';
 
@@ -113,7 +115,8 @@ interface AdminPanelModalProps {
   onUpdateAd?: (ad: ClassifiedItem) => void;
   onAddNewNews: (news: NewsItem) => void;
   newsTips?: NewsTipItem[];
-  onApproveNewsTip?: (tip: NewsTipItem) => void;
+  polls?: PollItem[];
+  onApproveNewsTip?: (tip: NewsTipItem, edited?: NewsItem) => void;
   onRejectNewsTip?: (tip: NewsTipItem) => void;
   onUpdateNews?: (news: NewsItem) => void;
   onDeleteNews: (newsId: string) => void;
@@ -146,6 +149,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onUpdateAd,
   onAddNewNews,
   newsTips = [],
+  polls = [],
   onApproveNewsTip,
   onRejectNewsTip,
   onUpdateNews,
@@ -159,7 +163,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -465,6 +469,50 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const newsCategories = mergeNewsCategories(newsList);
 
+  // Vatandaş haber ihbarını yayınlamadan önce düzenleme
+  const [editingTipId, setEditingTipId] = useState<string | null>(null);
+  const [tipForm, setTipForm] = useState<NewsFormValues>(EMPTY_NEWS_FORM);
+
+  const handleStartEditTip = (tip: NewsTipItem) => {
+    const desc = tip.description || '';
+    setEditingTipId(tip.id);
+    setTipForm({
+      title: tip.title,
+      summary: desc.length > 200 ? `${desc.slice(0, 197)}…` : desc,
+      content: desc + (tip.location ? `\n\nKonum: ${tip.location}` : ''),
+      category: 'Şehir & Yaşam',
+      image: tip.images?.[0] || '',
+      video: '',
+      urgent: false,
+      sendPush: false,
+      date: '',
+    });
+  };
+
+  const handlePublishEditedTip = (tip: NewsTipItem) => {
+    if (!tipForm.title.trim() || !tipForm.summary.trim()) {
+      alert('Lütfen haber başlığı ve kısa özetini doldurunuz.');
+      return;
+    }
+    const d = new Date();
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const news: NewsItem = {
+      id: `news-${tip.id}`,
+      title: tipForm.title.trim(),
+      summary: tipForm.summary.trim(),
+      content: tipForm.content.trim() || undefined,
+      category: tipForm.category,
+      date: `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`,
+      urgent: tipForm.urgent,
+      image: tipForm.image,
+      video: tipForm.video || undefined,
+      readCount: '1 Okunma',
+    };
+    onApproveNewsTip?.(tip, news);
+    if (news.urgent && tipForm.sendPush) handleBroadcastNewsPush(news);
+    setEditingTipId(null);
+  };
+
   // Push Notification Dispatchers for Admin
   const handleBroadcastAdPush = async (ad: ClassifiedItem) => {
     if (!onBroadcastNotification) broadcastPush(`🏷️ Öne Çıkan İlan: ${ad.title}`, `${ad.price} • ${ad.location} - İlanı incelemek için dokunun.`, 'alim_satim');
@@ -723,6 +771,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 {pendingTips.length} onay bekliyor
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('anketler')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'anketler'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Anketler ({polls.length})</span>
           </button>
 
           <button
@@ -1839,42 +1899,86 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   <h3 className="text-[13px] font-black text-amber-300">
                     📰 ONAY BEKLEYEN VATANDAŞ HABERLERİ ({pendingTips.length})
                   </h3>
-                  {pendingTips.map((tip) => (
-                    <div key={tip.id} className="p-3 bg-neutral-900/80 rounded-xl border border-neutral-700 space-y-2">
-                      <div>
-                        <div className="text-sm font-bold text-white">{tip.title}</div>
-                        <div className="text-[10.5px] text-neutral-400">
-                          {tip.authorName || 'Vatandaş'} • {tip.date}
-                          {tip.location ? ` • ${tip.location}` : ''}
-                          {tip.phone ? ` • ${tip.phone}` : ''}
+                  {pendingTips.map((tip) =>
+                    editingTipId === tip.id ? (
+                      <div key={tip.id} className="p-3 bg-neutral-800 border-2 border-amber-400/70 rounded-xl space-y-3">
+                        <div className="text-xs font-black text-amber-300">
+                          Haberi düzenle ve yayınla • {tip.authorName || 'Vatandaş'} • {tip.date}
+                        </div>
+                        {tip.images && tip.images.length > 1 && (
+                          <div className="space-y-1">
+                            <div className="text-[10px] text-neutral-400 uppercase font-bold">Kapak fotoğrafını seçin</div>
+                            <div className="flex gap-1.5 overflow-x-auto">
+                              {tip.images.map((src, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => setTipForm((prev) => ({ ...prev, image: src }))}
+                                  className={`shrink-0 rounded-lg overflow-hidden border-2 ${
+                                    tipForm.image === src ? 'border-amber-400' : 'border-transparent opacity-70'
+                                  }`}
+                                >
+                                  <img src={src} alt="" className="h-16 w-24 object-cover" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <NewsForm
+                          key={`tip-${tip.id}`}
+                          mode="create"
+                          values={tipForm}
+                          onChange={(patch) => setTipForm((prev) => ({ ...prev, ...patch }))}
+                          categories={newsCategories}
+                          onSubmit={() => handlePublishEditedTip(tip)}
+                          onCancel={() => setEditingTipId(null)}
+                          submitLabel="Düzenlenmiş haberi yayınla"
+                        />
+                      </div>
+                    ) : (
+                      <div key={tip.id} className="p-3 bg-neutral-900/80 rounded-xl border border-neutral-700 space-y-2">
+                        <div>
+                          <div className="text-sm font-bold text-white">{tip.title}</div>
+                          <div className="text-[10.5px] text-neutral-400">
+                            {tip.authorName || 'Vatandaş'} • {tip.date}
+                            {tip.location ? ` • ${tip.location}` : ''}
+                            {tip.phone ? ` • ${tip.phone}` : ''}
+                          </div>
+                        </div>
+                        <p className="text-xs text-neutral-300 whitespace-pre-line">{tip.description}</p>
+                        {tip.images && tip.images.length > 0 && (
+                          <div className="flex gap-1.5 overflow-x-auto">
+                            {tip.images.map((src, i) => (
+                              <img key={i} src={src} alt="" className="h-20 w-28 object-cover rounded-lg shrink-0" />
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditTip(tip)}
+                            className="flex-1 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold py-2 rounded-xl"
+                          >
+                            Düzenle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onApproveNewsTip?.(tip)}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl"
+                          >
+                            Olduğu gibi yayınla
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onRejectNewsTip?.(tip)}
+                            className="px-3 bg-neutral-700 hover:bg-neutral-600 text-neutral-100 text-xs font-bold py-2 rounded-xl"
+                          >
+                            Reddet
+                          </button>
                         </div>
                       </div>
-                      <p className="text-xs text-neutral-300 whitespace-pre-line">{tip.description}</p>
-                      {tip.images && tip.images.length > 0 && (
-                        <div className="flex gap-1.5 overflow-x-auto">
-                          {tip.images.map((src, i) => (
-                            <img key={i} src={src} alt="" className="h-20 w-28 object-cover rounded-lg shrink-0" />
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onApproveNewsTip?.(tip)}
-                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl"
-                        >
-                          Haber olarak yayınla
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRejectNewsTip?.(tip)}
-                          className="px-4 bg-neutral-700 hover:bg-neutral-600 text-neutral-100 text-xs font-bold py-2 rounded-xl"
-                        >
-                          Reddet
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               )}
 
@@ -2017,6 +2121,32 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           )}
 
           {/* TAB 3: YORUM VE İÇERİK DENETİMİ (SİLME) */}
+          {activeTab === 'anketler' && (
+            <PollAdmin
+              polls={polls}
+              showToast={showToast}
+              onPublished={(poll, sendPush) => {
+                if (!sendPush) return;
+                if (onBroadcastNotification) {
+                  onBroadcastNotification({
+                    id: `poll-push-${Date.now()}`,
+                    type: 'duyuru',
+                    title: '🗳️ Yeni mahalle anketi',
+                    message: poll.question,
+                    date: 'Şimdi',
+                    read: false,
+                    relatedId: poll.id,
+                    sender: 'Mutlular Plus',
+                    actionTab: 'anket',
+                  });
+                } else {
+                  broadcastPush('🗳️ Yeni mahalle anketi', poll.question, 'anket', poll.id);
+                }
+                showToast('✓ Anket yayınlandı, bildirim tüm cihazlara gönderildi.');
+              }}
+            />
+          )}
+
           {activeTab === 'yorum-denetimi' && (
             <div className="space-y-4">
               <div className="p-3 bg-neutral-800/70 rounded-2xl border border-neutral-700/80 flex items-center justify-between">

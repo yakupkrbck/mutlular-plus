@@ -365,3 +365,28 @@ export interface NewsTipItem {
   newsId?: string;
   createdAtMs?: number;
 }
+
+/** Mahalle anketi seçeneği (id: o1…o6) */
+export interface PollOption {
+  id: string;
+  text: string;
+}
+
+/** Mahalle anketi. Sayaçları (counts, totalVotes) yalnızca sunucu (Worker) günceller. */
+export interface PollItem {
+  id: string;
+  question: string;
+  description?: string;
+  options: PollOption[];
+  /** Kurallar ve sunucu doğrulaması için düz seçenek kimlikleri */
+  optionIds: string[];
+  counts: Record<string, number>;
+  /** Oy kullanan kişi sayısı (çoklu seçimde seçim sayısı değil) */
+  totalVotes: number;
+  allowMultiple: boolean;
+  maxChoices?: number;
+  status: 'active' | 'closed';
+  endsAtMs?: number | null;
+  createdAtMs: number;
+  createdBy?: string;
+}
