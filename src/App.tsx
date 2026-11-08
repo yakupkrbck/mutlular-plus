@@ -39,7 +39,8 @@ import { DeleteAccountModal } from './components/modals/DeleteAccountModal';
 import { PollsModal } from './components/modals/PollsModal';
 import { HomePollCard } from './components/HomePollCard';
 import { SecimModal } from './components/modals/SecimModal';
-import { SecimHomeCard } from './components/SecimHomeCard';
+import { CanliYayinModal } from './components/modals/CanliYayinModal';
+import { useCanliYayin } from './services/canliYayinService';
 import { useSecim } from './services/secimService';
 import { usePolls, useMyVotes, votePoll } from './services/pollService';
 import { PRIVACY_URL } from './config/legal';
@@ -539,6 +540,9 @@ export default function App() {
   // Muhtarlık seçimi sonuçları (yönetim elle girer, herkes canlı görür)
   const secim = useSecim();
   const [isSecimOpen, setIsSecimOpen] = useState(false);
+  // YouTube canlı yayın: vitrinde gösterilir, dokununca tam ekran açılır
+  const { ayar: canliAyar, durum: canli, otomatik: canliOtomatik, yenile: canliYenile } = useCanliYayin();
+  const [isCanliOpen, setIsCanliOpen] = useState(false);
   const [focusPollId, setFocusPollId] = useState<string | undefined>(undefined);
   const handleVotePoll = async (pollId: string, optionIds: string[]): Promise<boolean> => {
     if (requireLogin('Oy vermek için giriş yapmalısınız.')) return false;
@@ -725,6 +729,11 @@ export default function App() {
     }
     if (tab === 'secim') {
       setIsSecimOpen(true);
+      return true;
+    }
+    // Canlı yayın bildirimi: yayın gerçekten sürüyorsa tam ekran izleme açılır (yoksa eski Canlı TV akışı)
+    if (tab === 'canli_yayin' && canli.live && canli.videoId) {
+      setIsCanliOpen(true);
       return true;
     }
     if (tab === 'anket' || tab === 'anketler') {
@@ -1629,6 +1638,7 @@ export default function App() {
     setIsNewsTipOpenRaw(false);
     setIsPollsOpen(false);
     setIsSecimOpen(false);
+    setIsCanliOpen(false);
     setIsDavetOpen(false);
     setIsKursuOpen(false);
     setIsLostFoundOpen(false);
@@ -1673,6 +1683,7 @@ export default function App() {
     isNewsTipOpen ||
     isPollsOpen ||
     isSecimOpen ||
+    isCanliOpen ||
     isDavetOpen ||
     isKursuOpen ||
     isLostFoundOpen ||
@@ -1905,6 +1916,10 @@ export default function App() {
                 onOpenLiveSupport={() => setIsLiveSupportOpen(true)}
                 userProfile={userProfile}
                 onOpenEsnafPaneli={() => setIsEsnafPaneliOpen(true)}
+                canli={canli}
+                onOpenCanli={() => setIsCanliOpen(true)}
+                secim={secim}
+                onOpenSecim={() => setIsSecimOpen(true)}
               />
 
               {/* 2. Arama Kutucuğu (Play Store & App Store kaldırılıp buraya taşındı) */}
@@ -1912,9 +1927,6 @@ export default function App() {
 
               {/* 3. Canlı TV kısayolu */}
               <CanliTvBar onOpenCanliTv={() => setIsLiveStreamOpen(true)} />
-
-              {/* 3a. Muhtarlık seçimi canlı sonuçları (yayındaysa) */}
-              <SecimHomeCard veri={secim} onOpen={() => setIsSecimOpen(true)} />
 
               {/* 3b. Mahalle anketi */}
               <HomePollCard
@@ -3158,6 +3170,7 @@ export default function App() {
         />
 
         <SecimModal isOpen={isSecimOpen} onClose={() => setIsSecimOpen(false)} veri={secim} />
+        <CanliYayinModal isOpen={isCanliOpen} onClose={() => setIsCanliOpen(false)} durum={canli} />
 
         <PollsModal
           isOpen={isPollsOpen}
@@ -3331,6 +3344,10 @@ export default function App() {
           newsTips={newsTipList}
           polls={polls}
           secim={secim}
+          canliAyar={canliAyar}
+          canliDurum={canli}
+          canliOtomatik={canliOtomatik}
+          onCanliYenile={canliYenile}
           onApproveNewsTip={handleApproveNewsTip}
           onRejectNewsTip={handleRejectNewsTip}
           onUpdateNews={handleAdminUpdateNews}

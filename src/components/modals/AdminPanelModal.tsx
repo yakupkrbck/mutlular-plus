@@ -63,6 +63,8 @@ import { ImageCropField } from '../ImageCropField';
 import { NewsForm, EMPTY_NEWS_FORM, type NewsFormValues } from './NewsForm';
 import { PollAdmin } from './PollAdmin';
 import { SecimAdmin } from './SecimAdmin';
+import { CanliAdmin } from './CanliAdmin';
+import type { CanliAyar, CanliDurum } from '../../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
 import { mergeNewsCategories } from '../../data/newsCategories';
 import { broadcastPush } from '../../services/pushService';
@@ -119,6 +121,10 @@ interface AdminPanelModalProps {
   newsTips?: NewsTipItem[];
   polls?: PollItem[];
   secim?: SecimVeri;
+  canliAyar?: CanliAyar | null;
+  canliDurum?: CanliDurum;
+  canliOtomatik?: CanliDurum | null;
+  onCanliYenile?: () => void;
   onApproveNewsTip?: (tip: NewsTipItem, edited?: NewsItem) => void;
   onRejectNewsTip?: (tip: NewsTipItem) => void;
   onUpdateNews?: (news: NewsItem) => void;
@@ -154,6 +160,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   newsTips = [],
   polls = [],
   secim,
+  canliAyar = null,
+  canliDurum = { live: false },
+  canliOtomatik = null,
+  onCanliYenile,
   onApproveNewsTip,
   onRejectNewsTip,
   onUpdateNews,
@@ -167,7 +177,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -777,6 +787,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 {pendingTips.length} onay bekliyor
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('canli')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'canli'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Canlı Yayın</span>
+            {canliDurum.live && <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full animate-pulse">CANLI</span>}
           </button>
 
           <button
@@ -2142,6 +2165,35 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           )}
 
           {/* TAB 3: YORUM VE İÇERİK DENETİMİ (SİLME) */}
+          {activeTab === 'canli' && (
+            <CanliAdmin
+              ayar={canliAyar}
+              durum={canliDurum}
+              otomatik={canliOtomatik}
+              showToast={showToast}
+              onSaved={onCanliYenile}
+              onNotify={(d) => {
+                const title = '🔴 Canlı yayın başladı';
+                const message = d.title ? `${d.title} — izlemek için dokunun.` : 'Canlı yayını izlemek için dokunun.';
+                if (onBroadcastNotification) {
+                  onBroadcastNotification({
+                    id: `canli-push-${Date.now()}`,
+                    type: 'canli_yayin',
+                    title,
+                    message,
+                    date: 'Şimdi',
+                    read: false,
+                    sender: 'Mutlular Plus',
+                    actionTab: 'canli_yayin',
+                  });
+                } else {
+                  broadcastPush(title, message, 'canli_yayin');
+                }
+                showToast('✓ Canlı yayın bildirimi tüm cihazlara gönderildi.');
+              }}
+            />
+          )}
+
           {activeTab === 'secim' && secim && (
             <SecimAdmin
               kayitli={secim}
