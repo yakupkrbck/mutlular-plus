@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Headphones, ChevronLeft, ChevronRight, Store } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { NewsItem, UserProfile, HeroBannerItem } from '../types';
 import { PLACEHOLDER_IMG } from '../utils/placeholder';
 import { CanliDurum, youtubeEmbed, youtubeThumb } from '../services/canliYayinService';
@@ -10,8 +10,9 @@ interface HaberVitriniProps {
   /** Yönetici panelinden yüklenen vitrin afişleri (önce gösterilir) */
   banners?: HeroBannerItem[];
   onSelectNews: (news: NewsItem) => void;
-  onOpenBusinessRegister: () => void;
-  onOpenLiveSupport: () => void;
+  /** Eski kısayol butonları vitrinden kaldırıldı; geriye dönük uyumluluk için isteğe bağlı */
+  onOpenBusinessRegister?: () => void;
+  onOpenLiveSupport?: () => void;
   userProfile?: UserProfile | null;
   onOpenEsnafPaneli?: () => void;
   /** YouTube canlı yayın durumu: canlıysa vitrinin ilk slaytı olur */
@@ -42,8 +43,6 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
   newsList,
   banners = [],
   onSelectNews,
-  onOpenBusinessRegister,
-  onOpenLiveSupport,
   canli,
   onOpenCanli,
   secim,
@@ -227,33 +226,6 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
           </div>
         ))}
 
-        {/* Üst kısayollar (İşletme Kayıt & Canlı Destek) */}
-        <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2 z-10">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenBusinessRegister();
-            }}
-            className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/25 text-white text-[11px] font-semibold py-1.5 px-3 rounded-full flex items-center justify-center gap-1.5 transition active:scale-95 shadow-sm"
-          >
-            <Store className="w-3.5 h-3.5 text-amber-300" />
-            <span>Esnaf Kayıt</span>
-            <ChevronRight className="w-3 h-3 opacity-80 ml-auto" />
-          </button>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenLiveSupport();
-            }}
-            className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/25 text-white text-[11px] font-semibold py-1.5 px-3 rounded-full flex items-center justify-center gap-1.5 transition active:scale-95 shadow-sm"
-          >
-            <Headphones className="w-3.5 h-3.5 text-amber-300" />
-            <span>Canlı Destek</span>
-            <ChevronRight className="w-3 h-3 opacity-80 ml-auto" />
-          </button>
-        </div>
-
         {/* Sol ve sağ oklar */}
         {count > 1 && (
           <>
@@ -276,7 +248,7 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
 
         {/* Canlı yayın rozeti */}
         {active.kind === 'live' && (
-          <div className="absolute left-3.5 top-14 z-10 flex items-center gap-2" data-testid="canli-rozet">
+          <div className="absolute left-3.5 top-3.5 z-10 flex items-center gap-2" data-testid="canli-rozet">
             <span className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               CANLI
@@ -287,7 +259,7 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
 
         {/* Seçim durumu */}
         {active.kind === 'secim' && secim && secimHesap && (
-          <div className="absolute inset-x-10 top-[52px] bottom-3 z-10 flex flex-col text-white" data-testid="vitrin-secim">
+          <div className="absolute inset-x-10 top-3.5 bottom-3.5 z-10 flex flex-col text-white" data-testid="vitrin-secim">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11.5px] font-bold text-slate-200 truncate">{secim.baslik}</span>
               <span className={`shrink-0 text-[9.5px] font-black px-2 py-0.5 rounded-full ${secim.durum === 'kesin' ? 'bg-emerald-400/20 text-emerald-200' : 'bg-sky-400/20 text-sky-200'}`}>
@@ -297,19 +269,19 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
             <div className="flex-1 min-h-0 mt-1.5 grid grid-cols-[auto_1fr] gap-4 items-center">
               <div>
                 <div className="text-[10.5px] text-slate-300">Açılan sandık</div>
-                <div className="text-[30px] leading-none font-black tabular-nums">{yuzdeYaz(secimHesap.acilanSandikYuzde)}</div>
+                <div className="text-[34px] leading-none font-black tabular-nums">{yuzdeYaz(secimHesap.acilanSandikYuzde)}</div>
                 <div className="text-[10.5px] text-slate-400 mt-1">
                   {secim.acilanSandik} / {secim.toplamSandik} sandık
                 </div>
               </div>
-              <ul className="space-y-1.5 min-w-0">
+              <ul className="space-y-2.5 min-w-0">
                 {secimHesap.adaylar.slice(0, 3).map((a) => (
                   <li key={a.id}>
                     <div className="flex items-center justify-between gap-2 text-[11.5px] font-semibold">
                       <span className="truncate">{a.ad}</span>
                       <span className="tabular-nums shrink-0">{yuzdeYaz(a.yuzde)}</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-white/15 overflow-hidden mt-0.5">
+                    <div className="h-2 rounded-full bg-white/15 overflow-hidden mt-1">
                       <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${a.yuzde}%`, backgroundColor: a.renk }} />
                     </div>
                   </li>
