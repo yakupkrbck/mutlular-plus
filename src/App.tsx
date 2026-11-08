@@ -1912,8 +1912,6 @@ export default function App() {
                 newsList={newsList}
                 banners={heroBanners}
                 onSelectNews={(news) => setSelectedNews(news)}
-                onOpenBusinessRegister={() => setIsBusinessRegisterOpen(true)}
-                onOpenLiveSupport={() => setIsLiveSupportOpen(true)}
                 userProfile={userProfile}
                 onOpenEsnafPaneli={() => setIsEsnafPaneliOpen(true)}
                 canli={canli}
