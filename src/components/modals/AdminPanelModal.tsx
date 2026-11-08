@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -64,6 +64,7 @@ import { NewsForm, EMPTY_NEWS_FORM, type NewsFormValues } from './NewsForm';
 import { PollAdmin } from './PollAdmin';
 import { SecimAdmin } from './SecimAdmin';
 import { CanliAdmin } from './CanliAdmin';
+import { assignEditor, listEditors, revokeEditor, type EditorKaydi } from '../../services/staffService';
 import type { CanliAyar, CanliDurum } from '../../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
 import { mergeNewsCategories } from '../../data/newsCategories';
@@ -215,6 +216,31 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // Assigned Editors (Yönetici Tarafından Atanan Yardımcı Editörler)
   const [assignedEditors, setAssignedEditors] = useState<AssignedEditor[]>([]);
+  const [editorBusy, setEditorBusy] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [editorLoadError, setEditorLoadError] = useState<string | null>(null);
+  const toAssigned = (e: EditorKaydi): AssignedEditor => ({
+    id: e.uid,
+    name: e.name || e.email,
+    email: e.email,
+    phone: e.phone || '—',
+    assignedDate: e.assignedAtMs ? new Date(e.assignedAtMs).toLocaleDateString('tr-TR') : '—',
+    status: 'active',
+    assignedBy: e.assignedByName || 'Yönetici',
+    duties: e.duties?.length ? e.duties : ['İlan Onaylama & Denetim'],
+  });
+  const reloadEditors = async () => {
+    try {
+      setAssignedEditors((await listEditors()).map(toAssigned));
+      setEditorLoadError(null);
+    } catch (e: any) {
+      setEditorLoadError(e?.message || 'Editör listesi alınamadı.');
+    }
+  };
+  // Yetkili editörler sunucudan okunur (panel açılınca); eskiden yalnızca ekranda tutulan geçici listeydi
+  useEffect(() => {
+    if (isOpen) reloadEditors();
+  }, [isOpen]);
   const [isAddingEditor, setIsAddingEditor] = useState(false);
   const [newEdName, setNewEdName] = useState('');
   const [newEdEmail, setNewEdEmail] = useState('');
@@ -2500,25 +2526,29 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               {/* Add Editor Form */}
               {isAddingEditor && (
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    if (!newEdName.trim() || !newEdEmail.trim()) return;
-                    const newEd: AssignedEditor = {
-                      id: `ed-${Date.now()}`,
-                      name: newEdName,
-                      email: newEdEmail,
-                      phone: newEdPhone,
-                      assignedDate: 'Bugün',
-                      status: 'active',
-                      assignedBy: 'Süper Admin Yakup',
-                      duties: newEdDuties.length > 0 ? newEdDuties : ['İlan Onaylama & Denetim'],
-                    };
-                    setAssignedEditors([newEd, ...assignedEditors]);
-                    setIsAddingEditor(false);
-                    setNewEdName('');
-                    setNewEdEmail('');
-                    setNewEdPhone('');
-                    showToast(`${newEdName} başarıyla yardımcı editör olarak atandı!`);
+                    if (!newEdName.trim() || !newEdEmail.trim() || editorBusy) return;
+                    setEditorError(null);
+                    setEditorBusy(true);
+                    try {
+                      await assignEditor({
+                        email: newEdEmail.trim(),
+                        name: newEdName.trim(),
+                        phone: newEdPhone.trim(),
+                        duties: newEdDuties.length > 0 ? newEdDuties : ['İlan Onaylama & Denetim'],
+                      });
+                      await reloadEditors();
+                      setIsAddingEditor(false);
+                      showToast(`${newEdName.trim()} editör olarak atandı. Uygulamayı yeniden açtığında yetkisi devreye girer.`);
+                      setNewEdName('');
+                      setNewEdEmail('');
+                      setNewEdPhone('');
+                    } catch (err: any) {
+                      setEditorError(err?.message || 'Atama yapılamadı.');
+                    } finally {
+                      setEditorBusy(false);
+                    }
                   }}
                   className="p-4 bg-neutral-900 border border-purple-500/40 rounded-2xl space-y-3 animate-in fade-in duration-200"
                 >
@@ -2552,7 +2582,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1">
-                        E-Posta (Giriş için)
+                        E-Posta (uygulamada kayıtlı hesabı)
                       </label>
                       <input
                         type="email"
@@ -2618,13 +2648,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
                   </div>
 
+                  {editorError && (
+                    <p className="text-[11px] text-rose-300 font-semibold" role="alert">
+                      {editorError}
+                    </p>
+                  )}
                   <div className="flex justify-end pt-1">
                     <button
                       type="submit"
-                      className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-xs flex items-center gap-1.5"
+                      disabled={editorBusy}
+                      className="bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-xs flex items-center gap-1.5"
                     >
                       <UserCheck className="w-4 h-4" />
-                      <span>Editör Olarak Kaydet & Yetki Ver</span>
+                      <span>{editorBusy ? 'Yetki veriliyor…' : 'Editör Olarak Kaydet & Yetki Ver'}</span>
                     </button>
                   </div>
                 </form>
@@ -2632,6 +2668,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               {/* Editors List */}
               <div className="space-y-2.5">
+                {editorLoadError && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 text-[11px] text-amber-200" role="status">
+                    Editör listesi alınamadı: {editorLoadError}
+                  </div>
+                )}
                 {assignedEditors.length === 0 ? (
                   <div className="p-8 rounded-2xl bg-neutral-900 border border-neutral-800 text-center text-neutral-400 space-y-1">
                     <p className="text-xs font-bold text-neutral-300">Henüz atanmış yardımcı editör bulunmuyor.</p>
@@ -2665,9 +2706,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setAssignedEditors(assignedEditors.filter((e) => e.id !== editor.id));
-                          showToast(`${editor.name} editörlük yetkisi geri alındı.`);
+                        onClick={async () => {
+                          if (!window.confirm(`${editor.name} kişisinin editörlük yetkisi geri alınsın mı?`)) return;
+                          try {
+                            await revokeEditor(editor.id);
+                            setAssignedEditors((prev) => prev.filter((e) => e.id !== editor.id));
+                            showToast(`${editor.name} editörlük yetkisi geri alındı.`);
+                          } catch (err: any) {
+                            showToast(err?.message || 'Yetki geri alınamadı.');
+                          }
                         }}
                         className="p-1.5 text-neutral-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition text-[11px] font-bold flex items-center gap-1"
                         title="Yetkiyi Geri Al"
@@ -2698,7 +2745,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
               {/* Informative footer */}
               <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-2xl text-[11px] text-purple-200 space-y-1">
-                <strong>Editörlük Mekanizması:</strong> Editörler halka açık kayıt formundan doğrudan üye olamaz. Yalnızca platform yöneticisi (Süper Admin) tarafından bu panel üzerinden atanabilir. Atanan editörler giriş yaptıklarında &quot;Editör Denetim &amp; Onay Masası&quot; üzerinden kendilerine verilen onay ve moderasyon görevlerini yerine getirirler.
+                <strong>Editörlük Mekanizması:</strong> Editörler halka açık kayıt formundan doğrudan üye olamaz. Yalnızca platform yöneticisi (Süper Admin) tarafından bu panel üzerinden atanabilir. Atanacak kişi önce uygulamaya normal üye olarak kayıt olmuş olmalı; atama e-posta adresiyle yapılır ve kişi uygulamayı yeniden açtığında yetkisi devreye girer. Atanan editörler giriş yaptıklarında &quot;Editör Denetim &amp; Onay Masası&quot; üzerinden kendilerine verilen onay ve moderasyon görevlerini yerine getirirler.
               </div>
             </div>
           )}
