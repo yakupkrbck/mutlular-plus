@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mutlular Haber - Canlı Yayın Reji & KJ Sistemi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;0,900;1,800&display=swap');
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Kayan Yazı (Ticker) Animasyonu */
+        @keyframes ticker {
+            0% { transform: translate3d(100%, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+        .animate-ticker {
+            display: inline-block;
+            white-space: nowrap;
+            animation: ticker 28s linear infinite;
+        }
+
+        /* Yumuşak TV Geçiş Animasyonları */
+        .tv-transition {
+            transition: all 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .kj-slide-down {
+            transform: translateY(140%);
+            opacity: 0;
+        }
+        .top-slide-up {
+            transform: translateY(-150%);
+            opacity: 0;
+        }
+
+        /* Şeffaf Önizleme Damalı Arka Plan (Sadece Reji Ekranında Görünür) */
+        .checkerboard {
+            background-color: #1e293b;
+            background-image: 
+                linear-gradient(45deg, #0f172a 25%, transparent 25%), 
+                linear-gradient(-45deg, #0f172a 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #0f172a 75%), 
+                linear-gradient(-45deg, transparent 75%, #0f172a 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+    </style>
+</head>
+<body id="app-body" class="bg-slate-950 text-white min-h-screen flex flex-col">
+
+    <!-- ===================================================================== -->
+    <!-- 1. BÖLÜM: TV YAYIN KATMANI (HEM ÖNİZLEME HEM ŞEFFAF YAYIN EKRANI)      -->
+    <!-- ===================================================================== -->
+    <div id="broadcast-container" class="relative w-full aspect-video max-h-[45vh] checkerboard overflow-hidden shadow-2xl border-b-2 border-slate-800 mx-auto shrink-0">
+        
+        <!-- Önizleme Kamera Görüntüsü (Yayın modunda otomatik silinir, %100 şeffaf olur) -->
+        <div id="dummy-camera-bg" class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1577962917302-cd874c4e31d2?auto=format&fit=crop&w=1600&q=80')] bg-cover bg-center opacity-50"></div>
+
+        <!-- ÜST BAR: CANLI İKONU, KONUM VE KANAL LOGOSU -->
+        <div id="ui-top-bar" class="tv-transition absolute top-3 left-3 right-3 md:top-6 md:left-8 md:right-8 flex items-start justify-between z-20 pointer-events-none">
+            
+            <!-- Sol Üst: Canlı & Konum -->
+            <div class="flex flex-wrap items-center gap-1.5 md:gap-2 shadow-2xl">
+                <div class="bg-red-600 text-white font-black px-2.5 py-1 md:px-3.5 md:py-1.5 rounded text-[11px] md:text-sm tracking-wider flex items-center gap-1.5 shadow-lg">
+                    <span class="w-2 h-2 md:w-2.5 md:h-2.5 bg-white rounded-full animate-ping"></span>
+                    <span>CANLI</span>
+                </div>
+                <div id="ui-location" class="bg-slate-950/90 backdrop-blur-md text-white font-extrabold px-2.5 py-1 md:px-3.5 md:py-1.5 rounded text-[11px] md:text-sm border-l-4 border-red-600 uppercase tracking-wide">
+                    OSMANGAZİ / BURSA
+                </div>
+            </div>
+
+            <!-- Sağ Üst: Kanal Logosu -->
+            <div class="bg-white/95 backdrop-blur text-slate-950 font-black px-3 py-1 md:px-4 md:py-1.5 rounded shadow-2xl text-xs md:text-lg tracking-tighter border-b-4 border-red-600">
+                <span id="ui-logo-1">MUTLULAR</span> <span id="ui-logo-2" class="text-red-600">HABER</span>
+            </div>
+        </div>
+
+        <!-- ALT GRUP: ANA HABER BANDI (KJ) + KAYAN YAZI (TICKER) -->
+        <div class="absolute bottom-0 left-0 right-0 z-20 flex flex-col pointer-events-none">
+            
+            <!-- ANA KJ KUTUSU -->
+            <div id="ui-kj-wrapper" class="tv-transition mx-2.5 md:mx-8 mb-2 md:mb-3 shadow-2xl">
+                
+                <!-- Üst Kategori / Son Dakika Etiketi -->
+                <div class="flex items-center">
+                    <div id="ui-badge" class="bg-blue-700 text-white font-black px-3 py-0.5 md:px-5 md:py-1 text-[10px] md:text-sm uppercase tracking-widest flex items-center gap-2 rounded-t shadow-lg">
+                        <span id="ui-badge-dot" class="w-2 h-2 bg-white rounded-full"></span>
+                        <span id="ui-category">GÜNDEM</span>
+                    </div>
+                </div>
+
+                <!-- Ana Başlık ve Alt Başlık Gövdesi -->
+                <div id="ui-kj-body" class="bg-gradient-to-r from-slate-950/95 via-slate-900/95 to-slate-950/95 backdrop-blur-md border-l-8 border-blue-600 p-2.5 md:p-4 rounded-r rounded-bl text-white shadow-2xl">
+                    <h1 id="ui-headline" class="text-sm sm:text-lg md:text-3xl font-black uppercase tracking-tight leading-tight drop-shadow-md">
+                        MEHMET AKİF MAHALLESİ'NDE YENİ DÜZENLEME
+                    </h1>
+                    <p id="ui-subline" class="text-[11px] sm:text-xs md:text-base text-slate-200 font-semibold mt-0.5 md:mt-1 leading-snug">
+                        Mahalle sakinlerinin talep ettiği çalışmalar bugün itibarıyla başladı
+                    </p>
+                </div>
+            </div>
+
+            <!-- EN ALT KAYAN YAZI (TICKER) VE CANLI SAAT -->
+            <div id="ui-ticker-wrapper" class="tv-transition h-7 md:h-10 bg-red-700 flex items-center justify-between overflow-hidden shadow-2xl border-t border-red-500">
+                <div class="bg-red-950 text-white h-full px-2.5 md:px-5 flex items-center justify-center font-black text-[10px] md:text-sm tracking-wider z-10 shrink-0 shadow-lg uppercase">
+                    HABER HATTI
+                </div>
+                <div class="flex-1 overflow-hidden relative h-full flex items-center bg-red-700">
+                    <div id="ui-ticker" class="animate-ticker font-bold text-xs md:text-sm tracking-wide text-white">
+                        • Mutlular Haber Canlı Yayınına Hoş Geldiniz &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; • Mahallemizdeki sıcak gelişmeleri aktarmaya devam ediyoruz
+                    </div>
+                </div>
+                <div id="ui-clock" class="bg-slate-950 text-white h-full px-2.5 md:px-5 flex items-center justify-center font-black text-xs md:text-base tracking-widest z-10 shrink-0 border-l border-slate-800">
+                    00:00
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 2. BÖLÜM: REJİ KONTROL PANELİ (YAYIN MODUNDA OTOMATİK GİZLENİR)       -->
+    <!-- ===================================================================== -->
+    <div id="reji-controls" class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-6 space-y-4 pb-16">
+
+        <!-- ÜST DURUM & YAYIN LİNKİ KUTUSU -->
+        <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+                <span id="conn-dot" class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
+                <div>
+                    <h2 class="text-sm font-black uppercase tracking-wide flex items-center gap-2">
+                        🎛️ CANLI REJİ KONTROL PANELİ
+                    </h2>
+                    <p id="conn-status" class="text-[11px] text-slate-400">Bağlantı kontrol ediliyor...</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="copyOverlayLink()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-3 py-2 rounded-lg text-xs transition flex items-center gap-1.5">
+                    📋 Yayın Linkini Kopyala
+                </button>
+                <a href="?mod=yayin" target="_blank" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-2 rounded-lg text-xs transition">
+                    📺 Yayın Ekranını Aç
+                </a>
+            </div>
+        </div>
+
+        <!-- EKRAN GİZLE / GÖSTER BUTONLARI -->
+        <div class="grid grid-cols-3 gap-2">
+            <button onclick="toggleElement('showKJ')" id="btn-toggle-kj" class="p-2.5 rounded-xl font-extrabold text-xs border transition flex flex-col items-center justify-center gap-1 bg-emerald-600/20 border-emerald-500 text-emerald-300">
+                <span>👁️ ANA KJ BANDI</span>
+                <span id="lbl-toggle-kj" class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded">AÇIK</span>
+            </button>
+            <button onclick="toggleElement('showTicker')" id="btn-toggle-ticker" class="p-2.5 rounded-xl font-extrabold text-xs border transition flex flex-col items-center justify-center gap-1 bg-emerald-600/20 border-emerald-500 text-emerald-300">
+                <span>📜 ALT KAYAN YAZI</span>
+                <span id="lbl-toggle-ticker" class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded">AÇIK</span>
+            </button>
+            <button onclick="toggleElement('showTop')" id="btn-toggle-top" class="p-2.5 rounded-xl font-extrabold text-xs border transition flex flex-col items-center justify-center gap-1 bg-emerald-600/20 border-emerald-500 text-emerald-300">
+                <span>🏷️ ÜST LOGO & KONUM</span>
+                <span id="lbl-toggle-top" class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded">AÇIK</span>
+            </button>
+        </div>
+
+        <!-- TEMA SEÇİMİ: NORMAL vs SON DAKİKA -->
+        <div class="grid grid-cols-2 gap-2.5">
+            <button onclick="changeTheme('normal')" id="btn-theme-normal" class="p-3 rounded-xl font-black text-xs md:text-sm border-2 border-blue-500 bg-blue-600/20 text-white flex items-center justify-center gap-2 transition">
+                🔵 NORMAL HABER TEMASI
+            </button>
+            <button onclick="changeTheme('sondakika')" id="btn-theme-sondakika" class="p-3 rounded-xl font-black text-xs md:text-sm border-2 border-slate-800 bg-slate-900 text-slate-400 flex items-center justify-center gap-2 transition">
+                🔴 SON DAKİKA TEMASI
+            </button>
+        </div>
+
+        <!-- ANA YAZI GÜNCELLEME FORMU -->
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3.5">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Üst Etiket (Kategori)</label>
+                    <input id="inp-category" type="text" value="GÜNDEM" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white focus:border-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-400 uppercase">Sol Üst Konum</label>
+                    <input id="inp-location" type="text" value="OSMANGAZİ / BURSA" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white focus:border-blue-500 outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="text-[11px] font-bold text-slate-400 uppercase">Ana Başlık (Büyük KJ)</label>
+                <input id="inp-headline" type="text" value="MEHMET AKİF MAHALLESİ'NDE YENİ DÜZENLEME" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-base font-black text-white focus:border-blue-500 outline-none">
+            </div>
+
+            <div>
+                <label class="text-[11px] font-bold text-slate-400 uppercase">Alt Açıklama Satırı</label>
+                <input id="inp-subline" type="text" value="Mahalle sakinlerinin talep ettiği çalışmalar bugün itibarıyla başladı" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none">
+            </div>
+
+            <div>
+                <label class="text-[11px] font-bold text-slate-400 uppercase">En Alt Kayan Yazı (Maddelerin arasına | koyun)</label>
+                <textarea id="inp-ticker" rows="2" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-blue-500 outline-none">• Mutlular Haber Canlı Yayınına Hoş Geldiniz | • Mahallemizdeki sıcak gelişmeleri aktarmaya devam ediyoruz | • Yorumlarınızla canlı yayınımıza katılabilirsiniz</textarea>
+            </div>
+
+            <button onclick="pushToLive()" class="w-full bg-green-600 hover:bg-green-500 active:scale-[0.99] text-white font-black py-3.5 rounded-xl shadow-lg text-sm md:text-base tracking-wide transition flex items-center justify-center gap-2">
+                🚀 YAYINA GÖNDER (ANINDA GÜNCELLE)
+            </button>
+        </div>
+
+        <!-- HAZIR BAŞLIK LİSTESİ (PLAYLIST) -->
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xs font-black text-slate-300 uppercase tracking-wider">⚡ Hazır Başlıklar (Tek Tıkla Yayına Ver)</h3>
+                <button onclick="saveCurrentAsPreset()" class="text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/40 font-bold px-2.5 py-1 rounded-lg transition">
+                    + Şu Anki Yazıyı Listeye Kaydet
+                </button>
+            </div>
+            <div id="presets-list" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <!-- JS ile doldurulur -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 3. BÖLÜM: FIREBASE VE SİSTEM MOTORU                                   -->
+    <!-- ===================================================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        // ====================================================================
+        // 👇 BURAYA KENDİ FIREBASE BİLGİLERİNİ YAPIŞTIRACAKSIN 👇
+        // ====================================================================
+        const firebaseConfig = {
+            apiKey: "BURAYA_API_KEY_GELECEK",
+            authDomain: "PROJE_ADIN.firebaseapp.com",
+            projectId: "PROJE_ADIN",
+            storageBucket: "PROJE_ADIN.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+        // ====================================================================
+
+        // Varsayılan Yayın Durumu
+        let state = {
+            theme: "normal",
+            category: "GÜNDEM",
+            location: "OSMANGAZİ / BURSA",
+            headline: "MEHMET AKİF MAHALLESİ'NDE YENİ DÜZENLEME",
+            subline: "Mahalle sakinlerinin talep ettiği çalışmalar bugün itibarıyla başladı",
+            ticker: "• Mutlular Haber Canlı Yayınına Hoş Geldiniz | • Mahallemizdeki sıcak gelişmeleri aktarmaya devam ediyoruz | • Yorumlarınızla canlı yayınımıza katılabilirsiniz",
+            showKJ: true,
+            showTicker: true,
+            showTop: true,
+            updatedAt: Date.now()
+        };
+
+        // Hazır Başlıklar (LocalStorage'da tutulur)
+        let presets = JSON.parse(localStorage.getItem('mh_kj_presets')) || [
+            { theme: 'sondakika', category: 'SON DAKİKA', headline: 'MAHALLEMİZDE ÖNEMLİ GELİŞME', subline: 'Olay yerinden canlı bağlantıyla detayları aktarıyoruz' },
+            { theme: 'normal', category: 'SOKAK RÖPORTAJI', headline: 'MAHALLE SAKİNLERİ NE DİYOR?', subline: 'Mikrofonumuzu Osmangazi sakinlerine uzattık' },
+            { theme: 'normal', category: 'DUYURU', headline: 'ESNAFIMIZDAN VE MAHALLEMİZDEN HABERLER', subline: 'Bölgemizdeki son gelişmeleri canlı yayında değerlendiriyoruz' }
+        ];
+
+        // URL'de ?mod=yayin var mı kontrol et
+        const params = new URLSearchParams(window.location.search);
+        const isBroadcastMode = params.get('mod') === 'yayin';
+
+        if (isBroadcastMode) {
+            // ŞEFFAF YAYIN EKRANI MODU (OBS ve PRISM Live İçin)
+            document.getElementById('app-body').className = "bg-transparent text-white h-screen w-screen overflow-hidden";
+            document.getElementById('broadcast-container').className = "relative w-screen h-screen bg-transparent overflow-hidden";
+            document.getElementById('dummy-camera-bg').remove();
+            document.getElementById('reji-controls').remove();
+        }
+
+        // Firebase Başlatma veya Yerel Mod Kontrolü
+        let db = null;
+        let isFirebaseActive = firebaseConfig.apiKey !== "BURAYA_API_KEY_GELECEK";
+
+        if (isFirebaseActive) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                const kjDocRef = doc(db, "canli_yayin", "aktif_kj");
+
+                onSnapshot(kjDocRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        state = { ...state, ...snapshot.data() };
+                        renderScreen(state);
+                        if (!isBroadcastMode) syncInputsWithState(state);
+                    } else {
+                        setDoc(kjDocRef, state);
+                    }
+                    setConnectionBadge(true, "Firebase Bulut Bağlantısı Aktif (2 Telefon Senkronize)");
+                }, (err) => {
+                    console.error("Firestore Hatası:", err);
+                    setConnectionBadge(false, "Firebase bağlantı hatası! Kuralları (Rules) kontrol edin.");
+                });
+            } catch (e) {
+                console.error(e);
+                isFirebaseActive = false;
+            }
+        }
+
+        if (!isFirebaseActive) {
+            setConnectionBadge(false, "Yerel Test Modu Aktif (2 farklı cihaz için kodun içine Firebase bilginizi girin)");
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'mh_local_state') {
+                    state = JSON.parse(e.newValue);
+                    renderScreen(state);
+                }
+            });
+            renderScreen(state);
+        }
+
+        // Durumu Kaydet ve Yayına Gönder
+        async function saveState(newState) {
+            state = { ...state, ...newState, updatedAt: Date.now() };
+            renderScreen(state);
+            localStorage.setItem('mh_local_state', JSON.stringify(state));
+
+            if (isFirebaseActive && db) {
+                try {
+                    await setDoc(doc(db, "canli_yayin", "aktif_kj"), state);
+                } catch (e) {
+                    alert("Firebase'e yazılırken hata oluştu: " + e.message);
+                }
+            }
+        }
+
+        // Ekrandaki TV Grafiklerini Güncelle
+        let lastHeadline = "";
+        function renderScreen(data) {
+            const kjWrapper = document.getElementById('ui-kj-wrapper');
+            const tickerWrapper = document.getElementById('ui-ticker-wrapper');
+            const topBar = document.getElementById('ui-top-bar');
+            const badge = document.getElementById('ui-badge');
+            const kjBody = document.getElementById('ui-kj-body');
+
+            // Gizle / Göster Durumları
+            kjWrapper.classList.toggle('kj-slide-down', !data.showKJ);
+            tickerWrapper.classList.toggle('kj-slide-down', !data.showTicker);
+            topBar.classList.toggle('top-slide-up', !data.showTop);
+
+            // Başlık değiştiyse yumuşak giriş-çıkış animasyonu yap
+            const headlineChanged = lastHeadline !== data.headline || lastHeadline === "";
+            lastHeadline = data.headline;
+
+            const updateDOM = () => {
+                document.getElementById('ui-category').innerText = data.category;
+                document.getElementById('ui-location').innerText = data.location;
+                document.getElementById('ui-headline').innerText = data.headline;
+                document.getElementById('ui-subline').innerText = data.subline;
+
+                // Kayan Yazı Formatlama
+                const formattedTicker = data.ticker
+                    .split('|')
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .join(' &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔴&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ');
+                document.getElementById('ui-ticker').innerHTML = formattedTicker;
+
+                // Tema Renkleri (Son Dakika vs Normal)
+                if (data.theme === 'sondakika') {
+                    badge.className = "bg-red-600 text-white font-black px-3 py-0.5 md:px-5 md:py-1 text-[10px] md:text-sm uppercase tracking-widest flex items-center gap-2 rounded-t shadow-lg animate-pulse";
+                    kjBody.className = "bg-gradient-to-r from-red-950/95 via-red-900/95 to-slate-950/95 backdrop-blur-md border-l-8 border-red-500 p-2.5 md:p-4 rounded-r rounded-bl text-white shadow-2xl";
+                } else {
+                    badge.className = "bg-blue-700 text-white font-black px-3 py-0.5 md:px-5 md:py-1 text-[10px] md:text-sm uppercase tracking-widest flex items-center gap-2 rounded-t shadow-lg";
+                    kjBody.className = "bg-gradient-to-r from-slate-950/95 via-slate-900/95 to-slate-950/95 backdrop-blur-md border-l-8 border-blue-600 p-2.5 md:p-4 rounded-r rounded-bl text-white shadow-2xl";
+                }
+            };
+
+            if (headlineChanged && data.showKJ) {
+                kjWrapper.classList.add('kj-slide-down');
+                setTimeout(() => {
+                    updateDOM();
+                    if (state.showKJ) kjWrapper.classList.remove('kj-slide-down');
+                }, 300);
+            } else {
+                updateDOM();
+            }
+
+            if (!isBroadcastMode) updateControlButtonsUI(data);
+        }
+
+        // Reji Panelindeki Buton ve Inputları Senkronize Et
+        function syncInputsWithState(data) {
+            document.getElementById('inp-category').value = data.category;
+            document.getElementById('inp-location').value = data.location;
+            document.getElementById('inp-headline').value = data.headline;
+            document.getElementById('inp-subline').value = data.subline;
+            document.getElementById('inp-ticker').value = data.ticker;
+        }
+
+        function updateControlButtonsUI(data) {
+            const setToggleUI = (btnId, lblId, isOpen) => {
+                const btn = document.getElementById(btnId);
+                const lbl = document.getElementById(lblId);
+                if (isOpen) {
+                    btn.className = "p-2.5 rounded-xl font-extrabold text-xs border transition flex flex-col items-center justify-center gap-1 bg-emerald-600/20 border-emerald-500 text-emerald-300";
+                    lbl.className = "text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded";
+                    lbl.innerText = "YAYINDA";
+                } else {
+                    btn.className = "p-2.5 rounded-xl font-extrabold text-xs border transition flex flex-col items-center justify-center gap-1 bg-slate-900 border-slate-800 text-slate-500";
+                    lbl.className = "text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded";
+                    lbl.innerText = "GİZLİ";
+                }
+            };
+
+            setToggleUI('btn-toggle-kj', 'lbl-toggle-kj', data.showKJ);
+            setToggleUI('btn-toggle-ticker', 'lbl-toggle-ticker', data.showTicker);
+            setToggleUI('btn-toggle-top', 'lbl-toggle-top', data.showTop);
+
+            const btnNormal = document.getElementById('btn-theme-normal');
+            const btnSonDakika = document.getElementById('btn-theme-sondakika');
+            if (data.theme === 'sondakika') {
+                btnSonDakika.className = "p-3 rounded-xl font-black text-xs md:text-sm border-2 border-red-500 bg-red-600/20 text-white flex items-center justify-center gap-2 transition";
+                btnNormal.className = "p-3 rounded-xl font-black text-xs md:text-sm border-2 border-slate-800 bg-slate-900 text-slate-400 flex items-center justify-center gap-2 transition";
+            } else {
+                btnNormal.className = "p-3 rounded-xl font-black text-xs md:text-sm border-2 border-blue-500 bg-blue-600/20 text-white flex items-center justify-center gap-2 transition";
+                btnSonDakika.className = "p-3 rounded-xl font-black text-xs md:text-sm border-2 border-slate-800 bg-slate-900 text-slate-400 flex items-center justify-center gap-2 transition";
+            }
+        }
+
+        function setConnectionBadge(isOnline, text) {
+            const dot = document.getElementById('conn-dot');
+            const status = document.getElementById('conn-status');
+            if (!dot || !status) return;
+            dot.className = isOnline ? "w-3 h-3 rounded-full bg-emerald-500" : "w-3 h-3 rounded-full bg-amber-500 animate-pulse";
+            status.innerText = text;
+        }
+
+        // Global Fonksiyonlar (HTML Butonları İçin)
+        window.pushToLive = () => {
+            saveState({
+                category: document.getElementById('inp-category').value.trim(),
+                location: document.getElementById('inp-location').value.trim(),
+                headline: document.getElementById('inp-headline').value.trim(),
+                subline: document.getElementById('inp-subline').value.trim(),
+                ticker: document.getElementById('inp-ticker').value.trim()
+            });
+        };
+
+        window.changeTheme = (theme) => {
+            let cat = document.getElementById('inp-category').value;
+            if (theme === 'sondakika') cat = "SON DAKİKA";
+            else if (cat === "SON DAKİKA") cat = "GÜNDEM";
+            document.getElementById('inp-category').value = cat;
+            saveState({ theme, category: cat });
+        };
+
+        window.toggleElement = (key) => {
+            saveState({ [key]: !state[key] });
+        };
+
+        window.copyOverlayLink = () => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('mod', 'yayin');
+            navigator.clipboard.writeText(url.toString());
+            alert("Şeffaf Yayın Linki Kopyalandı!\n\n" + url.toString() + "\n\nBu linki PRISM Live veya OBS içine Web kaynağı olarak yapıştırabilirsiniz.");
+        };
+
+        // Hazır Başlık Listesi Yönetimi
+        function renderPresets() {
+            const listEl = document.getElementById('presets-list');
+            if (!listEl) return;
+            listEl.innerHTML = presets.map((p, idx) => `
+                <div class="flex items-stretch bg-slate-950 border border-slate-800 rounded-lg overflow-hidden hover:border-slate-600 transition">
+                    <button onclick="triggerPreset(${idx})" class="flex-1 text-left p-2.5 border-l-4 ${p.theme === 'sondakika' ? 'border-red-500' : 'border-blue-500'}">
+                        <div class="text-[10px] font-black ${p.theme === 'sondakika' ? 'text-red-400' : 'text-blue-400'} uppercase">${p.category}</div>
+                        <div class="text-xs font-black text-white truncate">${p.headline}</div>
+                        <div class="text-[11px] text-slate-400 truncate">${p.subline}</div>
+                    </button>
+                    <button onclick="deletePreset(${idx})" class="px-3 text-slate-500 hover:text-red-400 hover:bg-slate-900 font-bold text-xs" title="Sil">✕</button>
+                </div>
+            `).join('');
+        }
+
+        window.triggerPreset = (idx) => {
+            const p = presets[idx];
+            if (!p) return;
+            document.getElementById('inp-category').value = p.category;
+            document.getElementById('inp-headline').value = p.headline;
+            document.getElementById('inp-subline').value = p.subline;
+            saveState({
+                theme: p.theme,
+                category: p.category,
+                headline: p.headline,
+                subline: p.subline,
+                showKJ: true
+            });
+        };
+
+        window.saveCurrentAsPreset = () => {
+            const newPreset = {
+                theme: state.theme,
+                category: document.getElementById('inp-category').value.trim(),
+                headline: document.getElementById('inp-headline').value.trim(),
+                subline: document.getElementById('inp-subline').value.trim()
+            };
+            presets.unshift(newPreset);
+            localStorage.setItem('mh_kj_presets', JSON.stringify(presets));
+            renderPresets();
+        };
+
+        window.deletePreset = (idx) => {
+            presets.splice(idx, 1);
+            localStorage.setItem('mh_kj_presets', JSON.stringify(presets));
+            renderPresets();
+        };
+
+        // Canlı Saat
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const el = document.getElementById('ui-clock');
+            if (el) el.innerText = `${h}:${m}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+        renderPresets();
+    </script>
+</body>
+</html>
