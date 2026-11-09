@@ -17,6 +17,7 @@ import {
 import { NewsItem, ObituaryItem } from '../types';
 import { PLACEHOLDER_IMG } from '../utils/placeholder';
 import { mergeNewsCategories } from '../data/newsCategories';
+import { formatViews, useNewsViews } from '../services/newsViewService';
 
 interface HaberScreenProps {
   newsList: NewsItem[];
@@ -52,6 +53,7 @@ export const HaberScreen: React.FC<HaberScreenProps> = ({
   });
 
   const featured = filteredNews[0] || newsList[0];
+  const views = useNewsViews(featured ? [featured.id] : []);
   const remainingNews = filteredNews.slice(1);
 
   return (
@@ -154,11 +156,15 @@ export const HaberScreen: React.FC<HaberScreenProps> = ({
                     <Calendar className="w-3 h-3" />
                     {featured.date}
                   </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Eye className="w-3 h-3" />
-                    {featured.readCount || '1.850 Okunma'}
-                  </span>
+                  {views[featured.id] ? (
+                    <>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3 h-3" />
+                        {formatViews(views[featured.id])}
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </div>

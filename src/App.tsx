@@ -43,6 +43,7 @@ import { CanliYayinModal } from './components/modals/CanliYayinModal';
 import { useCanliYayin } from './services/canliYayinService';
 import { useSecim } from './services/secimService';
 import { usePolls, useMyVotes, votePoll } from './services/pollService';
+import { recordView } from './services/newsViewService';
 import { PRIVACY_URL } from './config/legal';
 import {
   BusinessRegisterModal,
@@ -655,6 +656,11 @@ export default function App() {
     }
     return null;
   });
+
+  // Haber açıldığında okunma sayılır (uygulama içi tıklama, bildirim ve Instagram/WhatsApp bağlantısı dahil)
+  useEffect(() => {
+    if (selectedNews?.id) recordView(selectedNews.id);
+  }, [selectedNews?.id]);
 
   // Generic Info Modal
   const [genericModalData, setGenericModalData] = useState<{

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Calendar, Share2, ArrowLeft } from 'lucide-react';
+import { Calendar, Eye, Share2, ArrowLeft } from 'lucide-react';
 import { NewsItem } from '../../types';
 import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 import { youtubeId } from '../../utils/newsVideo';
+import { formatViews, useNewsViews } from '../../services/newsViewService';
 
 interface NewsDetailViewProps {
   news: NewsItem | null;
@@ -10,7 +11,10 @@ interface NewsDetailViewProps {
 }
 
 export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose }) => {
+  // Hook'lar erken return'den ÖNCE olmalı
+  const views = useNewsViews(news ? [news.id] : []);
   if (!news) return null;
+  const okunma = views[news.id];
 
   const yt = news.video ? youtubeId(news.video) : null;
   const paragraphs = (news.content || '')
@@ -95,6 +99,12 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
                   <Calendar className="w-3 h-3" />
                   {news.date}
                 </span>
+                {okunma ? (
+                  <span className="flex items-center gap-1" data-testid="okunma">
+                    <Eye className="w-3 h-3" />
+                    {formatViews(okunma)}
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>
@@ -108,9 +118,17 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
                 {news.category}
               </span>
               <h2 className="text-[17px] font-black leading-snug text-neutral-900">{news.title}</h2>
-              <div className="flex items-center gap-1 text-[10px] text-neutral-500 font-medium">
-                <Calendar className="w-3 h-3" />
-                {news.date}
+              <div className="flex items-center gap-3 text-[10px] text-neutral-500 font-medium">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {news.date}
+                </span>
+                {okunma ? (
+                  <span className="flex items-center gap-1" data-testid="okunma">
+                    <Eye className="w-3 h-3" />
+                    {formatViews(okunma)}
+                  </span>
+                ) : null}
               </div>
             </div>
           )}
