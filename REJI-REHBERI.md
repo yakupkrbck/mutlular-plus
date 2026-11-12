@@ -1,7 +1,7 @@
 # Reji (canlı yayın grafik) sistemi – kullanım rehberi
 
 ## Ne işe yarar?
-Yayın programına (PRISM Live Studio / OBS) **şeffaf bir grafik katmanı** ekler: CANLI + konum, logo, ana bant (KJ), kayan yazı + saat. Başlığı ve bantları **ikinci bir telefondan** (veya bilgisayardan) anlık değiştirirsin. Kamera ve çoklu yayın (YouTube/Facebook/Instagram) PRISM'de kalır; uygulama kamera yayını yapmaz.
+Yayın programına (PRISM Live Studio / OBS) **şeffaf bir grafik katmanı** ekler: alt bant (KJ), kayan yazı, kanal logosu, son dakika bandı, konuşmacı isimliği, CANLI etiketi + konum, tarih/saat, haber başlığı bandı, tam ekran haber grafiği, görüntü içinde görüntü (PiP) ve bölünmüş ekran. Başlığı ve bantları **ikinci bir telefondan** (veya bilgisayardan) anlık değiştirirsin. Kamera ve çoklu yayın (YouTube/Facebook/Instagram) PRISM'de kalır; uygulama kamera yayını yapmaz.
 
 ## Bileşenler
 | Parça | Nerede |
@@ -41,3 +41,17 @@ Yayın programına (PRISM Live Studio / OBS) **şeffaf bir grafik katmanı** ekl
 - **3 platforma tek telefondan yayın** 3 kat yükleme hızı ister (kabaca 10–15 Mbps). Mobil hatta zor olabilir; 720p veya bilgisayar/kablo öner.
 - **PRISM mobil sürümlerinde Web/Browser kaynağı** desteği sürüme bağlıdır. Bilgisayarda PRISM/OBS'de vardır. İlk iş `&demo=1` denemesi.
 - Okuma/yazma sayısı: her bant değişikliği 1 yazma sayılır; normal yayında Firebase ücretsiz kotası içinde kalır.
+
+## Reji paneli v2 (sekmeler)
+- **Yayın:** Son dakika, her katmanı aç/kapat, "Temiz görüntü".
+- **Başlık:** alt bant içeriği, hazır başlık listesi, kayan yazı satırları.
+- **Katmanlar:** alt bant, kayan yazı, logo, son dakika, konuşmacı (kayıtlı kişi listesi), CANLI+konum, tarih/saat, başlık bandı. Her birinin 2–5 hazır görünümü ve ayrıntı ayarları vardır.
+- **Ekran:** tam ekran haber grafiği (3 görünüm), görüntü içinde görüntü (görsel/video/YouTube/web sayfası), bölünmüş ekran (sol/sağ/üst/alt panel).
+- **Görünüm:** 6 hazır paket (Klasik Haber, Modern Cam, Ana Haber, Spor, Altın, Minimal), renkler, yazı tipi, köşe yuvarlaklığı, genel boyut, animasyon.
+- **Bağlantı:** katman adresi, yeni anahtar, yedek.
+
+## Anlık güncelleme (PRISM'de değişmiyorsa)
+Katman sayfası iki yoldan veri alır: Firestore canlı dinleyici (zorunlu uzun-yoklama) ve **4 sn'de bir REST yoklaması** (yedek). Dinleyici gömülü tarayıcıda takılsa bile en geç ~4 sn'de güncellenir. Teşhis için bağlantıya `&debug=1` ekle: sağ kenarda "canlı 14:32:10" ya da "yoklama 14:32:10" yazar. Yoklama maliyeti: açık katman başına günde ≈ 21 bin okuma (Firebase ücretsiz kota 50 bin/gün); yayın dışında PRISM'de katmanı açık bırakma.
+
+## Deneme adresleri
+`katman.html?demo=1` + isteğe bağlı: `&breaking=1`, `&full=1`, `&pip=1`, `&split=sol`, `&baslik=1`, `&v_kj=cizgi`, `&v_ticker=cam`, `&v_sd=bant` …
