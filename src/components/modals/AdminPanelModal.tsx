@@ -64,6 +64,7 @@ import { NewsForm, EMPTY_NEWS_FORM, type NewsFormValues } from './NewsForm';
 import { PollAdmin } from './PollAdmin';
 import { SecimAdmin } from './SecimAdmin';
 import { CanliAdmin } from './CanliAdmin';
+import { RejiPanel } from '../reji/RejiPanel';
 import { assignEditor, listEditors, revokeEditor, type EditorKaydi } from '../../services/staffService';
 import type { CanliAyar, CanliDurum } from '../../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
@@ -178,7 +179,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli' | 'reji'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -813,6 +814,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 {pendingTips.length} onay bekliyor
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('reji')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'reji'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Reji</span>
           </button>
 
           <button
@@ -2191,6 +2204,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           )}
 
           {/* TAB 3: YORUM VE İÇERİK DENETİMİ (SİLME) */}
+          {activeTab === 'reji' && <RejiPanel newsList={newsList} showToast={showToast} />}
+
           {activeTab === 'canli' && (
             <CanliAdmin
               ayar={canliAyar}

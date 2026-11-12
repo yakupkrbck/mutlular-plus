@@ -1,9 +1,15 @@
 import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
 import './index.css';
 import 'leaflet/dist/leaflet.css';
 import { initNative } from './native';
 
 initNative();
 
-createRoot(document.getElementById('root')!).render(<App />);
+const root = createRoot(document.getElementById('root')!);
+
+// /reji : ayrı sayfa olarak reji (canlı yayın grafik) paneli; uygulamanın tamamı yüklenmez
+if (/^\/reji\/?$/.test(window.location.pathname)) {
+  import('./components/reji/RejiStandalone').then(({ RejiStandalone }) => root.render(<RejiStandalone />));
+} else {
+  import('./App.tsx').then(({ default: App }) => root.render(<App />));
+}

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { ClassifiedItem, NewsItem, ObituaryItem, PendingMerchantItem, UserProfile } from '../../types';
 import { sendAndroidAppNotification } from '../../services/androidNotificationService';
+import { RejiPanel } from '../reji/RejiPanel';
 
 interface EditorPanelModalProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
   onApproveMerchant: onPropApproveMerchant,
   onRejectMerchant: onPropRejectMerchant,
 }) => {
-  const [activeTab, setActiveTab] = useState<'ilanlar' | 'cenaze' | 'esnaf' | 'yorumlar' | 'haberler'>('ilanlar');
+  const [activeTab, setActiveTab] = useState<'ilanlar' | 'cenaze' | 'esnaf' | 'yorumlar' | 'haberler' | 'reji'>('ilanlar');
 
   // Pending Ads to Moderate
   // Onay bekleyen ilanlar canlı veriden gelir (prop)
@@ -215,6 +216,16 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
           >
             <MessageSquare className="w-4 h-4" />
             <span>Yorum Denetim ({flaggedComments.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('reji')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'reji'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-neutral-400 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <span>Reji (Canlı Yayın)</span>
           </button>
         </nav>
 
@@ -494,6 +505,12 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
           {/* ============================================================== */}
           {/* TAB 3: YORUM VE ŞİKAYET MODERASYONU */}
           {/* ============================================================== */}
+          {activeTab === 'reji' && (
+            <div className="bg-neutral-950 rounded-2xl p-3 -mx-1">
+              <RejiPanel newsList={newsList} showToast={showToast} />
+            </div>
+          )}
+
           {activeTab === 'yorumlar' && (
             <div className="space-y-3">
               <div>
