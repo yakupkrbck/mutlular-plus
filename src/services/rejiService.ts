@@ -10,12 +10,31 @@ import type { NewsItem } from '../types';
 //      - yazma: yalnızca yönetici/editör (admins kaydı)
 //  • plus_reji_ayar/main      : yalnızca personel: anahtar (token), hazır başlık listesi, otomatik kayan yazı ayarı
 // ---------------------------------------------------------------------------
-export type KaynakTur = 'gorsel' | 'video' | 'youtube' | 'web';
+export type KaynakTur = 'kamera' | 'konuk' | 'video' | 'youtube' | 'gorsel' | 'secim' | 'web';
 export interface Kaynak {
   type: KaynakTur;
   url: string;
-  /** video / YouTube sesi açık mı (varsayılan sessiz) */
+  /** video / YouTube / konuk sesi açık mı */
   ses?: boolean;
+  /** video ses seviyesi 0–100 */
+  vol?: number;
+}
+
+/** Sahne düzenleri */
+export type SahneDuzen = 'tek' | 'yan2' | 'yan2b' | 'uclu' | 'buyukkucuk' | 'dortlu' | 'pip';
+export interface SahneAlan {
+  src: Kaynak;
+  /** Kutunun alt etiketi (isim) ve ikinci satırı (unvan) */
+  label: string;
+  sub: string;
+}
+export interface RejiSahne {
+  visible: boolean;
+  layout: SahneDuzen;
+  bg: 'koyu' | 'renk' | 'seffaf';
+  frame: 'yuvarlak' | 'kare' | 'cerceve' | 'yok';
+  gap: number;
+  slots: SahneAlan[];
 }
 export type Kose = 'sol-ust' | 'sag-ust' | 'sol-alt' | 'sag-alt';
 
@@ -46,7 +65,7 @@ export interface RejiDurum {
   baslik: { visible: boolean; text: string; position: 'ust' | 'alt' };
   tam: { visible: boolean; label: string; title: string; text: string; image: string; bg: string };
   pip: { visible: boolean; src: Kaynak; position: Kose; size: number; label: string };
-  split: { visible: boolean; layout: 'sol' | 'sag' | 'ust' | 'alt'; ratio: number; src: Kaynak; title: string; text: string };
+  sahne: RejiSahne;
   theme: { normal: string; breaking: string; accent: string; text: string; dark: string };
   look: { font: 'sans' | 'serif' | 'dar' | 'yuvarlak'; radius: number; scale: number; anim: 'kay' | 'solma' | 'yok' };
   v: RejiVaryant;
@@ -69,6 +88,22 @@ export interface RejiAyar {
   tickerAdet: number;
   /** Kayıtlı konuşmacılar (isimlik için tek dokunuşla seçilir) */
   konusmacilar: RejiKonusmaci[];
+  /** Online konuklar (VDO.Ninja akış kimlikleri) */
+  konuklar: RejiKonuk[];
+  /** Kayıtlı sahneler (tek dokunuşla yayına alınır) */
+  sahneler: KayitliSahne[];
+}
+
+export interface RejiKonuk {
+  id: string;
+  ad: string;
+  /** VDO.Ninja akış kimliği (tahmin edilemez; paylaşılan davet bağlantısında bulunur) */
+  sid: string;
+}
+export interface KayitliSahne {
+  id: string;
+  ad: string;
+  sahne: Omit<RejiSahne, 'visible'>;
 }
 
 export interface RejiKonusmaci {
@@ -89,7 +124,7 @@ export const DEFAULT_REJI: RejiDurum = {
   baslik: { visible: false, text: '', position: 'alt' },
   tam: { visible: false, label: '', title: '', text: '', image: '', bg: '' },
   pip: { visible: false, src: { type: 'gorsel', url: '' }, position: 'sag-alt', size: 26, label: '' },
-  split: { visible: false, layout: 'sol', ratio: 40, src: { type: 'gorsel', url: '' }, title: '', text: '' },
+  sahne: { visible: false, layout: 'yan2', bg: 'koyu', frame: 'yuvarlak', gap: 1.6, slots: [] },
   theme: { normal: '#0b3d91', breaking: '#c8102e', accent: '#ffffff', text: '#ffffff', dark: '#111111' },
   look: { font: 'sans', radius: 0.6, scale: 1, anim: 'kay' },
   v: { kj: 'klasik', ticker: 'klasik', live: 'klasik', logo: 'duz', konusmaci: 'klasik', zaman: 'kutu', baslik: 'tam', sd: 'tema', tam: 'gorsel', pip: 'kose' },
@@ -126,6 +161,86 @@ export const KATMANLAR: KatmanTanim[] = [
   { anahtar: 'pip', ad: 'Görüntü İçinde Görüntü', aciklama: 'Köşede küçük pencere (görsel, video, YouTube, sayfa)', varyantlar: [
     { id: 'kose', ad: 'Yuvarlak köşe' }, { id: 'daire', ad: 'Daire' }, { id: 'cerceve', ad: 'Çerçeveli' } ] },
 ];
+
+// ---------------------------------------------------------------------------
+// SAHNE: tam ekran düzenler. Her kutuya bir kaynak konur: kamera (saydam, PRISM kamerası görünür),
+// online konuk, video, YouTube, görsel, seçim tablosu veya web sayfası.
+// ---------------------------------------------------------------------------
+export const SAHNE_DUZENLERI: { id: SahneDuzen; ad: string; alan: number; aciklama: string }[] = [
+  { id: 'tek', ad: 'Tam ekran', alan: 1, aciklama: 'Tek kaynak tüm ekranı kaplar' },
+  { id: 'yan2', ad: 'Yan yana', alan: 2, aciklama: 'İki eşit kutu' },
+  { id: 'yan2b', ad: 'Büyük + yan', alan: 2, aciklama: 'Geniş ana kutu, yanında dar kutu' },
+  { id: 'buyukkucuk', ad: 'Büyük + 2 küçük', alan: 3, aciklama: 'Solda ana kutu, sağda iki küçük' },
+  { id: 'uclu', ad: 'Üçlü', alan: 3, aciklama: 'Üç eşit kutu' },
+  { id: 'dortlu', ad: 'Dörtlü', alan: 4, aciklama: '2×2 kutu' },
+  { id: 'pip', ad: 'Pencereli', alan: 2, aciklama: 'Tam ekran + köşede küçük pencere' },
+];
+
+export const KAYNAK_TURLERI: { id: KaynakTur; ad: string; ipucu: string }[] = [
+  { id: 'kamera', ad: 'Kamera', ipucu: 'PRISM\'deki kamera görüntüsü bu kutuda görünür' },
+  { id: 'konuk', ad: 'Online konuk', ipucu: 'Telefonla bağlanan konuk (görüntü + ses)' },
+  { id: 'video', ad: 'Video', ipucu: 'Yüklenen video veya bağlantı (sesli)' },
+  { id: 'youtube', ad: 'YouTube', ipucu: 'YouTube video veya canlı yayın bağlantısı' },
+  { id: 'gorsel', ad: 'Görsel', ipucu: 'Fotoğraf / grafik' },
+  { id: 'secim', ad: 'Seçim', ipucu: 'Seçim sonuç tablosu (yönetim panelindeki sayılarla canlı)' },
+  { id: 'web', ad: 'Web sayfası', ipucu: 'https ile açılan sayfa (bazı siteler engeller)' },
+];
+
+const bosAlan = (type: KaynakTur, label = '', sub = ''): SahneAlan => ({ src: { type, url: '', ses: type === 'konuk' || type === 'video' }, label, sub });
+
+/** Hazır sahne şablonları: seçilince düzenleyiciye yüklenir; eksik kaynaklar (konuk, video…) doldurulup yayına alınır. */
+export const SAHNE_SABLONLARI: { id: string; ad: string; aciklama: string; sahne: Omit<RejiSahne, 'visible'> }[] = [
+  {
+    id: 'konuk', ad: 'Konuk görüşmesi', aciklama: 'Sol: stüdyo kamerası · Sağ: online konuk',
+    sahne: { layout: 'yan2', bg: 'koyu', frame: 'yuvarlak', gap: 1.6, slots: [bosAlan('kamera', 'Sunucu', 'Stüdyo'), bosAlan('konuk', 'Konuk', 'Canlı bağlantı')] },
+  },
+  {
+    id: 'video', ad: 'Tam ekran video', aciklama: 'Video tüm ekranı kaplar, sesi yayına verilir',
+    sahne: { layout: 'tek', bg: 'koyu', frame: 'yok', gap: 0, slots: [bosAlan('video')] },
+  },
+  {
+    id: 'secim', ad: 'Seçim sonuçları', aciklama: 'Tam ekran seçim tablosu',
+    sahne: { layout: 'tek', bg: 'koyu', frame: 'yok', gap: 0, slots: [bosAlan('secim')] },
+  },
+  {
+    id: 'secim-kamera', ad: 'Seçim + kamera', aciklama: 'Solda büyük seçim tablosu, sağda kamera',
+    sahne: { layout: 'yan2b', bg: 'koyu', frame: 'yuvarlak', gap: 1.6, slots: [bosAlan('secim'), bosAlan('kamera', 'Sunucu')] },
+  },
+  {
+    id: 'konuk2', ad: 'İki konuk + kamera', aciklama: 'Ana kamera büyük, iki konuk sağda',
+    sahne: { layout: 'buyukkucuk', bg: 'koyu', frame: 'yuvarlak', gap: 1.6, slots: [bosAlan('kamera', 'Sunucu'), bosAlan('konuk', 'Konuk 1'), bosAlan('konuk', 'Konuk 2')] },
+  },
+  {
+    id: 'video-kamera', ad: 'Video + kamera', aciklama: 'Büyük video, yanında stüdyo kamerası',
+    sahne: { layout: 'yan2b', bg: 'koyu', frame: 'yuvarlak', gap: 1.6, slots: [bosAlan('video'), bosAlan('kamera', 'Sunucu')] },
+  },
+];
+
+/** Bir sahnenin yayına alınabilmesi için eksik kaynakları (kullanıcıya gösterilecek metinlerle) bulur. */
+export const sahneEksikleri = (sahne: Omit<RejiSahne, 'visible'>): string[] => {
+  const adet = SAHNE_DUZENLERI.find((d) => d.id === sahne.layout)?.alan ?? 1;
+  const out: string[] = [];
+  for (let i = 0; i < adet; i++) {
+    const a = sahne.slots[i];
+    if (!a) { out.push(`${i + 1}. kutu boş`); continue; }
+    const t = a.src.type;
+    if (['konuk', 'video', 'youtube', 'gorsel', 'web'].includes(t) && !a.src.url.trim()) {
+      out.push(`${i + 1}. kutu (${KAYNAK_TURLERI.find((k) => k.id === t)?.ad}) için içerik seçilmemiş`);
+    }
+  }
+  return out;
+};
+
+// ---------------------------------------------------------------------------
+// Online konuk: VDO.Ninja (ücretsiz, uygulamasız: konuk bağlantıyı telefonunda açar, kamerayı/mikrofonu onaylar).
+//   davet:    https://vdo.ninja/?push=<kimlik>&label=<ad>
+//   izleme:   https://vdo.ninja/?view=<kimlik>&cleanoutput   (sahne kutusuna konur; konuğun görüntüsü ve sesi gelir)
+// Kimlik tahmin edilemez olmalı; bağlantıyı bilen yayına girebilir.
+// ---------------------------------------------------------------------------
+export const VDO_ADRES = 'https://vdo.ninja/';
+export const konukDavetAdresi = (k: RejiKonuk) => `${VDO_ADRES}?push=${encodeURIComponent(k.sid)}&label=${encodeURIComponent(k.ad)}`;
+export const konukIzlemeAdresi = (k: RejiKonuk) => `${VDO_ADRES}?view=${encodeURIComponent(k.sid)}&cleanoutput`;
+export const yeniKonuk = (ad: string): RejiKonuk => ({ id: `g${Date.now()}`, ad: ad.trim() || 'Konuk', sid: `mh${yeniToken(16)}` });
 
 export const YAZI_TIPLERI: { id: RejiDurum['look']['font']; ad: string }[] = [
   { id: 'sans', ad: 'Modern' }, { id: 'serif', ad: 'Gazete (serif)' }, { id: 'dar', ad: 'Dar' }, { id: 'yuvarlak', ad: 'Yuvarlak' },
@@ -222,14 +337,14 @@ export const birlestirReji = (raw: any): RejiDurum => {
     baslik: { ...D.baslik, ...(raw?.baslik || {}) },
     tam: { ...D.tam, ...(raw?.tam || {}) },
     pip: { ...D.pip, ...(raw?.pip || {}), src: SATIR_KAYNAK(raw?.pip?.src, D.pip.src) },
-    split: { ...D.split, ...(raw?.split || {}), src: SATIR_KAYNAK(raw?.split?.src, D.split.src) },
+    sahne: { ...D.sahne, ...(raw?.sahne || {}), slots: Array.isArray(raw?.sahne?.slots) ? raw.sahne.slots : [] },
     theme: { ...D.theme, ...(raw?.theme || {}) },
     look: { ...D.look, ...(raw?.look || {}) },
     v: { ...D.v, ...(raw?.v || {}) },
   };
 };
 
-export const DEFAULT_AYAR = (token: string): RejiAyar => ({ token, playlist: [], plIndex: -1, tickerOtomatik: false, tickerAdet: 8, konusmacilar: [] });
+export const DEFAULT_AYAR = (token: string): RejiAyar => ({ token, playlist: [], plIndex: -1, tickerOtomatik: false, tickerAdet: 8, konusmacilar: [], konuklar: [], sahneler: [] });
 
 const birlestirAyar = (raw: any): RejiAyar => ({
   ...DEFAULT_AYAR(String(raw?.token || '')),
@@ -237,6 +352,8 @@ const birlestirAyar = (raw: any): RejiAyar => ({
   playlist: Array.isArray(raw?.playlist) ? raw.playlist : [],
   plIndex: Number.isInteger(raw?.plIndex) ? raw.plIndex : -1,
   konusmacilar: Array.isArray(raw?.konusmacilar) ? raw.konusmacilar : [],
+  konuklar: Array.isArray(raw?.konuklar) ? raw.konuklar : [],
+  sahneler: Array.isArray(raw?.sahneler) ? raw.sahneler : [],
 });
 
 /**
@@ -325,17 +442,17 @@ export function useRejiYayin(token?: string): RejiDurum | null {
 
 export interface RejiYedek {
   surum: 1;
-  ayar: Pick<RejiAyar, 'playlist' | 'tickerOtomatik' | 'tickerAdet'> & { konusmacilar?: RejiKonusmaci[] };
+  ayar: Pick<RejiAyar, 'playlist' | 'tickerOtomatik' | 'tickerAdet'> & { konusmacilar?: RejiKonusmaci[]; konuklar?: RejiKonuk[]; sahneler?: KayitliSahne[] };
   durum: RejiDurum;
 }
 export const yedekOlustur = (ayar: RejiAyar, durum: RejiDurum): RejiYedek => ({
   surum: 1,
-  ayar: { playlist: ayar.playlist, tickerOtomatik: ayar.tickerOtomatik, tickerAdet: ayar.tickerAdet, konusmacilar: ayar.konusmacilar },
+  ayar: { playlist: ayar.playlist, tickerOtomatik: ayar.tickerOtomatik, tickerAdet: ayar.tickerAdet, konusmacilar: ayar.konusmacilar, konuklar: ayar.konuklar, sahneler: ayar.sahneler },
   durum,
 });
 /** Yedek dosyasını doğrular; geçersizse hata fırlatır. Anahtar (token) yedeğe girmez. */
 export const yedekCoz = (metin: string): RejiYedek => {
   const j = JSON.parse(metin);
   if (j?.surum !== 1 || !j.durum || !Array.isArray(j.ayar?.playlist)) throw new Error('Geçersiz yedek dosyası.');
-  return { surum: 1, ayar: { playlist: j.ayar.playlist, tickerOtomatik: !!j.ayar.tickerOtomatik, tickerAdet: Number(j.ayar.tickerAdet) || 8, konusmacilar: Array.isArray(j.ayar.konusmacilar) ? j.ayar.konusmacilar : [] }, durum: birlestirReji(j.durum) };
+  return { surum: 1, ayar: { playlist: j.ayar.playlist, tickerOtomatik: !!j.ayar.tickerOtomatik, tickerAdet: Number(j.ayar.tickerAdet) || 8, konusmacilar: Array.isArray(j.ayar.konusmacilar) ? j.ayar.konusmacilar : [], konuklar: Array.isArray(j.ayar.konuklar) ? j.ayar.konuklar : [], sahneler: Array.isArray(j.ayar.sahneler) ? j.ayar.sahneler : [] }, durum: birlestirReji(j.durum) };
 };

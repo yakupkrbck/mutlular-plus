@@ -21,6 +21,7 @@ import {
 } from '../../services/rejiService';
 import { Bolum, Switch, btnBase, inputCls, type RejiBaglam } from './rejiUi';
 import { EkranSekmesi, GorunumSekmesi, KatmanlarSekmesi } from './RejiKatmanlar';
+import { SahneSekmesi } from './RejiSahne';
 
 interface RejiPanelProps {
   /** Haberlerden başlık doldurma ve otomatik kayan yazı için */
@@ -28,12 +29,13 @@ interface RejiPanelProps {
   showToast?: (msg: string) => void;
 }
 
-type Sekme = 'yayin' | 'baslik' | 'katman' | 'ekran' | 'gorunum' | 'baglanti';
+type Sekme = 'yayin' | 'sahne' | 'baslik' | 'katman' | 'ekran' | 'gorunum' | 'baglanti';
 const SEKMELER: { id: Sekme; ad: string }[] = [
   { id: 'yayin', ad: 'Yayın' },
+  { id: 'sahne', ad: 'Sahne' },
   { id: 'baslik', ad: 'Başlık' },
   { id: 'katman', ad: 'Katmanlar' },
-  { id: 'ekran', ad: 'Ekran' },
+  { id: 'ekran', ad: 'Pencere' },
   { id: 'gorunum', ad: 'Görünüm' },
   { id: 'baglanti', ad: 'Bağlantı' },
 ];
@@ -48,7 +50,7 @@ const GORUNURLUK: { k: keyof RejiDurum; ad: string }[] = [
   { k: 'zaman', ad: 'Tarih/saat' },
   { k: 'baslik', ad: 'Başlık bandı' },
   { k: 'pip', ad: 'Pencere (PiP)' },
-  { k: 'split', ad: 'Bölünmüş' },
+  { k: 'sahne', ad: 'Sahne' },
   { k: 'tam', ad: 'Tam ekran' },
 ];
 
@@ -130,7 +132,7 @@ export const RejiPanel: React.FC<RejiPanelProps> = ({ newsList, showToast }) => 
 
   const playlist = ayar.playlist;
   const gorunur = (key: keyof RejiDurum) => !!(durum[key] as any)?.visible;
-  const hepsiGorunur = GORUNURLUK.filter((g) => !['pip', 'split', 'tam', 'konusmaci', 'zaman', 'baslik'].includes(g.k)).every((g) => gorunur(g.k));
+  const hepsiGorunur = GORUNURLUK.filter((g) => !['pip', 'sahne', 'tam', 'konusmaci', 'zaman', 'baslik'].includes(g.k)).every((g) => gorunur(g.k));
 
   const gonder = () => {
     if (!baslik.trim()) return toast('Önce bir başlık yazın.');
@@ -198,7 +200,7 @@ export const RejiPanel: React.FC<RejiPanelProps> = ({ newsList, showToast }) => 
     try {
       const y = yedekCoz(await f.text());
       await calistir(async () => {
-        await ayarYaz({ playlist: y.ayar.playlist, tickerOtomatik: y.ayar.tickerOtomatik, tickerAdet: y.ayar.tickerAdet, konusmacilar: y.ayar.konusmacilar ?? [], plIndex: -1 });
+        await ayarYaz({ playlist: y.ayar.playlist, tickerOtomatik: y.ayar.tickerOtomatik, tickerAdet: y.ayar.tickerAdet, konusmacilar: y.ayar.konusmacilar ?? [], konuklar: y.ayar.konuklar ?? [], sahneler: y.ayar.sahneler ?? [], plIndex: -1 });
         await rejiYaz(token, { ...y.durum });
       }, 'Yedek yüklendi', true);
     } catch {
@@ -287,7 +289,7 @@ export const RejiPanel: React.FC<RejiPanelProps> = ({ newsList, showToast }) => 
                 onClick={() =>
                   yaz({
                     top: { visible: false }, brand: { visible: false }, kj: { visible: false }, ticker: { visible: false }, konusmaci: { visible: false },
-                    zaman: { visible: false }, baslik: { visible: false }, pip: { visible: false }, split: { visible: false }, tam: { visible: false }, breaking: false,
+                    zaman: { visible: false }, baslik: { visible: false }, pip: { visible: false }, sahne: { visible: false }, tam: { visible: false }, breaking: false,
                   }, 'Ekran temizlendi')
                 }
                 className={`${btnBase} bg-neutral-700 text-rose-300`}
@@ -417,6 +419,7 @@ export const RejiPanel: React.FC<RejiPanelProps> = ({ newsList, showToast }) => 
         </div>
       )}
 
+      {sekme === 'sahne' && <SahneSekmesi k={k} />}
       {sekme === 'katman' && <KatmanlarSekmesi k={k} />}
       {sekme === 'ekran' && <EkranSekmesi k={k} />}
       {sekme === 'gorunum' && <GorunumSekmesi k={k} />}

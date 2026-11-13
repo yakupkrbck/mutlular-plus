@@ -55,3 +55,11 @@ Katman sayfası iki yoldan veri alır: Firestore canlı dinleyici (zorunlu uzun-
 
 ## Deneme adresleri
 `katman.html?demo=1` + isteğe bağlı: `&breaking=1`, `&full=1`, `&pip=1`, `&split=sol`, `&baslik=1`, `&v_kj=cizgi`, `&v_ticker=cam`, `&v_sd=bant` …
+
+## Sahne sistemi (konuk, video, seçim, bölünmüş ekran)
+Panelde **Sahne** sekmesi: şablon seç → kutuları doldur → **Sahneyi yayına al**. Kutu kaynakları: Kamera (saydam; PRISM kamerası görünür), Online konuk, Video, YouTube, Görsel, Seçim tablosu, Web sayfası. Düzenler: tam ekran, yan yana, büyük+yan, büyük+2 küçük, üçlü, dörtlü, pencereli. Sık kullanılanlar adla kaydedilir ve tek dokunuşla yayına alınır. Sahne kapanınca video/konuk sesi durur.
+- **Tam ekran video:** "Tam ekran video" şablonu; video yükle (≤80 MB) veya bağlantı yapıştır; sesi ve ses seviyesi ayarlanır.
+- **Seçim:** yönetim panelindeki "Seçim Sonuçları" sayıları canlı gösterilir (3 sn'de bir okunur).
+- **Online konuk:** VDO.Ninja ile. Sahne sekmesi → Online konuklar → Ekle → "WhatsApp'la gönder". Konuk telefonunda linki açıp kamera/mikrofona izin verir. WhatsApp/Meet/Zoom aramaları sayfaya gömülemez (site engeli); bu yüzden VDO.Ninja kullanılır.
+- **Ses:** konuk ve video sesi katman sayfasının sesidir; yayın programı web kaynağının sesini yayına almalıdır. OBS: "Sesi OBS ile denetle". PRISM mobilde bu belgelenmemiştir, yayından önce deneyin.
+Deneme: `katman.html?demo=1&sahne=yan2&s1=kamera&s2=secim` (düzenler: tek, yan2, yan2b, uclu, buyukkucuk, dortlu, pip).

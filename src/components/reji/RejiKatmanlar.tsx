@@ -316,7 +316,7 @@ const PipKarti: React.FC<{ k: RejiBaglam }> = ({ k }) => {
   return (
     <Kart baslik="Görüntü İçinde Görüntü" aciklama="Köşede küçük pencere: görsel, video, YouTube veya sayfa" durum={p.visible} onDurum={(v) => k.yaz({ pip: { visible: v } })}>
       <Varyant k={k} anahtar="pip" />
-      <KaynakAlani deger={src} onChange={setSrc} toast={k.toast} haberler={k.newsList} />
+      <KaynakAlani deger={src} onChange={setSrc} toast={k.toast} haberler={k.newsList} konuklar={k.ayar.konuklar} turler={['konuk', 'video', 'youtube', 'gorsel', 'secim', 'web']} />
       <input aria-label="Pencere etiketi" value={etiket} onChange={(e) => setEtiket(e.target.value)} placeholder="Alt etiket (Muhabir, Canlı bağlantı…)" className={inputCls} />
       <div>
         <Etiket>Köşe</Etiket>
@@ -326,7 +326,7 @@ const PipKarti: React.FC<{ k: RejiBaglam }> = ({ k }) => {
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => (src.url.trim() ? k.yaz({ pip: { src, label: etiket.trim(), visible: true } }, 'Pencere yayında') : k.toast('Önce bir içerik seçin.'))}
+          onClick={() => (src.url.trim() || src.type === 'secim' ? k.yaz({ pip: { src, label: etiket.trim(), visible: true } }, 'Pencere yayında') : k.toast('Önce bir içerik seçin.'))}
           className={`${btnBase} bg-rose-600 text-white`}
         >
           <Play className="w-4 h-4" /> Yayına al
@@ -339,45 +339,13 @@ const PipKarti: React.FC<{ k: RejiBaglam }> = ({ k }) => {
   );
 };
 
-const BolunmusKarti: React.FC<{ k: RejiBaglam }> = ({ k }) => {
-  const s = k.durum.split;
-  const [src, setSrc] = useState<Kaynak>(s.src);
-  const [baslik, setBaslik] = useState(s.title);
-  const [metin, setMetin] = useState(s.text);
-  return (
-    <Kart baslik="Bölünmüş Ekran" aciklama="Ekranın bir kısmını içerik paneliyle kaplar, kalanı kamera görüntüsü olur" durum={s.visible} onDurum={(v) => k.yaz({ split: { visible: v } })}>
-      <div>
-        <Etiket>Panel yeri</Etiket>
-        <Chips etiket="Panel yeri" secenekler={[{ id: 'sol', ad: 'Solda' }, { id: 'sag', ad: 'Sağda' }, { id: 'ust', ad: 'Üstte' }, { id: 'alt', ad: 'Altta' }]} deger={s.layout} onChange={(l) => k.yaz({ split: { layout: l } })} />
-      </div>
-      <Aralik etiket="Panel boyutu" deger={s.ratio} min={20} max={70} birim="%" onKaydet={(v) => k.yaz({ split: { ratio: v } })} />
-      <KaynakAlani deger={src} onChange={setSrc} toast={k.toast} haberler={k.newsList} />
-      <input aria-label="Panel başlığı" value={baslik} onChange={(e) => setBaslik(e.target.value)} placeholder="Panel başlığı (isteğe bağlı)" className={inputCls} />
-      <input aria-label="Panel metni" value={metin} onChange={(e) => setMetin(e.target.value)} placeholder="Panel alt metni (isteğe bağlı)" className={inputCls} />
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => (src.url.trim() || baslik.trim() ? k.yaz({ split: { src, title: baslik.trim(), text: metin.trim(), visible: true } }, 'Bölünmüş ekran yayında') : k.toast('İçerik veya başlık girin.'))}
-          className={`${btnBase} bg-rose-600 text-white`}
-        >
-          <Play className="w-4 h-4" /> Yayına al
-        </button>
-        <button type="button" onClick={() => k.yaz({ split: { visible: false } })} className={`${btnBase} bg-neutral-700 text-white`}>
-          <X className="w-4 h-4" /> Kapat
-        </button>
-      </div>
-    </Kart>
-  );
-};
-
 export const EkranSekmesi: React.FC<{ k: RejiBaglam }> = ({ k }) => (
   <div className="space-y-3">
     <p className="text-xs text-neutral-400">
-      Görüntüyü kaplayan veya bölen grafikler. Web sayfası olarak uygulamanın kendi sayfaları (örn. mutlularhaber.com/haber/…) gösterilebilir; bazı siteler başka sayfada gösterilmeyi engeller.
+      Haber grafiği ve köşe penceresi. Bölünmüş ekran, konuk, video ve seçim için "Sahne" sekmesini kullanın.
     </p>
     <TamEkranKarti k={k} />
     <PipKarti k={k} />
-    <BolunmusKarti k={k} />
   </div>
 );
 

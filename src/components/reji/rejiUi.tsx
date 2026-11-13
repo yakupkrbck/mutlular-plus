@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ImagePlus, Video } from 'lucide-react';
 import type { NewsItem } from '../../types';
-import type { Kaynak, KaynakTur, RejiAyar, RejiDurum } from '../../services/rejiService';
+import { KAYNAK_TURLERI, konukIzlemeAdresi, type Kaynak, type KaynakTur, type RejiAyar, type RejiDurum, type RejiKonuk } from '../../services/rejiService';
 import { MAX_VIDEO_MB, uploadFile, uploadVideoFile } from '../../services/uploadService';
 
 export const inputCls =
@@ -115,27 +115,26 @@ export const Aralik: React.FC<{
   );
 };
 
-export const TURLER: { id: KaynakTur; ad: string }[] = [
-  { id: 'gorsel', ad: 'Görsel' },
-  { id: 'video', ad: 'Video' },
-  { id: 'youtube', ad: 'YouTube' },
-  { id: 'web', ad: 'Web sayfası' },
-];
+/** Kaynak türü değişince başlangıç değerleri (konuk ve video sesli başlar) */
+export const yeniKaynak = (type: KaynakTur): Kaynak => ({ type, url: '', ses: type === 'konuk' || type === 'video' });
 
 /**
- * İçerik kaynağı seçici (görüntü içinde görüntü ve bölünmüş ekran için).
- * Görsel/video yüklenebilir ya da https bağlantısı yapıştırılır. YouTube bağlantısı, uygulama (mutlularhaber.com) sayfaları
- * ve https ile açılan web sayfaları gösterilebilir (bazı siteler başka sayfada gösterilmeyi engeller).
+ * İçerik kaynağı seçici (sahne kutuları ve pencere için). Tür seçilir, içerik yüklenir/yapıştırılır.
+ * Konuk: önce 'Online konuk' bölümünden eklenen kişilerden biri seçilir.
  */
-export const KaynakAlani: React.FC<{ deger: Kaynak; onChange: (k: Kaynak) => void; toast: (m: string) => void; haberler?: NewsItem[] }> = ({
-  deger,
-  onChange,
-  toast,
-  haberler,
-}) => {
+export const KaynakAlani: React.FC<{
+  deger: Kaynak;
+  onChange: (k: Kaynak) => void;
+  toast: (m: string) => void;
+  haberler?: NewsItem[];
+  konuklar?: RejiKonuk[];
+  turler?: KaynakTur[];
+}> = ({ deger, onChange, toast, haberler, konuklar = [], turler }) => {
   const gorselInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
   const [yuk, setYuk] = useState<string | null>(null);
+  const liste = KAYNAK_TURLERI.filter((t) => !turler || turler.includes(t.id));
+  const tur = KAYNAK_TURLERI.find((t) => t.id === deger.type);
 
   const yukle = async (f: File, video: boolean) => {
     setYuk(video ? 'Video yükleniyor 0%' : 'Yükleniyor…');
@@ -150,35 +149,72 @@ export const KaynakAlani: React.FC<{ deger: Kaynak; onChange: (k: Kaynak) => voi
     }
   };
   const gecerli = !deger.url || deger.type === 'youtube' || /^https:\/\//i.test(deger.url);
+  const t = deger.type;
+  const seciliKonuk = konuklar.find((k) => konukIzlemeAdresi(k) === deger.url)?.id ?? '';
+
   return (
     <div className="space-y-2">
-      <Chips etiket="İçerik türü" secenekler={TURLER} deger={deger.type} onChange={(t) => onChange({ ...deger, type: t })} />
-      <input
-        aria-label="İçerik bağlantısı"
-        value={deger.url}
-        onChange={(e) => onChange({ ...deger, url: e.target.value.trim() })}
-        placeholder={deger.type === 'youtube' ? 'YouTube bağlantısı' : deger.type === 'web' ? 'https://… (sayfa adresi)' : 'https://… bağlantı veya yükle'}
-        className={inputCls}
-      />
-      {!gecerli && <p className="text-[11px] text-amber-300">Bağlantı https:// ile başlamalı.</p>}
-      {(deger.type === 'gorsel' || deger.type === 'video') && (
+      <Chips etiket="İçerik türü" secenekler={liste.map((x) => ({ id: x.id, ad: x.ad }))} deger={t} onChange={(v) => onChange(yeniKaynak(v))} />
+      {tur && <p className="text-[11px] text-neutral-500">{tur.ipucu}</p>}
+
+      {t === 'konuk' && (
+        <>
+          {konuklar.length === 0 ? (
+            <p className="text-xs text-amber-300">Önce "Sahne" sekmesindeki "Online konuklar" bölümünden bir konuk ekleyin.</p>
+          ) : (
+            <select aria-label="Konuk seç" value={seciliKonuk} onChange={(e) => { const k = konuklar.find((x) => x.id === e.target.value); if (k) onChange({ ...deger, url: konukIzlemeAdresi(k) }); }} className={inputCls}>
+              <option value="">Konuk seçin…</option>
+              {konuklar.map((k) => (
+                <option key={k.id} value={k.id}>{k.ad}</option>
+              ))}
+            </select>
+          )}
+        </>
+      )}
+
+      {(t === 'video' || t === 'youtube' || t === 'gorsel' || t === 'web') && (
+        <>
+          <input
+            aria-label="İçerik bağlantısı"
+            value={deger.url}
+            onChange={(e) => onChange({ ...deger, url: e.target.value.trim() })}
+            placeholder={t === 'youtube' ? 'YouTube bağlantısı' : t === 'web' ? 'https://… (sayfa adresi)' : 'https://… bağlantı yapıştır ya da yükle'}
+            className={inputCls}
+          />
+          {!gecerli && <p className="text-[11px] text-amber-300">Bağlantı https:// ile başlamalı.</p>}
+        </>
+      )}
+
+      {(t === 'gorsel' || t === 'video') && (
         <>
           <input ref={gorselInput} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void yukle(f, false); }} />
           <input ref={videoInput} type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void yukle(f, true); }} />
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" disabled={!!yuk} onClick={() => gorselInput.current?.click()} className={`${btnBase} bg-neutral-700 text-white disabled:opacity-50`}>
-              <ImagePlus className="w-4 h-4" /> Görsel yükle
-            </button>
-            <button type="button" disabled={!!yuk} onClick={() => videoInput.current?.click()} className={`${btnBase} bg-neutral-700 text-white disabled:opacity-50`}>
-              <Video className="w-4 h-4" /> Video yükle
-            </button>
+            {t === 'gorsel' && (
+              <button type="button" disabled={!!yuk} onClick={() => gorselInput.current?.click()} className={`${btnBase} bg-neutral-700 text-white disabled:opacity-50 col-span-2`}>
+                <ImagePlus className="w-4 h-4" /> Görsel yükle
+              </button>
+            )}
+            {t === 'video' && (
+              <button type="button" disabled={!!yuk} onClick={() => videoInput.current?.click()} className={`${btnBase} bg-neutral-700 text-white disabled:opacity-50 col-span-2`}>
+                <Video className="w-4 h-4" /> Video yükle (en fazla {MAX_VIDEO_MB} MB)
+              </button>
+            )}
           </div>
-          <p className="text-[11px] text-neutral-500">Video en fazla {MAX_VIDEO_MB} MB.</p>
         </>
       )}
       {yuk && <p className="text-xs text-emerald-300">{yuk}</p>}
-      {(deger.type === 'video' || deger.type === 'youtube') && <Switch checked={!!deger.ses} onChange={(v) => onChange({ ...deger, ses: v })} label="Sesi açık" />}
-      {haberler && haberler.length > 0 && (
+
+      {(t === 'video' || t === 'youtube' || t === 'konuk') && <Switch checked={deger.ses !== false && !!deger.ses} onChange={(v) => onChange({ ...deger, ses: v })} label={t === 'konuk' ? 'Konuğun sesi yayında' : 'Sesi yayına ver'} />}
+      {t === 'video' && deger.ses && (
+        <label className="flex items-center gap-3 text-xs text-neutral-300">
+          <span className="w-24 shrink-0">Ses seviyesi</span>
+          <input aria-label="Video ses seviyesi" type="range" min={0} max={100} value={deger.vol ?? 100} onChange={(e) => onChange({ ...deger, vol: Number(e.target.value) })} className="flex-1" />
+          <span className="w-10 text-right tabular-nums">{deger.vol ?? 100}</span>
+        </label>
+      )}
+
+      {haberler && haberler.length > 0 && (t === 'video' || t === 'gorsel' || t === 'youtube') && (
         <select
           aria-label="Haberden al"
           defaultValue=""
@@ -186,7 +222,7 @@ export const KaynakAlani: React.FC<{ deger: Kaynak; onChange: (k: Kaynak) => voi
             const n = haberler.find((x) => x.id === e.target.value);
             if (!n) return;
             if (n.video && /youtu/.test(n.video)) onChange({ type: 'youtube', url: n.video, ses: deger.ses });
-            else if (n.video) onChange({ type: 'video', url: n.video, ses: deger.ses });
+            else if (n.video) onChange({ type: 'video', url: n.video, ses: deger.ses ?? true });
             else if (n.image) onChange({ type: 'gorsel', url: n.image });
             else toast('Bu haberde görsel/video yok.');
             e.target.value = '';
