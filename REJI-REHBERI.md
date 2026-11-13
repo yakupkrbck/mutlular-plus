@@ -63,3 +63,10 @@ Panelde **Sahne** sekmesi: şablon seç → kutuları doldur → **Sahneyi yayı
 - **Online konuk:** VDO.Ninja ile. Sahne sekmesi → Online konuklar → Ekle → "WhatsApp'la gönder". Konuk telefonunda linki açıp kamera/mikrofona izin verir. WhatsApp/Meet/Zoom aramaları sayfaya gömülemez (site engeli); bu yüzden VDO.Ninja kullanılır.
 - **Ses:** konuk ve video sesi katman sayfasının sesidir; yayın programı web kaynağının sesini yayına almalıdır. OBS: "Sesi OBS ile denetle". PRISM mobilde bu belgelenmemiştir, yayından önce deneyin.
 Deneme: `katman.html?demo=1&sahne=yan2&s1=kamera&s2=secim` (düzenler: tek, yan2, yan2b, uclu, buyukkucuk, dortlu, pip).
+
+## Tek ekran Reji paneli (/reji/panel.html)
+Adres: https://www.mutlularhaber.com/reji/panel.html (PC öncelikli, telefonda da çalışır).
+- Üstte hızlı düğmeler (katman aç/kapat, SON DAKİKA, Hepsini gizle). Solda önizleme + alt bant + hazır başlıklar (Alt+→/← ile gez).
+- Sahne bölümü: şablon seç → çizimde kutuya tıkla → kaynağı seç (kamera, konuk, video, YouTube, görsel, seçim, web) → "SAHNEYİ YAYINA AL". Sahne yayındayken düzen/kaynak değişikliği anında yayına yansır.
+- Aynı Firestore belgelerini kullanır; uygulamadaki /reji paneliyle birlikte çalışır.
+- Not: katalog (varyant, paket, şablon) panel.html içinde ayrıca tutulur; rejiService.ts'te değişirse burada da güncelle.
