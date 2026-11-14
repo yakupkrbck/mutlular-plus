@@ -3190,7 +3190,14 @@ export default function App() {
         />
 
         <SecimModal isOpen={isSecimOpen} onClose={() => setIsSecimOpen(false)} veri={secim} />
-        <CanliYayinModal isOpen={isCanliOpen} onClose={() => setIsCanliOpen(false)} durum={canli} />
+        <CanliYayinModal
+          isOpen={isCanliOpen}
+          onClose={() => setIsCanliOpen(false)}
+          durum={canli}
+          kullanici={isLoggedIn && myUid ? { uid: myUid, name: userProfile?.name || 'Misafir' } : null}
+          onGirisGerek={() => requireLogin('Yorum yazmak için giriş yapmalısınız.')}
+          yonetici={userProfile?.role === 'yonetici' || userProfile?.role === 'editor'}
+        />
 
         <PollsModal
           isOpen={isPollsOpen}

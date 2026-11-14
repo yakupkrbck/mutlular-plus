@@ -305,7 +305,7 @@
         <header><h3>Online konuklar</h3><span class="mut">VDO.Ninja · konuk linki telefonunda açar, uygulama gerekmez</span></header>
         <div class="row"><input id="konukAd" placeholder="Konuk adı (Ahmet Bey)"><button class="btn pri" data-act="konukAdd">Ekle</button></div>
         <div id="konukList" style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))"></div>
-        <small>Konuk kulaklık takmalı (yankı olmasın). Bağlantı kişiye özeldir; iş bitince Sil ile iptal et. Yayından önce "Dene" ile görüntü ve sesi kontrol et. Konuk/video sesi, yayın programının web kaynağı sesini yakalamasına bağlıdır (OBS: "Sesi OBS ile denetle"; PRISM mobilde yayından önce dene).</small>
+        <small>Çift yönlü: “Konuk linki”ni konuğa gönder; sen de “Ben de gireyim” düğmesiyle açılan sayfayı KULAKLIKLA açık tut (konuk seni görür ve duyar, sen konuğu görür ve duyarsın). Aynı telefonda kamera PRISM'de kullanılıyorsa bu sayfa kamerayı açamaz: “Yalnız ses”i kullan veya bu sayfayı başka cihazdan aç. Konuk da kulaklık takmalı (yankı olmasın). Bağlantı kişiye özeldir; iş bitince Sil ile iptal et. Yayından önce "Dene" ile görüntü ve sesi kontrol et. Konuk/video sesi, yayın programının web kaynağı sesini yakalamasına bağlıdır (OBS: "Sesi OBS ile denetle"; PRISM mobilde yayından önce dene).</small>
       </section>
 
     </div>
@@ -536,6 +536,10 @@ function kaynakEd(host, src, onChange, turler) {
 }
 const viewUrl = (k) => `https://vdo.ninja/?view=${encodeURIComponent(k.sid)}&cleanoutput`;
 const pushUrl = (k) => `https://vdo.ninja/?push=${encodeURIComponent(k.sid)}&label=${encodeURIComponent(k.ad)}`;
+const hostId = (k) => k.hsid || ('mh' + k.sid.slice(2, 10) + 'H' + k.sid.slice(10));
+// çift yönlü: konuk hem yayın yapar hem sunucunun sesini dinler; sunucu yalnızca ses gönderir (kamerasız) ve konuğu dinler
+const twoUrl = (k) => `https://vdo.ninja/?push=${encodeURIComponent(k.sid)}&view=${encodeURIComponent(hostId(k))}&label=${encodeURIComponent(k.ad)}`;
+const hostUrl = (k, sadeceSes) => `https://vdo.ninja/?push=${encodeURIComponent(hostId(k))}&view=${encodeURIComponent(k.sid)}${sadeceSes ? '&videodevice=0' : ''}&label=Sunucu`;
 
 /* ---------------- Sahne ---------------- */
 function doldur() { const n = MINI_N[E.layout]; while (E.slots.length < n) E.slots.push(bos('kamera')); }
@@ -593,9 +597,12 @@ const ACT = {
   logout: () => signOut(auth), menu: () => menu(),
 };
 document.addEventListener('click', (e) => {
-  const c = e.target.closest('[data-kcp],[data-kdel],[data-kview],[data-kpush],[data-pld],[data-pls],[data-ks],[data-kd]'); if (!c) return;
+  const c = e.target.closest('[data-k2],[data-kh],[data-khs],[data-kcp],[data-kdel],[data-kview],[data-kpush],[data-pld],[data-pls],[data-ks],[data-kd]'); if (!c) return;
   const g = (k) => c.dataset[k];
-  if (c.dataset.kcp) { const k = A.konuklar.find(x => x.id === g('kcp')); if (k) copy(pushUrl(k), 'Konuk davet bağlantısı kopyalandı'); }
+  if (c.dataset.k2) { const k = A.konuklar.find(x => x.id === g('k2')); if (k) copy(twoUrl(k), 'Çift yönlü konuk linki kopyalandı: konuğa gönder'); }
+  else if (c.dataset.khs) { const k = A.konuklar.find(x => x.id === g('khs')); if (k) window.open(hostUrl(k, true), '_blank', 'noopener'); }
+  else if (c.dataset.kh) { const k = A.konuklar.find(x => x.id === g('kh')); if (k) window.open(hostUrl(k), '_blank', 'noopener'); }
+  else if (c.dataset.kcp) { const k = A.konuklar.find(x => x.id === g('kcp')); if (k) copy(pushUrl(k), 'Konuk davet bağlantısı kopyalandı'); }
   else if (c.dataset.kview) { const k = A.konuklar.find(x => x.id === g('kview')); if (k) window.open(viewUrl(k), '_blank', 'noopener'); }
   else if (c.dataset.kdel) { if (confirm('Konuk silinsin mi? Bağlantısı geçersiz olur.')) ayarYaz({ konuklar: A.konuklar.filter(x => x.id !== g('kdel')) }); }
   else if (c.dataset.pld) ayarYaz({ playlist: A.playlist.filter(x => x.id !== g('pld')), plIndex: -1 });
@@ -641,7 +648,7 @@ function syncAll() {
   // kaydedilmiş konuşmacılar
   $('#konList').innerHTML = A.konusmacilar.map(k => `<span class="row" style="gap:0"><button class="chip" data-ks="${esc(k.id)}">${esc(k.name)}</button><button class="chip" data-kd="${esc(k.id)}" style="padding:0 7px">×</button></span>`).join('');
   // konuklar
-  $('#konukList').innerHTML = A.konuklar.length ? A.konuklar.map(k => `<div class="gl"><b>${esc(k.ad)}</b><div class="row wrap"><button class="btn mini pri" data-kcp="${esc(k.id)}">Davet linkini kopyala</button><button class="btn mini" data-kview="${esc(k.id)}">Dene</button><button class="btn mini danger" data-kdel="${esc(k.id)}">Sil</button></div></div>`).join('') : '<small>Henüz konuk yok.</small>';
+  $('#konukList').innerHTML = A.konuklar.length ? A.konuklar.map(k => `<div class="gl"><b>${esc(k.ad)}</b><div class="row wrap"><button class="btn mini pri" data-k2="${esc(k.id)}">Konuk linki (çift yönlü)</button><button class="btn mini ok" data-kh="${esc(k.id)}">Ben de gireyim (kamera + ses)</button><button class="btn mini" data-khs="${esc(k.id)}">Yalnız ses</button><button class="btn mini" data-kcp="${esc(k.id)}">Tek yönlü link</button><button class="btn mini" data-kview="${esc(k.id)}">Dene</button><button class="btn mini danger" data-kdel="${esc(k.id)}">Sil</button></div></div>`).join('') : '<small>Henüz konuk yok.</small>';
   // sahne
   const sb = $('#sahneBadge'); sb.textContent = S.sahne.visible ? 'YAYINDA' : 'Kapalı'; sb.classList.toggle('on', S.sahne.visible);
   const ae = document.activeElement; if (ae && (ae.id === 'slotLabel' || ae.id === 'slotSub' || $('#slotEd').contains(ae) || ae.id === 'sahneAd')) sahneListe(); else sahneCiz();

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, BellRing, ChevronDown } from 'lucide-react';
-import { CanliAyar, CanliDurum, dosyaMi, saveCanliAyar, youtubeVideoId } from '../../services/canliYayinService';
+import { CanliAyar, CanliDurum, dosyaMi, saveCanliAyar, youtubeKanalId, youtubeVideoId } from '../../services/canliYayinService';
 import { MAX_VIDEO_MB, uploadVideoFile } from '../../services/uploadService';
 
 interface CanliAdminProps {
@@ -47,10 +47,12 @@ export const CanliAdmin: React.FC<CanliAdminProps> = ({ ayar, durum, otomatik, s
     if (busy) return;
     setError(null);
     if (sabitVideo.trim() && !youtubeVideoId(sabitVideo)) return setError('Sabit video bağlantısı geçersiz.');
-    if (elleAktif && !youtubeVideoId(elleVideo) && !dosyaMi(elleVideo.trim())) return setError('Yayın için geçerli bir YouTube bağlantısı/kodu girin ya da video yükleyin.');
+    if (elleAktif && !youtubeKanalId(elleVideo) && !youtubeVideoId(elleVideo.replace(/\s+/g, '')) && !dosyaMi(elleVideo.trim())) return setError('Yayın için geçerli bir YouTube bağlantısı/kodu girin ya da video yükleyin.');
     setBusy(true);
     try {
-      await saveCanliAyar({ kanal: kanal.trim(), sabitVideo: sabitVideo.trim(), elleAktif, elleVideo: elleVideo.trim(), elleBaslik: elleBaslik.trim(), elleTur, elleDongu });
+      // Yayın yeni açılıyorsa (ya da kaynak değiştiyse) yorumlar sıfırdan başlar
+      const yeniYayin = elleAktif && (!ayar?.elleAktif || (ayar?.elleVideo || '') !== elleVideo.trim());
+      await saveCanliAyar({ kanal: kanal.trim(), sabitVideo: sabitVideo.trim(), elleAktif, elleVideo: elleVideo.trim(), elleBaslik: elleBaslik.trim(), elleTur, elleDongu, yayinBaslangicMs: yeniYayin ? Date.now() : ayar?.yayinBaslangicMs || 0 });
       showToast('✓ Canlı yayın ayarları kaydedildi.');
       onSaved?.();
     } catch {
@@ -142,7 +144,7 @@ export const CanliAdmin: React.FC<CanliAdminProps> = ({ ayar, durum, otomatik, s
             <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${elleAktif ? 'left-[18px]' : 'left-0.5'}`} />
           </span>
         </button>
-        <input type="text" aria-label="YouTube bağlantısı veya kodu" value={elleVideo} onChange={(e) => setElleVideo(e.target.value)} placeholder="YouTube bağlantısı veya 11 haneli kod (ya da video yükleyin)" className={inputCls} />
+        <textarea aria-label="YouTube iframe kodu, bağlantısı veya kodu" rows={3} value={elleVideo} onChange={(e) => setElleVideo(e.target.value)} placeholder="YouTube iframe kodunu, bağlantısını veya 11 haneli video kodunu yapıştırın (ya da video yükleyin)" className={inputCls} />
         <div className="flex items-center gap-2">
           <label className={`flex-1 text-center cursor-pointer bg-neutral-700 hover:bg-neutral-600 text-white font-bold text-xs px-3 py-2.5 rounded-xl transition ${yuzde !== null ? 'opacity-60 pointer-events-none' : ''}`}>
             {yuzde !== null ? `Yükleniyor %${yuzde}` : `Video yükle (en çok ${MAX_VIDEO_MB} MB)`}
@@ -164,7 +166,7 @@ export const CanliAdmin: React.FC<CanliAdminProps> = ({ ayar, durum, otomatik, s
           <input type="checkbox" checked={elleDongu} onChange={(e) => setElleDongu(e.target.checked)} className="accent-rose-500" />
           Video bitince başa sar (sürekli oynat)
         </label>
-        <p className="text-[10.5px] text-neutral-500 leading-snug">YouTube videosu da yüklediğiniz video da aynı ekranda, YouTube arayüzü olmadan gösterilir. Normal video seçerseniz izleyici ileri-geri sarabilir; canlı rozetinde sarma yoktur.</p>
+        <p className="text-[10.5px] text-neutral-500 leading-snug">Kanalın canlı yayın iframe kodunu (embed/live_stream?channel=…) olduğu gibi yapıştırabilirsiniz; kanalda o an hangi yayın varsa o gösterilir. YouTube videosu da yüklediğiniz video da aynı ekranda, YouTube arayüzü olmadan gösterilir. Normal video seçerseniz izleyici ileri-geri sarabilir; canlı rozetinde sarma yoktur.</p>
       </section>
 
       {error && <p className="text-[11px] text-rose-300 font-semibold">{error}</p>}

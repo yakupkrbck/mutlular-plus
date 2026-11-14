@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Maximize2, Minimize2, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 
 // Mutlular Plus yayın oynatıcısı.
 // YouTube videosu / yayını ya da yüklenmiş video dosyası, kendi arayüzümüzle (kendi kontrolleri, kendi kapağı) gösterilir.
@@ -45,6 +45,8 @@ export interface YayinOynaticiProps {
   tur: 'youtube' | 'dosya';
   /** YouTube video kimliği */
   videoId?: string;
+  /** Kanalın canlı yayını (UC… kimliği): embed/live_stream?channel= */
+  kanalId?: string;
   /** Video dosyası bağlantısı */
   url?: string;
   /** Canlı yayın (ileri-geri sarma ve oynat/duraklat gösterilmez) */
@@ -60,7 +62,7 @@ const dk = (sn: number) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, url, canli, dongu, baslik }) => {
+export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, kanalId, url, canli, dongu, baslik }) => {
   const kapRef = useRef<HTMLDivElement>(null);
   const ytKutuRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -74,6 +76,9 @@ export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, url,
   const [kontrol, setKontrol] = useState(true);
   const [poz, setPoz] = useState(0);
   const [sure, setSure] = useState(0);
+  const [tam, setTam] = useState(false);
+  const [cssTam, setCssTam] = useState(false);
+  const [dikey, setDikey] = useState(false);
 
   const kontrolGoster = useCallback(() => {
     setKontrol(true);
@@ -92,7 +97,7 @@ export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, url,
 
   // YouTube
   useEffect(() => {
-    if (tur !== 'youtube' || !videoId) return;
+    if (tur !== 'youtube' || !(videoId || kanalId)) return;
     let iptal = false;
     ilkRef.current = false;
     setBasladi(false);
@@ -101,14 +106,23 @@ export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, url,
     ytApi()
       .then((YT) => {
         if (iptal || !ytKutuRef.current) return;
-        const hedef = document.createElement('div');
         ytKutuRef.current.innerHTML = '';
-        ytKutuRef.current.appendChild(hedef);
+        let hedef: HTMLElement;
+        if (kanalId) {
+          // Kanalın o anki canlı yayını: iframe elle kurulur, API ona bağlanır
+          const f = document.createElement('iframe');
+          const q = new URLSearchParams({ channel: kanalId, autoplay: '1', mute: '1', controls: '0', disablekb: '1', fs: '0', rel: '0', modestbranding: '1', iv_load_policy: '3', playsinline: '1', enablejsapi: '1', origin: window.location.origin });
+          f.src = `https://www.youtube.com/embed/live_stream?${q.toString()}`;
+          f.allow = 'autoplay; encrypted-media; picture-in-picture';
+          f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+          ytKutuRef.current.appendChild(f);
+          hedef = f;
+        } else {
+          hedef = document.createElement('div');
+          ytKutuRef.current.appendChild(hedef);
+        }
         playerRef.current = new YT.Player(hedef, {
-          videoId,
-          host: 'https://www.youtube-nocookie.com',
-          width: '100%',
-          height: '100%',
+          ...(kanalId ? {} : { videoId, host: 'https://www.youtube-nocookie.com', width: '100%', height: '100%' }),
           playerVars: {
             autoplay: 1,
             mute: 1,
@@ -150,7 +164,16 @@ export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, url,
       } catch {}
       playerRef.current = null;
     };
-  }, [tur, videoId, dongu, oynadi]);
+  }, [tur, videoId, kanalId, dongu, oynadi]);
+
+  // Kanal yayını başlamadıysa sonsuza dek yükleniyor görünmesin
+  useEffect(() => {
+    if (!kanalId) return;
+    const t = setTimeout(() => {
+      if (!ilkRef.current) setDurum('hata');
+    }, 30000);
+    return () => clearTimeout(t);
+  }, [kanalId]);
 
   // ilerleme (yalnızca kayıtlı videolarda)
   useEffect(() => {
@@ -210,11 +233,66 @@ export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, url,
     } catch {}
   };
 
+  // Tam ekran / yatay: önce tarayıcı tam ekranı + yatay kilit; olmazsa (ör. iPhone) CSS ile döndürülmüş tam ekran
+  useEffect(() => {
+    const kontrolEt = () => setDikey(window.innerHeight > window.innerWidth);
+    kontrolEt();
+    window.addEventListener('resize', kontrolEt);
+    const fs = () => {
+      if (!document.fullscreenElement) {
+        setTam((t) => (cssTam ? t : false));
+        try {
+          (screen.orientation as any)?.unlock?.();
+        } catch {}
+      }
+    };
+    document.addEventListener('fullscreenchange', fs);
+    return () => {
+      window.removeEventListener('resize', kontrolEt);
+      document.removeEventListener('fullscreenchange', fs);
+    };
+  }, [cssTam]);
+
+  const tamEkranDegistir = async () => {
+    if (tam) {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+      } catch {}
+      setCssTam(false);
+      setTam(false);
+      try {
+        (screen.orientation as any)?.unlock?.();
+      } catch {}
+      return;
+    }
+    try {
+      if (!kapRef.current?.requestFullscreen) throw new Error('yok');
+      await kapRef.current.requestFullscreen();
+      try {
+        await (screen.orientation as any)?.lock?.('landscape');
+      } catch {}
+      setTam(true);
+    } catch {
+      setCssTam(true);
+      setTam(true);
+    }
+  };
+
   const perde = durum === 'hata' || !basladi || durum === 'durdu' || durum === 'bitti';
   const yukleniyor = durum === 'yukleniyor' || (!basladi && durum === 'oynuyor');
 
   return (
-    <div ref={kapRef} className="relative w-full h-full bg-black overflow-hidden select-none">
+    <div
+      ref={kapRef}
+      className={`bg-black overflow-hidden select-none ${cssTam ? 'fixed z-[90]' : 'relative w-full h-full'}`}
+      style={
+        cssTam
+          ? dikey
+            ? { top: 0, left: 0, width: '100vh', height: '100vw', transformOrigin: 'top left', transform: 'translateX(100vw) rotate(90deg)' }
+            : { inset: 0 }
+          : undefined
+      }
+    >
       {tur === 'youtube' ? (
         <div ref={ytKutuRef} className="absolute inset-0 [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:border-0" />
       ) : (
@@ -295,6 +373,9 @@ export const YayinOynatici: React.FC<YayinOynaticiProps> = ({ tur, videoId, url,
             </>
           )}
           {canli && <span className="flex-1" />}
+          <button type="button" onClick={tamEkranDegistir} aria-label={tam ? 'Tam ekrandan çık' : 'Tam ekran (yatay)'} className="w-8 h-8 flex items-center justify-center order-last">
+            {tam ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+          </button>
           <button type="button" onClick={sesAc} aria-label={sessiz ? 'Sesi aç' : 'Sesi kapat'} className="w-8 h-8 flex items-center justify-center">
             {sessiz ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
           </button>

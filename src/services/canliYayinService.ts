@@ -19,6 +19,8 @@ export interface CanliAyar {
   elleAktif?: boolean;
   elleVideo?: string;
   elleBaslik?: string;
+  /** Yeni yayının başlangıç anı (ms): bundan önceki yorumlar gösterilmez */
+  yayinBaslangicMs?: number;
   /** Elle yayının görünümü: 'canli' = CANLI rozeti, 'video' = normal video */
   elleTur?: 'canli' | 'video';
   /** Video bitince başa sarsın */
@@ -28,11 +30,14 @@ export interface CanliAyar {
 export interface CanliDurum {
   live: boolean;
   videoId?: string;
+  /** Kanalın o an canlı olan yayını (iframe: embed/live_stream?channel=UC…) */
+  kanalId?: string;
   /** YouTube yerine yüklenmiş video dosyası (elle yayın) */
   dosyaUrl?: string;
   /** Ekranda 'CANLI' mı yoksa 'VİDEO' rozeti mi gösterilsin */
   rozet?: 'canli' | 'video';
   dongu?: boolean;
+  yayinBaslangicMs?: number;
   title?: string;
   viewers?: number;
   kaynak?: 'otomatik' | 'elle';
@@ -49,7 +54,14 @@ export const CANLI_YOK: CanliDurum = { live: false };
 export const dosyaMi = (url?: string): boolean => /^https?:\/\//i.test(url || '') && (/\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(url!) || /\/video\/upload\//.test(url!));
 
 /** Aynı yayını ayırt etmek için anahtar (otomatik açılış bir yayın için bir kez yapılır). */
-export const yayinAnahtari = (d: CanliDurum): string => (d.live ? d.videoId || d.dosyaUrl || '' : '');
+export const yayinAnahtari = (d: CanliDurum): string => (d.live ? d.videoId || d.kanalId || d.dosyaUrl || '' : '');
+
+/** YouTube kanal kimliği (UC…): iframe kodu, embed/live_stream bağlantısı ya da kimliğin kendisinden. Satır sonlarını yok sayar. */
+export const youtubeKanalId = (input?: string): string => {
+  const t = (input || '').replace(/\s+/g, '');
+  const m = t.match(/channel=(UC[A-Za-z0-9_-]{22})/) || t.match(/youtube\.com\/channel\/(UC[A-Za-z0-9_-]{22})/) || t.match(/^(UC[A-Za-z0-9_-]{22})$/);
+  return m ? m[1] : '';
+};
 
 /** Bağlantı ya da 11 haneli kimlikten video kimliği ("" = geçersiz). */
 export const youtubeVideoId = (input?: string): string => {
@@ -77,15 +89,18 @@ export const youtubeThumb = (videoId: string): string => `https://i.ytimg.com/vi
 /** Elle yayın açıksa o geçerlidir; değilse Worker'ın algıladığı durum. */
 export const birlestirCanli = (ayar: CanliAyar | null | undefined, otomatik: CanliDurum | null | undefined): CanliDurum => {
   const ham = (ayar?.elleVideo || '').trim();
-  const elle = youtubeVideoId(ham);
-  const dosya = !elle && dosyaMi(ham) ? ham : '';
-  if (ayar?.elleAktif && (elle || dosya)) {
+  const kanal = youtubeKanalId(ham);
+  const elle = kanal ? '' : youtubeVideoId(ham.replace(/\s+/g, ''));
+  const dosya = !elle && !kanal && dosyaMi(ham) ? ham : '';
+  if (ayar?.elleAktif && (elle || dosya || kanal)) {
     const video = ayar.elleTur === 'video';
     return {
       live: true,
       videoId: elle || undefined,
+      kanalId: kanal || undefined,
       dosyaUrl: dosya || undefined,
       title: ayar.elleBaslik?.trim() || (video ? 'Video' : 'Canlı Yayın'),
+      yayinBaslangicMs: ayar.yayinBaslangicMs,
       kaynak: 'elle',
       rozet: video ? 'video' : 'canli',
       dongu: !!ayar.elleDongu,
