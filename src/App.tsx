@@ -40,7 +40,7 @@ import { PollsModal } from './components/modals/PollsModal';
 import { HomePollCard } from './components/HomePollCard';
 import { SecimModal } from './components/modals/SecimModal';
 import { CanliYayinModal } from './components/modals/CanliYayinModal';
-import { useCanliYayin } from './services/canliYayinService';
+import { useCanliYayin, yayinAnahtari } from './services/canliYayinService';
 import { useSecim } from './services/secimService';
 import { usePolls, useMyVotes, votePoll } from './services/pollService';
 import { recordView } from './services/newsViewService';
@@ -62,7 +62,6 @@ import { KursuModal } from './components/modals/KursuModal';
 import { LostFoundModal } from './components/modals/LostFoundModal';
 import { CampaignModal } from './components/modals/CampaignModal';
 import { EmergencyModal } from './components/modals/EmergencyModal';
-import { LiveStreamModal } from './components/modals/LiveStreamModal';
 import { CreditModal } from './components/modals/CreditModal';
 import { QuoteWizardModal } from './components/modals/QuoteWizardModal';
 import { HomeUlasimModal } from './components/modals/HomeUlasimModal';
@@ -279,7 +278,6 @@ export default function App() {
   const [isLostFoundOpen, setIsLostFoundOpen] = useState(false);
   const [isCampaignOpen, setIsCampaignOpen] = useState(false);
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
-  const [isLiveStreamOpen, setIsLiveStreamOpen] = useState(false);
   const [isCreditOpen, setIsCreditOpen] = useState(false);
   const [isQuoteWizardOpen, setIsQuoteWizardOpenRaw] = useState(false);
   const [quotePrefill, setQuotePrefill] = useState<{ category?: string; subCategory?: string } | null>(null);
@@ -544,6 +542,28 @@ export default function App() {
   // YouTube canlı yayın: vitrinde gösterilir, dokununca tam ekran açılır
   const { ayar: canliAyar, durum: canli, otomatik: canliOtomatik, yenile: canliYenile } = useCanliYayin();
   const [isCanliOpen, setIsCanliOpen] = useState(false);
+  // Yayın varsa canlı yayın ekranını aç; yoksa kısa bilgi ver
+  const openCanliYayin = () => {
+    if (canli.live) setIsCanliOpen(true);
+    else window.dispatchEvent(new CustomEvent('mp-info', { detail: 'Şu an canlı yayın yok. Yayın başlayınca burada görünür.' }));
+  };
+  // Site açılınca yayın varsa ekran kendiliğinden açılır (her yayın için oturumda bir kez); yayın bitince kapanır
+  const canliAnahtar = yayinAnahtari(canli);
+  useEffect(() => {
+    if (!canliAnahtar) {
+      setIsCanliOpen(false);
+      return;
+    }
+    let gorulen = '';
+    try {
+      gorulen = sessionStorage.getItem('mp-canli-acildi') || '';
+    } catch {}
+    if (gorulen === canliAnahtar) return;
+    try {
+      sessionStorage.setItem('mp-canli-acildi', canliAnahtar);
+    } catch {}
+    setIsCanliOpen(true);
+  }, [canliAnahtar]);
   const [focusPollId, setFocusPollId] = useState<string | undefined>(undefined);
   const handleVotePoll = async (pollId: string, optionIds: string[]): Promise<boolean> => {
     if (requireLogin('Oy vermek için giriş yapmalısınız.')) return false;
@@ -738,7 +758,7 @@ export default function App() {
       return true;
     }
     // Canlı yayın bildirimi: yayın gerçekten sürüyorsa tam ekran izleme açılır (yoksa eski Canlı TV akışı)
-    if (tab === 'canli_yayin' && canli.live && canli.videoId) {
+    if (tab === 'canli_yayin' && canli.live) {
       setIsCanliOpen(true);
       return true;
     }
@@ -770,7 +790,7 @@ export default function App() {
       setMuhtarlikInitialTab('basvurular');
       setIsMuhtarlikOpen(true);
     } else if (tab === 'canli_yayin') {
-      setIsLiveStreamOpen(true);
+      openCanliYayin();
     } else if (tab === 'vefat') {
       setIsVefatOpen(true);
     } else if (tab === 'tekliflerim' || tab === 'bildirimler') {
@@ -841,7 +861,7 @@ export default function App() {
           if (specialNavRef.current(actionTab, subTab, payload.relatedId, payload.title)) return;
 
           if (actionTab === 'canli_yayin') {
-            setIsLiveStreamOpen(true);
+            openCanliYayin();
           } else if (actionTab === 'vefat') {
             setIsVefatOpen(true);
           } else if (actionTab === 'tekliflerim') {
@@ -1650,7 +1670,6 @@ export default function App() {
     setIsLostFoundOpen(false);
     setIsCampaignOpen(false);
     setIsEmergencyOpen(false);
-    setIsLiveStreamOpen(false);
     setIsCreditOpen(false);
     setIsQuoteWizardOpenRaw(false);
     setIsBusOpen(false);
@@ -1695,7 +1714,6 @@ export default function App() {
     isLostFoundOpen ||
     isCampaignOpen ||
     isEmergencyOpen ||
-    isLiveStreamOpen ||
     isCreditOpen ||
     isQuoteWizardOpen ||
     isBusOpen ||
@@ -1858,7 +1876,7 @@ export default function App() {
               setMuhtarlikInitialTab('basvurular');
               setIsMuhtarlikOpen(true);
             } else if (tab === 'canli_yayin') {
-              setIsLiveStreamOpen(true);
+              openCanliYayin();
             } else if (tab === 'vefat') {
               setIsVefatOpen(true);
             } else if (tab === 'tekliflerim') {
@@ -1920,8 +1938,6 @@ export default function App() {
                 onSelectNews={(news) => setSelectedNews(news)}
                 userProfile={userProfile}
                 onOpenEsnafPaneli={() => setIsEsnafPaneliOpen(true)}
-                canli={canli}
-                onOpenCanli={() => setIsCanliOpen(true)}
                 secim={secim}
                 onOpenSecim={() => setIsSecimOpen(true)}
               />
@@ -1930,7 +1946,7 @@ export default function App() {
               <HomepageSearchBar onSearch={handleOpenSearchWithQuery} />
 
               {/* 3. Canlı TV kısayolu */}
-              <CanliTvBar onOpenCanliTv={() => setIsLiveStreamOpen(true)} />
+              <CanliTvBar canli={canli} onOpenCanliTv={openCanliYayin} />
 
               {/* 3b. Mahalle anketi */}
               <HomePollCard
@@ -1957,8 +1973,8 @@ export default function App() {
 
               {/* 6. Mutlular Canlı TV (YouTube Canlı Yayın) Card */}
               <CampusCard
-                onOpenCampus={() => setIsLiveStreamOpen(true)}
-                onOpenCanliTv={() => setIsLiveStreamOpen(true)}
+                onOpenCampus={() => openCanliYayin()}
+                onOpenCanliTv={() => openCanliYayin()}
               />
 
               {/* 7. Kuponlar Section */}
@@ -2303,7 +2319,7 @@ export default function App() {
                       setMuhtarlikInitialTab('basvurular');
                       setIsMuhtarlikOpen(true);
                     } else if (tab === 'canli_yayin') {
-                      setIsLiveStreamOpen(true);
+                      openCanliYayin();
                     } else if (tab === 'vefat') {
                       setIsVefatOpen(true);
                     } else if (tab === 'tekliflerim') {
@@ -2702,10 +2718,10 @@ export default function App() {
                           <ChevronRight className="w-3.5 h-3.5 text-purple-600" />
                         </button>
                         <button
-                          onClick={() => setIsLiveStreamOpen(true)}
+                          onClick={() => openCanliYayin()}
                           className="p-2.5 rounded-xl bg-red-50 text-red-800 hover:bg-red-100 font-bold text-[11px] text-left transition flex items-center justify-between"
                         >
-                          <span>Canlı Yayın Başlat</span>
+                          <span>Canlı Yayın Ekranı</span>
                           <ChevronRight className="w-3.5 h-3.5 text-red-600" />
                         </button>
                       </div>
@@ -3073,7 +3089,7 @@ export default function App() {
           onOpenLogin={() => setIsLoginOpen(true)}
           onOpenPharmacy={() => setIsPharmacyOpen(true)}
           onOpenPrayers={() => setIsPrayersOpen(true)}
-          onOpenCampus={() => setIsLiveStreamOpen(true)}
+          onOpenCampus={() => openCanliYayin()}
           onOpenCoupons={() => setIsCampaignOpen(true)}
           onOpenBus={() => setIsBusOpen(true)}
           onOpenEmergency={() => setIsEmergencyOpen(true)}
@@ -3081,7 +3097,7 @@ export default function App() {
           onOpenDavet={() => setIsDavetOpen(true)}
           onOpenKursu={() => setIsKursuOpen(true)}
           onOpenLostFound={() => setIsLostFoundOpen(true)}
-          onOpenLiveStream={() => setIsLiveStreamOpen(true)}
+          onOpenLiveStream={() => openCanliYayin()}
           onOpenCredit={() => setIsCreditOpen(true)}
           onOpenQuoteWizard={() => setIsQuoteWizardOpen(true)}
           onOpenMarketListing={() => setIsMarketListingOpen(true)}
@@ -3216,11 +3232,6 @@ export default function App() {
           onClose={() => setIsEmergencyOpen(false)}
         />
 
-        <LiveStreamModal
-          isOpen={isLiveStreamOpen}
-          onClose={() => setIsLiveStreamOpen(false)}
-        />
-
         <CreditModal
           isOpen={isCreditOpen}
           onClose={() => setIsCreditOpen(false)}
@@ -3296,7 +3307,7 @@ export default function App() {
           onOpenKursu={() => setIsKursuOpen(true)}
           onOpenBusinessRegister={() => setIsBusinessRegisterOpen(true)}
           onOpenCredit={() => setIsCreditOpen(true)}
-          onOpenLiveStream={() => setIsLiveStreamOpen(true)}
+          onOpenLiveStream={() => openCanliYayin()}
           onOpenCoupons={() => setIsCampaignOpen(true)}
           onOpenAdmin={() => setIsAdminOpen(true)}
           onOpenVefat={(tab) => {

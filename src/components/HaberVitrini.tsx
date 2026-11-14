@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { NewsItem, UserProfile, HeroBannerItem } from '../types';
 import { PLACEHOLDER_IMG } from '../utils/placeholder';
-import { CanliDurum, youtubeEmbed, youtubeThumb } from '../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../services/secimService';
 
 interface HaberVitriniProps {
@@ -15,15 +14,12 @@ interface HaberVitriniProps {
   onOpenLiveSupport?: () => void;
   userProfile?: UserProfile | null;
   onOpenEsnafPaneli?: () => void;
-  /** YouTube canlı yayın durumu: canlıysa vitrinin ilk slaytı olur */
-  canli?: CanliDurum | null;
-  onOpenCanli?: () => void;
   /** Muhtarlık seçimi sonuçları: yayındaysa vitrinde slayt olarak gösterilir */
   secim?: SecimVeri | null;
   onOpenSecim?: () => void;
 }
 
-type SlideKind = 'banner' | 'news' | 'live' | 'secim' | 'empty';
+type SlideKind = 'banner' | 'news' | 'secim' | 'empty';
 
 interface Slide {
   id: string;
@@ -37,14 +33,12 @@ interface Slide {
   dwell: number;
 }
 
-const DWELL = { normal: 4500, secim: 8000, live: 20000 };
+const DWELL = { normal: 4500, secim: 8000 };
 
 export const HaberVitrini: React.FC<HaberVitriniProps> = ({
   newsList,
   banners = [],
   onSelectNews,
-  canli,
-  onOpenCanli,
   secim,
   onOpenSecim,
 }) => {
@@ -54,20 +48,7 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
   // Önce yöneticinin yüklediği afişler, sonra haberler. İkisi de yoksa nötr bir kart gösterilir.
   const slides: Slide[] = useMemo(() => {
     const list: Slide[] = [];
-    // 1) Canlı yayın varsa vitrinin ilk slaytı
-    if (canli?.live && canli.videoId) {
-      list.push({
-        id: `live-${canli.videoId}`,
-        kind: 'live',
-        image: youtubeThumb(canli.videoId),
-        title: canli.title || 'Canlı Yayın',
-        label: 'Canlı Yayın',
-        urgent: false,
-        news: null,
-        dwell: DWELL.live,
-      });
-    }
-    // 2) Seçim sonuçları yayındaysa
+    // Seçim sonuçları yayındaysa
     if (secim?.yayinda) {
       list.push({ id: 'secim', kind: 'secim', image: '', title: secim.baslik, label: 'Seçim', urgent: false, news: null, dwell: DWELL.secim });
     }
@@ -106,13 +87,7 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
       });
     }
     return list;
-  }, [banners, newsList, canli?.live, canli?.videoId, canli?.title, secim?.yayinda, secim?.baslik]);
-
-  // Yayın yeni başladıysa vitrin hemen canlı slayta geçer
-  const liveId = canli?.live ? canli.videoId : undefined;
-  useEffect(() => {
-    if (liveId) setCurrentIndex(0);
-  }, [liveId]);
+  }, [banners, newsList, secim?.yayinda, secim?.baslik]);
 
   const count = slides.length;
   const safeIndex = currentIndex >= count ? 0 : currentIndex;
@@ -129,11 +104,10 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
   }, [isPaused, count, safeIndex, activeDwell]);
 
   const handleOpen = () => {
-    if (active.kind === 'live') onOpenCanli?.();
-    else if (active.kind === 'secim') onOpenSecim?.();
+    if (active.kind === 'secim') onOpenSecim?.();
     else if (active.news) onSelectNews(active.news);
   };
-  const clickable = active.kind === 'live' || active.kind === 'secim' || !!active.news;
+  const clickable = active.kind === 'secim' || !!active.news;
   const secimHesap = secim?.yayinda ? secimHesapla(secim) : null;
 
   const handlePrev = (e: React.MouseEvent) => {
@@ -208,20 +182,8 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-neutral-700 to-neutral-950" />
             )}
-            {item.kind === 'live' && idx === safeIndex && canli?.videoId && (
-              <iframe
-                key={canli.videoId}
-                title={item.title}
-                src={youtubeEmbed(canli.videoId, { autoplay: true, muted: true, controls: false })}
-                allow="autoplay; encrypted-media; picture-in-picture"
-                referrerPolicy="strict-origin-when-cross-origin"
-                tabIndex={-1}
-                // dokunmayı iframe değil kart karşılar: dokununca tam ekran açılır
-                className="absolute inset-0 w-full h-full border-0 pointer-events-none bg-black"
-              />
-            )}
             {item.kind !== 'secim' && (
-              <div className={`absolute inset-0 ${item.kind === 'live' ? 'bg-gradient-to-t from-black/70 via-transparent to-black/20' : 'bg-gradient-to-t from-black/85 via-black/35 to-black/25'}`} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/25" />
             )}
           </div>
         ))}
@@ -244,17 +206,6 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
               <ChevronRight className="w-4 h-4" />
             </button>
           </>
-        )}
-
-        {/* Canlı yayın rozeti */}
-        {active.kind === 'live' && (
-          <div className="absolute left-3.5 top-3.5 z-10 flex items-center gap-2" data-testid="canli-rozet">
-            <span className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              CANLI
-            </span>
-            {canli?.viewers ? <span className="text-[10.5px] font-semibold text-white/90 bg-black/40 px-2 py-0.5 rounded-full">{canli.viewers.toLocaleString('tr-TR')} izleyici</span> : null}
-          </div>
         )}
 
         {/* Seçim durumu */}
@@ -311,10 +262,9 @@ export const HaberVitrini: React.FC<HaberVitriniProps> = ({
             )}
           </div>
 
-          <h2 className={`font-black leading-tight drop-shadow-md ${active.kind === 'live' ? 'text-[15px] line-clamp-1' : 'text-[19px] sm:text-[21px] line-clamp-2'}`}>
+          <h2 className="font-black leading-tight drop-shadow-md text-[19px] sm:text-[21px] line-clamp-2">
             {renderTitle(active.title)}
           </h2>
-          {active.kind === 'live' && <div className="text-[10.5px] text-white/75 mt-0.5">Tam ekran izlemek için dokunun</div>}
         </div>
         )}
       </div>
