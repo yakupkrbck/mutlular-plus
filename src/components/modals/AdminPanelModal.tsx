@@ -65,6 +65,7 @@ import { PollAdmin } from './PollAdmin';
 import { SecimAdmin } from './SecimAdmin';
 import { CanliAdmin } from './CanliAdmin';
 import { RejiPanel } from '../reji/RejiPanel';
+import { KullaniciListesi } from './KullaniciListesi';
 import { assignEditor, listEditors, revokeEditor, type EditorKaydi } from '../../services/staffService';
 import type { CanliAyar, CanliDurum } from '../../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
@@ -179,7 +180,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli' | 'reji'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli' | 'reji' | 'kullanicilar'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -900,6 +901,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 {pendingMerchantsCount}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('kullanicilar')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-black flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'kullanicilar'
+                ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Kullanıcılar</span>
           </button>
 
           <button
@@ -2395,6 +2408,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           )}
 
           {/* TAB 4: ESNAF BAŞVURULARI VE ONAY */}
+          {activeTab === 'kullanicilar' && <KullaniciListesi />}
+
           {activeTab === 'esnaf-onay' && (
             <div className="space-y-4">
               <div className="p-3 bg-neutral-800/70 rounded-2xl border border-neutral-700/80 flex items-center justify-between">
