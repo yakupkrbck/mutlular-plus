@@ -206,16 +206,23 @@ export default function App() {
   // Kullanıcının engellediği kişilerin içerikleri listelerden çıkarılır
   const blockedUids = useBlockedUids();
   const isStaffRole = currentRole === 'editor' || currentRole === 'yonetici' || currentRole === 'muhtar';
+  // Firestore kuralları role göre daraltıldı: her koleksiyonu yalnızca yetkili rol filtresiz okuyabilir.
+  //  - içerik (ilan, vefat, işletme, talep, ihbar, esnaf başvurusu, kesinti): editör + yönetici
+  //  - kullanıcı kişisel verisi / iş başvuruları: yalnızca yönetici
+  //  - muhtarlık başvuruları: muhtar + yönetici
+  const isContentStaff = currentRole === 'editor' || currentRole === 'yonetici';
+  const isAdminRole = currentRole === 'yonetici';
+  const isMuhtarlikStaff = currentRole === 'muhtar' || currentRole === 'yonetici';
 
   // Herkese açık koleksiyonlarda onaysız kayıtlar yalnızca sahibine ve yönetime okunur.
   // (Firestore kuralları da aynısını zorunlu kılar.)
   const approvedOrMine = (field: string): any[] =>
-    isStaffRole
+    isContentStaff
       ? []
       : myUid
       ? [or(where(field, '==', 'approved'), where('ownerUid', '==', myUid))]
       : [where(field, '==', 'approved')];
-  const visKey = `${myUid || 'anon'}-${isStaffRole}`;
+  const visKey = `${myUid || 'anon'}-${isContentStaff}`;
 
   const handleSuccessLogin = (profile: UserProfile) => {
     setUserProfile(profile);
@@ -284,7 +291,7 @@ export default function App() {
   const [isCreditOpen, setIsCreditOpen] = useState(false);
   const [isQuoteWizardOpen, setIsQuoteWizardOpenRaw] = useState(false);
   const [quotePrefill, setQuotePrefill] = useState<{ category?: string; subCategory?: string } | null>(null);
-  const canSeeAllQuotes = isStaffRole || currentRole === 'usta';
+  const canSeeAllQuotes = isContentStaff || currentRole === 'usta';
 
   // Hizmet talepleri: sakin sadece kendi taleplerini, usta/yönetim tüm açık talepleri görür
   const [quotesAll, setUserQuotes, quotesReady] = useSyncedList<UserQuoteRequest>('plus_talepler', {
@@ -380,8 +387,8 @@ export default function App() {
   const [muhtarlikApplications, setMuhtarlikApplications] = useSyncedList<MuhtarlikApplication>('plus_muhtarlik', {
     enabled: !!myUid,
     stampOwner: true,
-    key: `${myUid}-${isStaffRole}`,
-    constraints: isStaffRole || !myUid ? [] : [where('ownerUid', '==', myUid)],
+    key: `${myUid}-${isMuhtarlikStaff}`,
+    constraints: isMuhtarlikStaff || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
   const [isKesintilerOpen, setIsKesintilerOpen] = useState(false);
   const [vefatModalInitialTab, setVefatModalInitialTab] = useState<'vitrin' | 'ilan-ver' | 'onay-bekleyenler'>('vitrin');
@@ -417,7 +424,7 @@ export default function App() {
 
   // Kesinti onayı: tarama yeni kesinti bulunca kayıt açar ve yöneticilere bildirir; yönetici onaylarsa herkese gider
   const [kesintiOnay] = useSyncedList<KesintiOnayItem>('plus_kesinti_onay', {
-    enabled: isStaffRole && !!myUid,
+    enabled: isContentStaff && !!myUid,
     key: visKey,
   });
   const handleApproveKesinti = async (id: string) => {
@@ -480,7 +487,7 @@ export default function App() {
   const [jobApplications, setJobApplications] = useSyncedList<JobApplication>('plus_is_basvurulari', {
     enabled: !!myUid,
     key: visKey,
-    constraints: isStaffRole || !myUid ? [] : [or(where('applicantUid', '==', myUid), where('jobOwnerUid', '==', myUid))],
+    constraints: isAdminRole || !myUid ? [] : [or(where('applicantUid', '==', myUid), where('jobOwnerUid', '==', myUid))],
   });
   const jobsForUi = useMemo(
     () =>
@@ -509,13 +516,13 @@ export default function App() {
             !r.approvalStatus ||
             r.approvalStatus === 'approved' ||
             (!!myUid && r.ownerUid === myUid) ||
-            isStaffRole
+            isContentStaff
         )
         .map((r) => ({
           ...r,
           image: r.image || PLACEHOLDER_IMG,
         })),
-    [allRestaurants, myUid, isStaffRole]
+    [allRestaurants, myUid, isContentStaff]
   );
   const ownStore = useMemo(
     () => (myUid ? allRestaurants.find((r) => r.ownerUid === myUid) || null : null),
@@ -526,16 +533,16 @@ export default function App() {
   const [merchantsList, setMerchantsList, merchantsReady] = useSyncedList<PendingMerchantItem>('plus_esnaf_basvurulari', {
     enabled: !!myUid,
     stampOwner: true,
-    key: `${myUid}-${isStaffRole}`,
-    constraints: isStaffRole || !myUid ? [] : [where('ownerUid', '==', myUid)],
+    key: `${myUid}-${isContentStaff}`,
+    constraints: isContentStaff || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
 
   // Vatandaş haber ihbarları: gönderen kendi ihbarını, yönetim hepsini görür
   const [newsTipList, setNewsTipList] = useSyncedList<NewsTipItem>('plus_haber_ihbar', {
     enabled: !!myUid,
     stampOwner: true,
-    key: `${myUid}-${isStaffRole}`,
-    constraints: isStaffRole || !myUid ? [] : [where('ownerUid', '==', myUid)],
+    key: `${myUid}-${isContentStaff}`,
+    constraints: isContentStaff || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
 
   // Mahalle anketleri: herkes okur, giriş yapan oy verir (oy sunucuda atomik sayılır)
@@ -1068,9 +1075,9 @@ export default function App() {
   const handleAddNewAd = (newAd: ClassifiedItem) => {
     if (requireLogin('İlan vermek için giriş yapmalısınız.')) return;
     // Yönetim ilanı doğrudan yayınlar; diğer kullanıcıların ilanları onay bekler
-    setClassifiedList((prev) => [{ ...newAd, status: isStaffRole ? 'approved' : 'pending' }, ...prev]).then((ok) => {
+    setClassifiedList((prev) => [{ ...newAd, status: isContentStaff ? 'approved' : 'pending' }, ...prev]).then((ok) => {
       // Onay bekleyen ilan için yönetime bildirim gider
-      if (ok && !isStaffRole) notifyEvent('ilan-bekliyor', { id: newAd.id });
+      if (ok && !isContentStaff) notifyEvent('ilan-bekliyor', { id: newAd.id });
     });
   };
 
