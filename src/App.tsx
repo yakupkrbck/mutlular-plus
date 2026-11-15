@@ -40,6 +40,7 @@ import { PollsModal } from './components/modals/PollsModal';
 import { HomePollCard } from './components/HomePollCard';
 import { SecimModal } from './components/modals/SecimModal';
 import { CanliYayinModal } from './components/modals/CanliYayinModal';
+import { useBlockedUids } from './services/reportService';
 import { useCanliYayin, yayinAnahtari } from './services/canliYayinService';
 import { useSecim } from './services/secimService';
 import { usePolls, useMyVotes, votePoll } from './services/pollService';
@@ -202,6 +203,8 @@ export default function App() {
   const currentRole: UserRole = userProfile ? userProfile.role : 'mahalle-sakini';
   const userName = userProfile?.name || 'Misafir Kullanıcı';
   const myUid = userProfile?.uid || null;
+  // Kullanıcının engellediği kişilerin içerikleri listelerden çıkarılır
+  const blockedUids = useBlockedUids();
   const isStaffRole = currentRole === 'editor' || currentRole === 'yonetici' || currentRole === 'muhtar';
 
   // Herkese açık koleksiyonlarda onaysız kayıtlar yalnızca sahibine ve yönetime okunur.
@@ -244,8 +247,8 @@ export default function App() {
   });
   // Herkese görünen liste yalnızca onaylı ilanlardır
   const classifiedList = useMemo(
-    () => allClassifieds.filter((a) => !a.status || a.status === 'approved'),
-    [allClassifieds]
+    () => allClassifieds.filter((a) => (!a.status || a.status === 'approved') && !(a.ownerUid && blockedUids.has(a.ownerUid))),
+    [allClassifieds, blockedUids]
   );
   const pendingClassifieds = useMemo(
     () => allClassifieds.filter((a) => a.status === 'pending'),
@@ -480,8 +483,11 @@ export default function App() {
     constraints: isStaffRole || !myUid ? [] : [or(where('applicantUid', '==', myUid), where('jobOwnerUid', '==', myUid))],
   });
   const jobsForUi = useMemo(
-    () => jobList.map((j) => ({ ...j, applications: jobApplications.filter((a) => a.jobId === j.id) })),
-    [jobList, jobApplications]
+    () =>
+      jobList
+        .filter((j) => !(j.ownerUid && blockedUids.has(j.ownerUid)))
+        .map((j) => ({ ...j, applications: jobApplications.filter((a) => a.jobId === j.id) })),
+    [jobList, jobApplications, blockedUids]
   );
 
   const [obituaryList, setObituaryList] = useSyncedList<ObituaryItem>('plus_vefat', {

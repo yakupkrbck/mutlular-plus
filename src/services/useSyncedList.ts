@@ -6,6 +6,7 @@ import {
   query,
   setDoc,
   deleteDoc,
+  Query,
   QueryConstraint,
   QueryCompositeFilterConstraint,
 } from 'firebase/firestore';
@@ -58,12 +59,12 @@ export function useSyncedList<T extends { id: string }>(
       setReady(false);
       return;
     }
-    const q = (query as any)(collection(db, path), ...constraintsRef.current);
+    const q = (query as any)(collection(db, path), ...constraintsRef.current) as Query;
     const unsub = onSnapshot(
       q,
       (snap) => {
         const items = snap.docs
-          .map((d) => ({ ...(d.data() as any), id: d.id } as T))
+          .map((d: any) => ({ ...(d.data() as any), id: d.id } as T))
           .sort((a: any, b: any) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
         serverRef.current = items;
         listRef.current = items;

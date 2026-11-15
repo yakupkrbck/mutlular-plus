@@ -66,6 +66,7 @@ import { SecimAdmin } from './SecimAdmin';
 import { CanliAdmin } from './CanliAdmin';
 import { RejiPanel } from '../reji/RejiPanel';
 import { KullaniciListesi } from './KullaniciListesi';
+import { SikayetYonetimi } from './SikayetYonetimi';
 import { assignEditor, listEditors, revokeEditor, type EditorKaydi } from '../../services/staffService';
 import type { CanliAyar, CanliDurum } from '../../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
@@ -180,7 +181,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli' | 'reji' | 'kullanicilar'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli' | 'reji' | 'kullanicilar' | 'sikayetler'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -230,6 +231,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     status: 'active',
     assignedBy: e.assignedByName || 'Yönetici',
     duties: e.duties?.length ? e.duties : ['İlan Onaylama & Denetim'],
+    role: e.role === 'muhtar' ? 'muhtar' : 'editor',
   });
   const reloadEditors = async () => {
     try {
@@ -244,6 +246,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (isOpen) reloadEditors();
   }, [isOpen]);
   const [isAddingEditor, setIsAddingEditor] = useState(false);
+  const [newEdRole, setNewEdRole] = useState<'editor' | 'muhtar'>('editor');
   const [newEdName, setNewEdName] = useState('');
   const [newEdEmail, setNewEdEmail] = useState('');
   const [newEdPhone, setNewEdPhone] = useState('');
@@ -901,6 +904,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 {pendingMerchantsCount}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('sikayetler')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-black flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'sikayetler'
+                ? 'bg-rose-600 text-white shadow-md'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>Şikayetler</span>
           </button>
 
           <button
@@ -2409,6 +2424,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
           {/* TAB 4: ESNAF BAŞVURULARI VE ONAY */}
           {activeTab === 'kullanicilar' && <KullaniciListesi />}
+          {activeTab === 'sikayetler' && <SikayetYonetimi />}
 
           {activeTab === 'esnaf-onay' && (
             <div className="space-y-4">
@@ -2566,11 +2582,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         email: newEdEmail.trim(),
                         name: newEdName.trim(),
                         phone: newEdPhone.trim(),
-                        duties: newEdDuties.length > 0 ? newEdDuties : ['İlan Onaylama & Denetim'],
+                        duties:
+                          newEdRole === 'muhtar'
+                            ? ['Muhtarlık Başvuruları']
+                            : newEdDuties.length > 0 ? newEdDuties : ['İlan Onaylama & Denetim'],
+                        role: newEdRole,
                       });
                       await reloadEditors();
                       setIsAddingEditor(false);
-                      showToast(`${newEdName.trim()} editör olarak atandı. Uygulamayı yeniden açtığında yetkisi devreye girer.`);
+                      showToast(`${newEdName.trim()} ${newEdRole === 'muhtar' ? 'muhtar' : 'editör'} olarak atandı. Uygulamayı yeniden açtığında yetkisi devreye girer.`);
                       setNewEdName('');
                       setNewEdEmail('');
                       setNewEdPhone('');
@@ -2594,6 +2614,33 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     >
                       <X className="w-4 h-4" />
                     </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1.5">
+                      Yetki Türü
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {([['editor', 'Editör'], ['muhtar', 'Muhtar']] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setNewEdRole(val)}
+                          className={`p-2 rounded-xl border text-xs font-bold transition ${
+                            newEdRole === val
+                              ? 'bg-purple-600/30 border-purple-500 text-purple-200'
+                              : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {newEdRole === 'muhtar' && (
+                      <p className="text-[10.5px] text-neutral-400 mt-1.5">
+                        Muhtar yalnızca muhtarlık başvurularını görür ve yönetir.
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -2637,6 +2684,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
                   </div>
 
+                  {newEdRole === 'editor' && (
                   <div>
                     <label className="block text-[10px] font-bold text-neutral-400 uppercase mb-1.5">
                       Atanacak Görevler & Denetim Alanları
@@ -2677,6 +2725,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       })}
                     </div>
                   </div>
+                  )}
 
                   {editorError && (
                     <p className="text-[11px] text-rose-300 font-semibold" role="alert">
@@ -2690,7 +2739,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       className="bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-xs flex items-center gap-1.5"
                     >
                       <UserCheck className="w-4 h-4" />
-                      <span>{editorBusy ? 'Yetki veriliyor…' : 'Editör Olarak Kaydet & Yetki Ver'}</span>
+                      <span>{editorBusy ? 'Yetki veriliyor…' : newEdRole === 'muhtar' ? 'Muhtar Olarak Kaydet & Yetki Ver' : 'Editör Olarak Kaydet & Yetki Ver'}</span>
                     </button>
                   </div>
                 </form>
@@ -2725,7 +2774,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                               {editor.name}
                             </h4>
                             <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-bold px-1.5 py-0.2 rounded">
-                              Aktif Görevli
+                              {editor.role === 'muhtar' ? 'Muhtar' : 'Editör'}
                             </span>
                           </div>
                           <div className="text-[11px] text-neutral-400 mt-0.5">
@@ -2737,11 +2786,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <button
                         type="button"
                         onClick={async () => {
-                          if (!window.confirm(`${editor.name} kişisinin editörlük yetkisi geri alınsın mı?`)) return;
+                          if (!window.confirm(`${editor.name} kişisinin ${editor.role === 'muhtar' ? 'muhtarlık' : 'editörlük'} yetkisi geri alınsın mı?`)) return;
                           try {
                             await revokeEditor(editor.id);
                             setAssignedEditors((prev) => prev.filter((e) => e.id !== editor.id));
-                            showToast(`${editor.name} editörlük yetkisi geri alındı.`);
+                            showToast(`${editor.name} ${editor.role === 'muhtar' ? 'muhtarlık' : 'editörlük'} yetkisi geri alındı.`);
                           } catch (err: any) {
                             showToast(err?.message || 'Yetki geri alınamadı.');
                           }

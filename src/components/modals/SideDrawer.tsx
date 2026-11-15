@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { BlockedUsersSheet } from './BlockedUsersSheet';
 import {
   X,
   User,
@@ -26,6 +27,7 @@ import {
   Briefcase,
   Stethoscope,
   Download,
+  UserX,
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { ROLE_CONFIGS } from '../../data/rolesData';
@@ -102,6 +104,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   unreadNotificationCount = 0,
   onOpenExportCode,
 }) => {
+  const [blockedOpen, setBlockedOpen] = useState(false);
   if (!isOpen) return null;
 
   const handleAction = (callback: () => void) => {
@@ -479,6 +482,23 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               <ChevronRight className="w-4 h-4 text-neutral-400" />
             </button>
 
+            {isLoggedIn && (
+              <button
+                onClick={() => setBlockedOpen(true)}
+                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-neutral-100 text-neutral-700 flex items-center justify-center">
+                    <UserX className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[12px] font-bold text-neutral-800">
+                    Engellenen Kullanıcılar
+                  </span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-neutral-400" />
+              </button>
+            )}
+
             <button
               onClick={() => handleAction(onOpenDavet)}
               className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition text-left"
@@ -651,6 +671,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           </p>
         </div>
       </div>
+      <BlockedUsersSheet isOpen={blockedOpen} onClose={() => setBlockedOpen(false)} />
     </div>
   );
 };

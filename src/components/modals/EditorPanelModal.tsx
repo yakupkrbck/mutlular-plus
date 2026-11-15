@@ -69,14 +69,14 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
   // Onay bekleyen ilanlar canlı veriden gelir (prop)
 
   // Pending Merchants to Approve
-  const [localPendingMerchants, setLocalPendingMerchants] = useState([]);
+  const [localPendingMerchants, setLocalPendingMerchants] = useState<any[]>([]);
 
   const pendingMerchants = propMerchantsList
     ? propMerchantsList.filter((m) => m.status === 'pending')
     : localPendingMerchants;
 
   // Flagged comments to moderate
-  const [flaggedComments, setFlaggedComments] = useState([]);
+  const [flaggedComments, setFlaggedComments] = useState<any[]>([]);
 
   // Feedback toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -278,7 +278,7 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="bg-purple-100 text-purple-900 text-[9px] font-black px-2 py-0.5 rounded">
-                              {ad.category}
+                              {ad.tag}
                             </span>
                             <span className="text-[9.5px] text-neutral-400 font-medium ml-auto">
                               {ad.date}
@@ -291,10 +291,10 @@ export const EditorPanelModal: React.FC<EditorPanelModalProps> = ({
                             {ad.price}
                           </div>
                           <p className="text-[10.5px] text-neutral-500 font-medium line-clamp-1 mt-0.5">
-                            {ad.desc}
+                            {ad.description}
                           </p>
                           <div className="text-[10px] text-neutral-400 mt-1">
-                            İlan Sahibi: {ad.seller}
+                            İlan Sahibi: {ad.agency || ad.phone || '—'}
                           </div>
                         </div>
                       </div>

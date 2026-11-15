@@ -211,11 +211,13 @@ export const EsnafStoryShareModal: React.FC<EsnafStoryShareModalProps> = ({
           {/* 3. Canlı Mini Önizleme Kartı */}
           <div className="bg-neutral-900 text-white p-3 rounded-2xl flex items-center gap-3">
             <div className="w-12 h-16 rounded-xl overflow-hidden bg-neutral-800 shrink-0 relative">
-              <img
-                src={selectedTemplate.previewUrl}
-                alt="Önizleme"
-                className="w-full h-full object-cover"
-              />
+              {mediaUrl && (
+                <img
+                  src={mediaUrl}
+                  alt="Önizleme"
+                  className="w-full h-full object-cover"
+                />
+              )}
               <span className="absolute bottom-1 right-1 bg-black/60 text-[8px] font-bold px-1 rounded text-amber-300">
                 {mediaType.toUpperCase()}
               </span>

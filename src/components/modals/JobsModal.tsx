@@ -21,9 +21,12 @@ import {
   Zap,
   Users,
   Check,
+  Flag,
 } from 'lucide-react';
 import { JobItem, JobApplication } from '../../types';
 import { sendAndroidAppNotification } from '../../services/androidNotificationService';
+import { ReportSheet } from './ReportSheet';
+import type { ReportTarget } from '../../services/reportService';
 
 interface JobsModalProps {
   /** Giriş yoksa giriş penceresini açıp true döner; işlem durdurulmalı */
@@ -54,6 +57,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'usta' | 'esnaf' | 'urgent' | 'my-applications'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJob, setSelectedJob] = useState<JobItem | null>(null);
+  const [bildirilenIs, setBildirilenIs] = useState<ReportTarget | null>(null);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -757,12 +761,26 @@ export const JobsModal: React.FC<JobsModalProps> = ({
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => setSelectedJob(null)}
-                  className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center cursor-pointer text-neutral-500"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="İlanı bildir"
+                    title="İlanı bildir"
+                    onClick={() =>
+                      setBildirilenIs({ type: 'is', id: selectedJob.id, ownerUid: selectedJob.ownerUid, ownerName: selectedJob.company, title: selectedJob.title })
+                    }
+                    className="h-7 px-2 rounded-full bg-neutral-100 hover:bg-rose-50 flex items-center gap-1 cursor-pointer text-neutral-500 hover:text-rose-600 text-[10.5px] font-bold"
+                  >
+                    <Flag className="w-3.5 h-3.5" />
+                    <span>Bildir</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedJob(null)}
+                    className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center cursor-pointer text-neutral-500"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -1027,6 +1045,7 @@ export const JobsModal: React.FC<JobsModalProps> = ({
           </div>
         )}
       </div>
+      <ReportSheet target={bildirilenIs} onClose={() => setBildirilenIs(null)} onRequireLogin={() => onRequireLogin?.('Bildirmek için giriş yapmalısınız.')} />
     </div>
   );
 };

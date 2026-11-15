@@ -17,8 +17,11 @@ import {
   MapPin,
   Clock,
   UtensilsCrossed,
+  Flag,
 } from 'lucide-react';
 import { StoryItem } from '../../types';
+import { ReportSheet } from './ReportSheet';
+import type { ReportTarget } from '../../services/reportService';
 
 interface StoryViewerModalProps {
   isOpen: boolean;
@@ -42,6 +45,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   const [currentIndex, setCurrentIndex] = useState(initialStoryIndex);
   const [progress, setProgress] = useState(0); // 0 to 100
   const [isPaused, setIsPaused] = useState(false);
+  const [bildirilen, setBildirilen] = useState<ReportTarget | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [likedStories, setLikedStories] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
@@ -327,6 +331,19 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             </button>
 
             <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPaused(true);
+                setBildirilen({ type: 'hikaye', id: currentStory.id, ownerName: currentStory.name, title: currentStory.title || currentStory.name });
+              }}
+              className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md flex items-center justify-center text-white transition active:scale-95"
+              title="Hikâyeyi bildir"
+              aria-label="Hikâyeyi bildir"
+            >
+              <Flag className="w-4 h-4" />
+            </button>
+
+            <button
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-black/40 hover:bg-rose-600/80 backdrop-blur-md flex items-center justify-center text-white transition active:scale-95 ml-1"
               title="Kapat (ESC)"
@@ -506,6 +523,13 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           </div>
         )}
       </div>
+      <ReportSheet
+        target={bildirilen}
+        onClose={() => {
+          setBildirilen(null);
+          setIsPaused(false);
+        }}
+      />
     </div>
   );
 };

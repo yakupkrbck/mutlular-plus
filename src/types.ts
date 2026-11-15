@@ -283,6 +283,7 @@ export interface AssignedEditor {
   status: 'active' | 'suspended';
   assignedBy: string;
   duties: string[];
+  role?: 'editor' | 'muhtar';
 }
 
 export type NotificationType =
@@ -389,4 +390,27 @@ export interface PollItem {
   endsAtMs?: number | null;
   createdAtMs: number;
   createdBy?: string;
+}
+
+/** Hikâye (story) kartı: vitrin şeridi, görüntüleyici ve esnaf paylaşım penceresi kullanır. */
+export interface StoryItem {
+  id: string;
+  name: string;
+  shortName?: string;
+  category: string;
+  image: string;
+  avatar?: string;
+  mediaType?: 'video' | 'image';
+  mediaUrl?: string;
+  isNew?: boolean;
+  timeAgo?: string;
+  title?: string;
+  description?: string;
+  badge?: string;
+  actionText?: string;
+  actionType?: string;
+  phone?: string;
+  address?: string;
+  storeId?: string;
+  likesCount?: number;
 }

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Send, Trash2, X } from 'lucide-react';
+import { Flag, Send, Trash2, X } from 'lucide-react';
 import { CanliDurum, yayinAnahtari } from '../../services/canliYayinService';
 import { useCanliYorumlar, yorumGonder, yorumSil, YORUM_MAX } from '../../services/canliYorumService';
 import { YayinOynatici } from '../YayinOynatici';
+import { ReportSheet } from './ReportSheet';
+import { useBlockedUids, type ReportTarget } from '../../services/reportService';
 
 interface CanliYayinModalProps {
   isOpen: boolean;
@@ -22,7 +24,10 @@ interface CanliYayinModalProps {
  */
 export const CanliYayinModal: React.FC<CanliYayinModalProps> = ({ isOpen, onClose, durum, kullanici, onGirisGerek, yonetici }) => {
   const acik = isOpen && durum.live && !!(durum.videoId || durum.kanalId || durum.dosyaUrl);
-  const yorumlar = useCanliYorumlar(durum.yayinBaslangicMs || 0, acik);
+  const tumYorumlar = useCanliYorumlar(durum.yayinBaslangicMs || 0, acik);
+  const engelli = useBlockedUids();
+  const yorumlar = tumYorumlar.filter((y) => !engelli.has(y.uid));
+  const [bildirilen, setBildirilen] = useState<ReportTarget | null>(null);
   const [metin, setMetin] = useState('');
   const [gonderiyor, setGonderiyor] = useState(false);
   const [hata, setHata] = useState('');
@@ -105,6 +110,16 @@ export const CanliYayinModal: React.FC<CanliYayinModalProps> = ({ isOpen, onClos
                 <span className="text-neutral-300">{y.text}</span>
               </div>
               <span className="text-[9.5px] text-neutral-500 font-mono shrink-0 pt-0.5">{new Date(y.createdAtMs).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+              {kullanici?.uid !== y.uid && (
+                <button
+                  type="button"
+                  aria-label="Yorumu bildir"
+                  onClick={() => setBildirilen({ type: 'yorum', id: y.id, ownerUid: y.uid, ownerName: y.name, title: y.text })}
+                  className="text-neutral-500 hover:text-amber-400 shrink-0 pt-0.5"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                </button>
+              )}
               {(yonetici || kullanici?.uid === y.uid) && (
                 <button type="button" aria-label="Yorumu sil" onClick={() => yorumSil(y.id).catch(() => setHata('Silinemedi.'))} className="text-neutral-500 hover:text-rose-400 shrink-0 pt-0.5">
                   <Trash2 className="w-3.5 h-3.5" />
@@ -133,6 +148,7 @@ export const CanliYayinModal: React.FC<CanliYayinModalProps> = ({ isOpen, onClos
           </div>
         </form>
       </div>
+      <ReportSheet target={bildirilen} onClose={() => setBildirilen(null)} onRequireLogin={onGirisGerek} />
     </div>
   );
 };

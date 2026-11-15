@@ -11,6 +11,8 @@ export interface EditorKaydi {
   duties: string[];
   assignedAtMs: number;
   assignedByName: string;
+  /** Personel rolü; sunucu eski sürümse alan gelmez (editör sayılır) */
+  role?: 'editor' | 'muhtar';
 }
 
 async function call(action: 'list' | 'assign' | 'revoke', body: Record<string, unknown> = {}): Promise<any> {
@@ -34,8 +36,17 @@ async function call(action: 'list' | 'assign' | 'revoke', body: Record<string, u
 
 export const listEditors = async (): Promise<EditorKaydi[]> => (await call('list')).editors as EditorKaydi[];
 
-export const assignEditor = async (input: { email: string; name: string; phone: string; duties: string[] }): Promise<EditorKaydi> =>
-  (await call('assign', input)).editor as EditorKaydi;
+export const assignEditor = async (
+  input: { email: string; name: string; phone: string; duties: string[]; role?: 'editor' | 'muhtar' }
+): Promise<EditorKaydi> => {
+  const role = input.role || 'editor';
+  const kayit = (await call('assign', { ...input, role })).editor as EditorKaydi;
+  // Sunucu (Worker) henüz muhtar rolünü bilmiyorsa sessizce editör yapmasın
+  if (role === 'muhtar' && kayit.role !== 'muhtar') {
+    throw new Error('Sunucu muhtar atamasını henüz desteklemiyor (Worker güncellenmeli). Kişiye editör yetkisi verilmiş olabilir; listeden kontrol edin.');
+  }
+  return kayit;
+};
 
 export const revokeEditor = async (uid: string): Promise<void> => {
   await call('revoke', { uid });

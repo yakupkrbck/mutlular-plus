@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { X, MapPin, Calendar, Heart, Share2, Phone, BellRing, CheckCircle2 } from 'lucide-react';
+import { X, MapPin, Calendar, Heart, Share2, Phone, BellRing, CheckCircle2, Flag } from 'lucide-react';
 import { ClassifiedItem } from '../../types';
 import { sendAndroidAppNotification } from '../../services/androidNotificationService';
 import { broadcastPush } from '../../services/pushService';
+import { ReportSheet } from './ReportSheet';
+import type { ReportTarget } from '../../services/reportService';
 
 interface ClassifiedDetailModalProps {
   ad: ClassifiedItem | null;
@@ -14,6 +16,7 @@ export const ClassifiedDetailModal: React.FC<ClassifiedDetailModalProps> = ({
   onClose,
 }) => {
   const [pushSent, setPushSent] = useState(false);
+  const [bildirilen, setBildirilen] = useState<ReportTarget | null>(null);
 
   if (!ad) return null;
 
@@ -157,6 +160,15 @@ export const ClassifiedDetailModal: React.FC<ClassifiedDetailModalProps> = ({
 
         {/* Action Buttons */}
         <div className="p-3 bg-white border-t border-neutral-200 flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="İlanı bildir"
+            title="İlanı bildir"
+            onClick={() => setBildirilen({ type: 'ilan', id: ad.id, ownerUid: ad.ownerUid, ownerName: ad.agency, title: ad.title })}
+            className="shrink-0 w-10 h-10 rounded-xl bg-neutral-100 hover:bg-rose-50 text-neutral-500 hover:text-rose-600 flex items-center justify-center transition"
+          >
+            <Flag className="w-4 h-4" />
+          </button>
           <a
             href={`tel:${ad.phone}`}
             className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-[12px] py-2.5 rounded-xl flex items-center justify-center gap-2 transition"
@@ -176,6 +188,7 @@ export const ClassifiedDetailModal: React.FC<ClassifiedDetailModalProps> = ({
           </button>
         </div>
       </div>
+      <ReportSheet target={bildirilen} onClose={() => setBildirilen(null)} />
     </div>
   );
 };
