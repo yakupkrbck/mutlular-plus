@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { doc as fsDoc, updateDoc, setDoc, arrayUnion, increment, where, or } from 'firebase/firestore';
+import { doc as fsDoc, updateDoc, setDoc, deleteDoc, arrayUnion, increment, where, or } from 'firebase/firestore';
 import { db } from './firebase';
 import { useSyncedList } from './services/useSyncedList';
 import {
@@ -163,6 +163,11 @@ export default function App() {
     }
     return 'anasayfa';
   });
+
+  // Adresle doğrudan açılan ekran (/canliyayin, /muhtarlik, /kesintiler, /isilanlari)
+  const [initialModal] = useState(() =>
+    typeof window !== 'undefined' ? parseCurrentPath(window.location.pathname).modal : undefined
+  );
 
   // Register Android Service Worker on mount
   useEffect(() => {
@@ -381,7 +386,7 @@ export default function App() {
   const [isVefatOpen, setIsVefatOpen] = useState(false);
   const [isEBelediyeOpen, setIsEBelediyeOpen] = useState(false);
   const [isSaglikOcagiOpen, setIsSaglikOcagiOpen] = useState(false);
-  const [isMuhtarlikOpen, setIsMuhtarlikOpen] = useState(false);
+  const [isMuhtarlikOpen, setIsMuhtarlikOpen] = useState(initialModal === 'muhtarlik');
   const [muhtarlikInitialTab, setMuhtarlikInitialTab] = useState<'iletisim' | 'talep' | 'basvurular' | 'evrak' | 'rehber'>('iletisim');
   const [muhtarlikApplications, setMuhtarlikApplications] = useSyncedList<MuhtarlikApplication>('plus_muhtarlik', {
     enabled: !!myUid,
@@ -389,14 +394,14 @@ export default function App() {
     key: `${myUid}-${isMuhtarlikStaff}`,
     constraints: isMuhtarlikStaff || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
-  const [isKesintilerOpen, setIsKesintilerOpen] = useState(false);
+  const [isKesintilerOpen, setIsKesintilerOpen] = useState(initialModal === 'kesintiler');
   const [vefatModalInitialTab, setVefatModalInitialTab] = useState<'vitrin' | 'ilan-ver' | 'onay-bekleyenler'>('vitrin');
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [isEsnafPaneliOpen, setIsEsnafPaneliOpen] = useState(false);
   const [isUstaPaneliOpen, setIsUstaPaneliOpen] = useState(false);
   const [isEditorPanelOpen, setIsEditorPanelOpen] = useState(false);
   const [isMahalleSakiniPaneliOpen, setIsMahalleSakiniPaneliOpen] = useState(false);
-  const [isJobsModalOpen, setIsJobsModalOpen] = useState(false);
+  const [isJobsModalOpen, setIsJobsModalOpen] = useState(initialModal === 'isler');
 
   // --- Giriş zorunluluğu: giriş yapmadan yalnızca gezilebilir, hiçbir şey paylaşılamaz ---
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
@@ -496,7 +501,7 @@ export default function App() {
     [jobList, jobApplications, blockedUids]
   );
 
-  const [obituaryList, setObituaryList] = useSyncedList<ObituaryItem>('plus_vefat', {
+  const [obituaryList, setObituaryList, obituaryReady] = useSyncedList<ObituaryItem>('plus_vefat', {
     stampOwner: true,
     key: visKey,
     constraints: approvedOrMine('status'),
@@ -537,12 +542,74 @@ export default function App() {
   });
 
   // Vatandaş haber ihbarları: gönderen kendi ihbarını, yönetim hepsini görür
-  const [newsTipList, setNewsTipList] = useSyncedList<NewsTipItem>('plus_haber_ihbar', {
+  const [newsTipList, setNewsTipList, newsTipReady] = useSyncedList<NewsTipItem>('plus_haber_ihbar', {
     enabled: !!myUid,
     stampOwner: true,
     key: `${myUid}-${isContentStaff}`,
     constraints: isContentStaff || !myUid ? [] : [where('ownerUid', '==', myUid)],
   });
+
+  // Yönetim/editör: giriş yapınca (ve yeni içerik gelince) onay bekleyenlerin özeti
+  // Bildirim Merkezi'ne yazılır, ekranda kısa uyarı gösterilir.
+  const pendingSummary = useMemo(
+    () => ({
+      ilan: pendingClassifieds.length,
+      vefat: obituaryList.filter((o) => o.status === 'pending').length,
+      esnaf: merchantsList.filter((m) => m.status === 'pending').length,
+      ihbar: newsTipList.filter((t) => t.status === 'pending').length,
+      kesinti: kesintiOnay.filter((k) => k.status === 'bekliyor').length,
+    }),
+    [pendingClassifieds, obituaryList, merchantsList, newsTipList, kesintiOnay]
+  );
+  const pendingSigRef = useRef('');
+  const pendingTotalRef = useRef(0);
+  useEffect(() => {
+    if (!isContentStaff || !myUid) {
+      pendingSigRef.current = '';
+      pendingTotalRef.current = 0;
+      return;
+    }
+    // Listeler ilk kez yüklenmeden sayma (yarım sayıyla bildirim vermemek için)
+    if (!(adsReady && merchantsReady && obituaryReady && newsTipReady)) return;
+    const parts: string[] = [];
+    if (pendingSummary.vefat) parts.push(`${pendingSummary.vefat} cenaze/vefat ilanı`);
+    if (pendingSummary.ilan) parts.push(`${pendingSummary.ilan} mahalle ilanı`);
+    if (pendingSummary.esnaf) parts.push(`${pendingSummary.esnaf} esnaf başvurusu`);
+    if (pendingSummary.ihbar) parts.push(`${pendingSummary.ihbar} haber ihbarı`);
+    if (pendingSummary.kesinti) parts.push(`${pendingSummary.kesinti} kesinti bildirimi`);
+    const total =
+      pendingSummary.vefat + pendingSummary.ilan + pendingSummary.esnaf + pendingSummary.ihbar + pendingSummary.kesinti;
+    const sig = `${myUid}:${parts.join('|')}`;
+    if (sig === pendingSigRef.current) return;
+    const first = pendingSigRef.current === '';
+    const grew = total > pendingTotalRef.current;
+    pendingSigRef.current = sig;
+    pendingTotalRef.current = total;
+    const bildirimRef = fsDoc(db, 'plus_users', myUid, 'bildirimler', 'bekleyen-onay');
+    if (total === 0) {
+      deleteDoc(bildirimRef).catch(() => {});
+      return;
+    }
+    const mesaj = `${parts.join(', ')} onayınızı bekliyor.`;
+    const now = Date.now();
+    const d = new Date(now);
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    setDoc(bildirimRef, {
+      id: 'bekleyen-onay',
+      type: 'sistem',
+      title: 'Onay bekleyen içerikler var',
+      message: mesaj,
+      date: `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`,
+      read: false,
+      actionTab: 'onay_bekleyen',
+      createdAtMs: now,
+      sender: 'Mutlular Plus',
+    }).catch(() => {});
+    // Giriş anında ve yeni içerik geldiğinde uyar; onaylayıp sayı azalınca sessiz kal
+    if (first || grew) {
+      window.dispatchEvent(new CustomEvent('mp-info', { detail: `Onay bekleyen: ${parts.join(', ')}.` }));
+    }
+  }, [isContentStaff, myUid, pendingSummary, adsReady, merchantsReady, obituaryReady, newsTipReady]);
 
   // Mahalle anketleri: herkes okur, giriş yapan oy verir (oy sunucuda atomik sayılır)
   const polls = usePolls();
@@ -552,8 +619,10 @@ export default function App() {
   const secim = useSecim();
   const [isSecimOpen, setIsSecimOpen] = useState(false);
   // YouTube canlı yayın: vitrinde gösterilir, dokununca tam ekran açılır
-  const { ayar: canliAyar, durum: canli, otomatik: canliOtomatik, yenile: canliYenile } = useCanliYayin();
-  const [isCanliOpen, setIsCanliOpen] = useState(false);
+  const { ayar: canliAyar, durum: canli, otomatik: canliOtomatik, yenile: canliYenile, hazir: canliHazir } = useCanliYayin();
+  const [isCanliOpen, setIsCanliOpen] = useState(initialModal === 'canli');
+  // /canliyayin adresiyle açıldıysa yayın olmasa da ekran açık kalır ("yayın yok" yazar); kullanıcı kapatınca normale döner
+  const canliDeepRef = useRef(initialModal === 'canli');
   // Yayın varsa canlı yayın ekranını aç; yoksa kısa bilgi ver
   const openCanliYayin = () => {
     if (canli.live) setIsCanliOpen(true);
@@ -563,7 +632,7 @@ export default function App() {
   const canliAnahtar = yayinAnahtari(canli);
   useEffect(() => {
     if (!canliAnahtar) {
-      setIsCanliOpen(false);
+      if (!canliDeepRef.current) setIsCanliOpen(false);
       return;
     }
     let gorulen = '';
@@ -801,6 +870,9 @@ export default function App() {
     if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
       setMuhtarlikInitialTab('basvurular');
       setIsMuhtarlikOpen(true);
+    } else if (tab === 'onay_bekleyen') {
+      if (currentRole === 'yonetici') setIsAdminOpen(true);
+      else setIsEditorPanelOpen(true);
     } else if (tab === 'canli_yayin') {
       openCanliYayin();
     } else if (tab === 'vefat') {
@@ -964,11 +1036,21 @@ export default function App() {
   const isInitialUrlSync = useRef(true);
   useEffect(() => {
     if (deepLinkRef.current) return; // paylaşılan bağlantı çözülene kadar adresi değiştirme
+    const activeModal = isCanliOpen
+      ? 'canli'
+      : isMuhtarlikOpen
+      ? 'muhtarlik'
+      : isKesintilerOpen
+      ? 'kesintiler'
+      : isJobsModalOpen
+      ? 'isler'
+      : undefined;
     const { path, title } = generateCanonicalPath({
       tab: currentTab,
       selectedRestaurant,
       selectedNews,
       selectedAd,
+      modal: activeModal,
     });
 
     if (isInitialUrlSync.current) {
@@ -977,7 +1059,7 @@ export default function App() {
     } else {
       syncUrlToBrowser(path, title, false); // Kullanıcı etkileşimlerinde pushState ile geçmişe yaz
     }
-  }, [currentTab, selectedRestaurant, selectedNews, selectedAd, deepLinkTick]);
+  }, [currentTab, selectedRestaurant, selectedNews, selectedAd, deepLinkTick, isCanliOpen, isMuhtarlikOpen, isKesintilerOpen, isJobsModalOpen]);
 
   // Action Handlers
   const handleOpenSearchWithQuery = (q: string) => {
@@ -1180,7 +1262,10 @@ export default function App() {
 
   const handleAddNewObituary = (newOb: ObituaryItem) => {
     if (requireLogin('Vefat ilanı vermek için giriş yapmalısınız.')) return;
-    setObituaryList((prev) => [newOb, ...prev]);
+    setObituaryList((prev) => [newOb, ...prev]).then((ok) => {
+      // Onay bekleyen vefat ilanı yönetime bildirilir
+      if (ok && newOb.status === 'pending') notifyEvent('vefat-bekliyor', { id: newOb.id });
+    });
   };
 
   const handleApproveObituary = async (obId: string) => {
@@ -3184,8 +3269,12 @@ export default function App() {
         <SecimModal isOpen={isSecimOpen} onClose={() => setIsSecimOpen(false)} veri={secim} />
         <CanliYayinModal
           isOpen={isCanliOpen}
-          onClose={() => setIsCanliOpen(false)}
+          onClose={() => {
+            canliDeepRef.current = false;
+            setIsCanliOpen(false);
+          }}
           durum={canli}
+          yukleniyor={!canliHazir}
           kullanici={isLoggedIn && myUid ? { uid: myUid, name: userProfile?.name || 'Misafir' } : null}
           onGirisGerek={() => requireLogin('Yorum yazmak için giriş yapmalısınız.')}
           yonetici={userProfile?.role === 'yonetici' || userProfile?.role === 'editor'}

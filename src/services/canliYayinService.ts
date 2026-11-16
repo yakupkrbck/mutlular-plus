@@ -126,16 +126,24 @@ export const saveCanliAyar = (ayar: CanliAyar) => setDoc(doc(db, 'plus_ayarlar',
 const POLL_MS = 60_000;
 
 /** Canlı yayın durumunu izler: ayarlar canlı dinlenir, algılama yalnızca kanal tanımlıysa dakikada bir sorgulanır. */
-export function useCanliYayin(): { ayar: CanliAyar | null; durum: CanliDurum; otomatik: CanliDurum | null; yenile: () => void } {
+export function useCanliYayin(): { ayar: CanliAyar | null; durum: CanliDurum; otomatik: CanliDurum | null; yenile: () => void; hazir: boolean } {
   const [ayar, setAyar] = useState<CanliAyar | null>(null);
+  const [ayarHazir, setAyarHazir] = useState(false);
+  const [otoHazir, setOtoHazir] = useState(false);
   const [otomatik, setOtomatik] = useState<CanliDurum | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     const unsub = onSnapshot(
       doc(db, 'plus_ayarlar', 'canli'),
-      (snap) => setAyar(snap.exists() ? (snap.data() as CanliAyar) : null),
-      () => setAyar(null)
+      (snap) => {
+        setAyar(snap.exists() ? (snap.data() as CanliAyar) : null);
+        setAyarHazir(true);
+      },
+      () => {
+        setAyar(null);
+        setAyarHazir(true);
+      }
     );
     return () => unsub();
   }, []);
@@ -152,6 +160,7 @@ export function useCanliYayin(): { ayar: CanliAyar | null; durum: CanliDurum; ot
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
         const d = await fetchLiveStatus();
         if (iptal) return;
+        setOtoHazir(true);
         if (d) setOtomatik(d);
         // Sunucuda anahtar/kanal yoksa boşuna sormaya devam etme
         if (d && d.configured === false) return;
@@ -166,5 +175,7 @@ export function useCanliYayin(): { ayar: CanliAyar | null; durum: CanliDurum; ot
   }, [izle, tick]);
 
   const durum = useMemo(() => birlestirCanli(ayar, otomatik), [ayar, otomatik]);
-  return { ayar, durum, otomatik, yenile: () => setTick((t) => t + 1) };
+  // İlk bilgi (ayar + gerekirse sunucudan yayın durumu) geldi mi? Gelmeden "yayın yok" denmez.
+  const hazir = ayarHazir && (!izle || otoHazir);
+  return { ayar, durum, otomatik, yenile: () => setTick((t) => t + 1), hazir };
 }

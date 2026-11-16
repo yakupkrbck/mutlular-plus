@@ -16,13 +16,15 @@ interface CanliYayinModalProps {
   onGirisGerek?: () => void;
   /** Yönetici/editör: her yorumu silebilir */
   yonetici?: boolean;
+  /** Yayın bilgisi henüz gelmedi ("yayın yok" demeden önce bekle) */
+  yukleniyor?: boolean;
 }
 
 /**
  * Canlı yayın ekranı. Yayın (YouTube kanalı/videosu ya da yüklenmiş video) varken açılır; yayın bitince kendiliğinden kapanır.
  * Yorumlar gerçek kullanıcılara aittir; izleyici sayısı yalnızca YouTube'un bildirdiği gerçek değerdir.
  */
-export const CanliYayinModal: React.FC<CanliYayinModalProps> = ({ isOpen, onClose, durum, kullanici, onGirisGerek, yonetici }) => {
+export const CanliYayinModal: React.FC<CanliYayinModalProps> = ({ isOpen, onClose, durum, kullanici, onGirisGerek, yonetici, yukleniyor }) => {
   const acik = isOpen && durum.live && !!(durum.videoId || durum.kanalId || durum.dosyaUrl);
   const tumYorumlar = useCanliYorumlar(durum.yayinBaslangicMs || 0, acik);
   const engelli = useBlockedUids();
@@ -39,7 +41,33 @@ export const CanliYayinModal: React.FC<CanliYayinModalProps> = ({ isOpen, onClos
     if (el) el.scrollTop = el.scrollHeight;
   }, [yorumlar.length]);
 
-  if (!acik) return null;
+  if (!acik) {
+    if (!isOpen) return null;
+    // Adresle (/canliyayin) açıldı ama yayın yok ya da bilgi henüz gelmedi
+    return (
+      <div className="fixed inset-0 z-[60] bg-neutral-950 flex flex-col" role="dialog" aria-modal="true" aria-label="Canlı yayın">
+        <div className="flex items-center justify-end px-3 pb-2 shrink-0" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 10px)' }}>
+          <button type="button" onClick={onClose} aria-label="Kapat" className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-8 gap-3">
+          {yukleniyor ? (
+            <p className="text-sm font-semibold text-neutral-300">Yayın bilgisi alınıyor…</p>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl" aria-hidden="true">📺</div>
+              <h2 className="text-lg font-black text-white">Şu an canlı yayın yok</h2>
+              <p className="text-[13px] text-neutral-400 max-w-xs">Yayın başladığında bu sayfa kendiliğinden açılır. Bildirimleri açık tutarak haberdar olabilirsiniz.</p>
+              <button type="button" onClick={onClose} className="mt-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[13px] font-black">
+                Ana sayfaya dön
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
   const canli = durum.rozet !== 'video';
   const tur = durum.videoId || durum.kanalId ? 'youtube' : 'dosya';
 

@@ -48,8 +48,12 @@ export function slugify(text: string): string {
     .replace(/-+/g, '-');
 }
 
+/** Adresle doğrudan açılan ekranlar (örn. /canliyayin, /muhtarlik, /kesintiler, /isilanlari) */
+export type RouteModal = 'canli' | 'muhtarlik' | 'kesintiler' | 'isler';
+
 export interface ParsedRoute {
   tab: NavTab;
+  modal?: RouteModal;
   esnafSlug?: string;
   newsId?: string;
   adId?: string;
@@ -65,6 +69,8 @@ export interface ParsedRoute {
  * - /hizmet veya /hizmet/ veya /hizmet/:kategori
  * - /esnaf veya /esnaf/ veya /esnaf/dönerciismail (veya /esnaf/:slug)
  * - /profil veya /profil/
+ * - /canliyayin (canlı yayın ekranı; yayın yoksa "yayın yok" der)
+ * - /muhtarlik, /kesintiler, /isilanlari (ilgili ekranı açar; Türkçe harfli yazımlar da kabul edilir)
  */
 export function parseCurrentPath(pathname: string): ParsedRoute {
   try {
@@ -112,6 +118,20 @@ export function parseCurrentPath(pathname: string): ParsedRoute {
       tab: 'yemek',
       esnafSlug: second || undefined,
     };
+  }
+
+  // 4b. Doğrudan ekran adresleri (Türkçe harfli ve tireli yazımlar normalize edilir)
+  if (normFirst === 'canliyayin' || normFirst === 'canli' || normFirst === 'canlitv') {
+    return { tab: 'anasayfa', modal: 'canli' };
+  }
+  if (normFirst === 'muhtarlik' || normFirst === 'muhtar') {
+    return { tab: 'anasayfa', modal: 'muhtarlik' };
+  }
+  if (normFirst === 'kesintiler' || normFirst === 'kesinti') {
+    return { tab: 'anasayfa', modal: 'kesintiler' };
+  }
+  if (normFirst === 'isilanlari' || normFirst === 'isilani' || normFirst === 'isler' || normFirst === 'is') {
+    return { tab: 'anasayfa', modal: 'isler' };
   }
 
   // 5. Profil rotası (/profil)
@@ -229,8 +249,23 @@ export function generateCanonicalPath(params: {
   selectedRestaurant?: RestaurantItem | null;
   selectedNews?: NewsItem | null;
   selectedAd?: ClassifiedItem | null;
+  modal?: RouteModal;
 }): { path: string; title: string } {
-  const { tab, selectedRestaurant, selectedNews, selectedAd } = params;
+  const { tab, selectedRestaurant, selectedNews, selectedAd, modal } = params;
+
+  // Doğrudan ekran adresleri (detay sayfası açık değilse)
+  if (modal && !selectedRestaurant && !selectedNews && !selectedAd) {
+    switch (modal) {
+      case 'canli':
+        return { path: '/canliyayin', title: 'Canlı Yayın | Mutlular Haber' };
+      case 'muhtarlik':
+        return { path: '/muhtarlik', title: 'Muhtarlık | Mutlular Haber' };
+      case 'kesintiler':
+        return { path: '/kesintiler', title: 'Kesintiler | Mutlular Haber' };
+      case 'isler':
+        return { path: '/isilanlari', title: 'İş İlanları | Mutlular Haber' };
+    }
+  }
 
   // Özel Esnaf Detayı
   if (selectedRestaurant) {
