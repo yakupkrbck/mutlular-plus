@@ -65,17 +65,6 @@ interface StoreDetailModalProps {
   initialMode?: 'qr_menu' | 'magaza_vitrini';
 }
 
-const DEFAULT_DRINKS = [
-  'Ayran (Kapalı Şişe)',
-  'Coca-Cola (330ml Kutu)',
-  'Coca-Cola Zero (330ml Kutu)',
-  'Fanta Portakal (330ml Kutu)',
-  'Fuse Tea Şeftali (330ml)',
-  'Cappy Karışık Meyve Suyu',
-  'Doğanay Şalgam Suyu',
-  'Kızılay Maden Suyu',
-];
-
 export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
   business,
   onClose,
@@ -107,7 +96,11 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
   // Menü yalnızca işletmenin kendi eklediği ürünlerden oluşur
   const menu: MenuItem[] = useMemo(() => {
     if (!business) return [];
-    if (business.menu && business.menu.length > 0) return business.menu;
+    if (business.menu && business.menu.length > 0) {
+      // Eski sürümün ürünlere otomatik yazdığı sahte açıklamalar gösterilmez
+      const FILLER = ['Taze ve lezzetli menü çeşidi.', 'Kaliteli mağaza ürünü.'];
+      return business.menu.map((it) => (it.desc && FILLER.includes(it.desc.trim()) ? { ...it, desc: '' } : it));
+    }
 
     return [];
   }, [business, isFood]);
@@ -161,13 +154,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
   const handleOpenOptions = (item: MenuItem) => {
     setSelectedItemForOptions(item);
     setSelectedSize(item.sizes && item.sizes.length > 0 ? item.sizes[0] : '');
-    setSelectedDrink(
-      item.drinks && item.drinks.length > 0
-        ? item.drinks[0]
-        : isFood
-        ? DEFAULT_DRINKS[0]
-        : ''
-    );
+    setSelectedDrink(item.drinks && item.drinks.length > 0 ? item.drinks[0] : '');
     setCustomerNote('');
   };
 
@@ -217,7 +204,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
         text += `\n*Porsiyon / Beden:* ${options.size}`;
       }
       if (options?.drink) {
-        text += `\n*Seçilen Bedava İçecek:* ${options.drink}`;
+        text += `\n*Seçilen İçecek:* ${options.drink}`;
       }
       if (options?.note) {
         text += `\n*Not:* ${options.note}`;
@@ -275,7 +262,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
               </h1>
             </div>
             <p className="text-[10.5px] sm:text-[11px] text-neutral-500 truncate hidden sm:block">
-              {business.category || business.tag || 'Mutlular Haber Esnafı'} • Vitrin Ürünleri & Fiyatlar
+              {business.tag || business.category || 'Mutlular Haber Esnafı'} • Vitrin Ürünleri & Fiyatlar
             </p>
           </div>
         </div>
@@ -360,7 +347,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                   ) : (
                     <Store className="w-3 h-3 text-sky-400" />
                   )}
-                  <span>{business.category || business.tag || 'İşletme'}</span>
+                  <span>{business.tag || business.category || 'İşletme'}</span>
                 </span>
 
                 <span className="bg-emerald-600/90 backdrop-blur-md text-white text-[10px] sm:text-[10.5px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg flex items-center gap-1 shadow-xs">
@@ -387,7 +374,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                   {business.name}
                 </h2>
                 <p className="text-[10.5px] sm:text-xs text-neutral-200 font-medium drop-shadow-sm mt-0.5 line-clamp-1">
-                  {business.description || 'Seçkin vitrin ürünleri & lezzet menüleri'}
+                  {business.description || ''}
                 </p>
               </div>
             </div>
@@ -397,7 +384,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
               <div className="flex items-center gap-2 text-neutral-600 flex-wrap">
                 <span className="flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                   <Clock className="w-3.5 h-3.5" />
-                  {business.workingHours || business.time || '09:00 - 22:30 Açık'}
+                  {business.workingHours || business.time || 'Çalışma saati belirtilmedi'}
                 </span>
                 {business.address && (
                   <span className="flex items-center gap-1 text-neutral-600">
@@ -465,10 +452,8 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                 <div className="min-w-0">
                   <h3 className="text-sm sm:text-base font-black text-neutral-900 uppercase tracking-tight truncate">
                     {selectedCategory === 'all'
-                      ? isFood
-                        ? 'EKMEK ARASI & BURGER MENÜLERİ'
-                        : `${business.name.toUpperCase()} VİTRİNİ`
-                      : selectedCategory.toUpperCase()}
+                      ? `${business.name.toLocaleUpperCase('tr-TR')} ${isFood ? 'MENÜSÜ' : 'VİTRİNİ'}`
+                      : selectedCategory.toLocaleUpperCase('tr-TR')}
                   </h3>
                   <p className="text-xs text-neutral-500 font-medium mt-0.5">
                     {filteredMenu.length} ürün listelendi
@@ -642,12 +627,12 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                           {item.name}
                         </h4>
 
-                        {/* Promo / Alt Bilgi Metni (Örn: "Yanında 1 İçecek Bedava") */}
-                        <p className="text-[11px] sm:text-xs text-neutral-500 font-medium line-clamp-1">
-                          {item.promoText ||
-                            item.desc ||
-                            (isFood ? 'Yanında 1 İçecek Bedava' : 'Yeni Sezon Vitrin Ürünü')}
-                        </p>
+                        {/* Alt bilgi: yalnızca işletmenin kendi yazdığı açıklama */}
+                        {(item.promoText || item.desc) && (
+                          <p className="text-[11px] sm:text-xs text-neutral-500 font-medium line-clamp-1">
+                            {item.promoText || item.desc}
+                          </p>
+                        )}
 
                         {/* Perakende için İndirim Rozeti & Renk Sayısı (Referans Görsel 2) */}
                         {!isFood && (
@@ -836,19 +821,16 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                 </div>
               )}
 
-              {/* İçecek Seçeneği (Yemek için "Yanında 1 İçecek Bedava") */}
-              {isFood && (
+              {/* İçecek seçeneği: yalnızca işletme üründe içecek tanımladıysa */}
+              {isFood && selectedItemForOptions.drinks && selectedItemForOptions.drinks.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-neutral-900 text-xs">
-                      Yanında 1 İçecek Bedava:
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Ücretsiz Dahil
+                      İçecek seçimi:
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto pr-1">
-                    {(selectedItemForOptions.drinks || DEFAULT_DRINKS).map((drink) => (
+                    {selectedItemForOptions.drinks.map((drink) => (
                       <button
                         key={drink}
                         type="button"
@@ -900,7 +882,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                     selectedItemForOptions.price,
                     {
                       size: selectedSize,
-                      drink: isFood ? selectedDrink : undefined,
+                      drink: selectedDrink || undefined,
                       note: customerNote,
                     }
                   );

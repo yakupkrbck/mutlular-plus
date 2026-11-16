@@ -113,26 +113,19 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
   });
 
   // Local applications state (synced with parent or localStorage)
-  const [localApplications, setLocalApplications] = useState<MuhtarlikApplication[]>(() => {
-    try {
-      const saved = localStorage.getItem('mutlular_muhtarlik_applications');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(
-            (p: MuhtarlikApplication) => !['MAKIF-1042', 'MAKIF-2089', 'MAKIF-3115'].includes(p.id)
-          );
-        }
-      }
-    } catch {}
-    return DEFAULT_SAMPLE_APPLICATIONS;
-  });
-
-  // Keep synced if external applications prop is provided
+  // Başvurular yalnızca sunucudan (Firestore) gelir; cihazda önbellek tutulmaz (başkasının başvurusu sızmasın).
+  const [localApplications, setLocalApplications] = useState<MuhtarlikApplication[]>(
+    externalApps || DEFAULT_SAMPLE_APPLICATIONS
+  );
   useEffect(() => {
-    if (externalApps && externalApps.length > 0) {
-      setLocalApplications(externalApps);
-    }
+    try {
+      localStorage.removeItem('mutlular_muhtarlik_applications');
+    } catch {}
+  }, []);
+
+  // Üst bileşendeki canlı liste her zaman esas alınır (boş liste de dahil)
+  useEffect(() => {
+    if (externalApps) setLocalApplications(externalApps);
   }, [externalApps]);
 
   // If initialTab changes, update activeTab
@@ -143,6 +136,11 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
       setActiveTab('basvurular');
     }
   }, [initialTab, isMuhtar]);
+
+  // Yetkisiz kişi başvurular sekmesinde kalmasın
+  useEffect(() => {
+    if (!canAccessMuhtarDesk && activeTab === 'basvurular') setActiveTab('iletisim');
+  }, [canAccessMuhtarDesk, activeTab]);
 
   // Talep formu state
   const [formData, setFormData] = useState({
@@ -228,9 +226,6 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
     // Update local state and persistence
     const updatedList = [newApp, ...localApplications];
     setLocalApplications(updatedList);
-    try {
-      localStorage.setItem('mutlular_muhtarlik_applications', JSON.stringify(updatedList));
-    } catch {}
 
     // Notify parent
     if (onNewApplication) {
@@ -273,9 +268,6 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
         : app
     );
     setLocalApplications(updated);
-    try {
-      localStorage.setItem('mutlular_muhtarlik_applications', JSON.stringify(updated));
-    } catch {}
 
     if (onUpdateApplicationStatus) {
       onUpdateApplicationStatus(appId, newStatus);
@@ -302,9 +294,6 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
         : app
     );
     setLocalApplications(updated);
-    try {
-      localStorage.setItem('mutlular_muhtarlik_applications', JSON.stringify(updated));
-    } catch {}
 
     if (onUpdateApplicationStatus) {
       const target = updated.find((a) => a.id === appId);
@@ -810,7 +799,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
           )}
 
           {/* SEKME 3: GELEN BAŞVURULAR & MUHTARLIK YÖNETİM MASASI */}
-          {activeTab === 'basvurular' && (
+          {activeTab === 'basvurular' && canAccessMuhtarDesk && (
             <div className="space-y-3.5 animate-in fade-in duration-150">
               
               {/* Muhtar Resmi Yetkili Üst Banner */}

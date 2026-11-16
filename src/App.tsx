@@ -19,7 +19,6 @@ import { CanliTvBar } from './components/CanliTvBar';
 import { PopularServices } from './components/PopularServices';
 import { PromoCarBanner } from './components/PromoCarBanner';
 import { CampusCard } from './components/CampusCard';
-import { CouponsSection } from './components/CouponsSection';
 import { CityServices } from './components/CityServices';
 import { OfficialSection } from './components/OfficialSection';
 import { WeatherWidget } from './components/WeatherWidget';
@@ -1974,7 +1973,7 @@ export default function App() {
 
               {/* 4. Popüler Hizmetler Grid */}
               <PopularServices
-                services={POPULAR_SERVICES}
+                services={POPULAR_SERVICES.filter((s) => s.id !== 'esnaf' && s.id !== 'hizmet')}
                 onSelectService={handleSelectService}
                 onViewAll={() => setIsSearchOpen(true)}
               />
@@ -1989,9 +1988,6 @@ export default function App() {
                 onOpenCampus={() => openCanliYayin()}
                 onOpenCanliTv={() => openCanliYayin()}
               />
-
-              {/* 7. Kuponlar Section */}
-              <CouponsSection onOpenCoupons={() => setIsCampaignOpen(true)} />
 
               {/* 8. Şehir Hizmetleri (E-Belediye, 112 Acil, Namaz, Bursakart, ASM, Muhtarlık) */}
               <CityServices
@@ -2634,14 +2630,7 @@ export default function App() {
                         <ChevronRight className="w-4 h-4 text-amber-400" />
                       </button>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => setIsCampaignOpen(true)}
-                          className="p-2.5 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-[11px] text-left transition flex items-center justify-between"
-                        >
-                          <span>Kupon & İndirimler</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-amber-600" />
-                        </button>
+                      <div className="grid grid-cols-1 gap-2">
                         <button
                           onClick={() => setIsEsnafPaneliOpen(true)}
                           className="p-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-[11px] text-left transition flex items-center justify-between"
@@ -2881,18 +2870,6 @@ export default function App() {
                   </span>
                 </div>
 
-                <div
-                  onClick={() => setIsCampaignOpen(true)}
-                  className="p-3.5 flex items-center justify-between hover:bg-neutral-50 cursor-pointer transition"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Award className="w-4 h-4 text-rose-600" />
-                    <span className="text-[13px] font-bold text-neutral-800">
-                      Kuponlarım & Kampanyalar
-                    </span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-neutral-400" />
-                </div>
 
                 <div
                   onClick={() => setIsMarketListingOpen(true)}
@@ -3010,6 +2987,8 @@ export default function App() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
               setIsQuickActionOpen(true);
             } else {
+              // Alt menüden Esnaf'a basınca her zaman "Tüm Çarşı" açılır
+              if (tab === 'yemek') setEsnafSectionDefaultMode('all');
               setCurrentTab(tab);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }

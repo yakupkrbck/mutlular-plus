@@ -597,21 +597,6 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
             </button>
 
             <button
-              onClick={() => handleAction(onOpenCoupons)}
-              className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition text-left"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-                  <Tag className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-[12px] font-bold text-neutral-800">
-                  Kuponlar & Kampanyalar
-                </span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-neutral-400" />
-            </button>
-
-            <button
               onClick={() => handleAction(onOpenCredit)}
               className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-neutral-50 transition text-left"
             >

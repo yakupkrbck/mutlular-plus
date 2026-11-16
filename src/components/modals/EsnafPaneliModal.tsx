@@ -94,9 +94,7 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
     userProfile?.businessApproved !== false
   );
   const [storeWorkingHours, setStoreWorkingHours] = useState('08:30 - 21:00');
-  const [storeDescription, setStoreDescription] = useState(
-    'Mutlular Çarşısı bünyesinde kaliteli ve güvenilir hizmet sunmaktadır.'
-  );
+  const [storeDescription, setStoreDescription] = useState('');
 
   // Business Operating Mode (QR Menü vs Mağaza Vitrini)
   const initialMode: BusinessTypeMode = useMemo(() => {
@@ -149,6 +147,20 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
   ) => {
     onSyncRef.current?.(storeName, updatedProducts, currentMode);
   };
+
+  // Kayıtlı işletme bilgileri (ad, etiket, telefon, adres, saat, açıklama) panel açılınca bir kez forma yüklenir.
+  // Aksi halde form varsayılan değerlerle açılıp kaydedilen çalışma saatleri "eski haline dönmüş" görünür.
+  const hydratedStoreRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ownStore || hydratedStoreRef.current === ownStore.id) return;
+    hydratedStoreRef.current = ownStore.id;
+    if (ownStore.name) setStoreName(ownStore.name);
+    if (ownStore.tag) setStoreCategory(ownStore.tag);
+    if (ownStore.phone) setStorePhone(ownStore.phone);
+    if (ownStore.address) setStoreAddress(ownStore.address);
+    if (ownStore.workingHours) setStoreWorkingHours(ownStore.workingHours);
+    if (ownStore.description) setStoreDescription(ownStore.description);
+  }, [ownStore]);
 
   // İşletme kaydı (Firestore) değiştikçe panel verisini güncelle
   useEffect(() => {
@@ -292,7 +304,7 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
         name: prodName.trim(),
         price: formattedPrice,
         discountPrice: formattedDiscount,
-        desc: prodDesc.trim() || (businessMode === 'qr_menu' ? 'Taze ve lezzetli menü çeşidi.' : 'Kaliteli mağaza ürünü.'),
+        desc: prodDesc.trim(),
         category: prodCategory.trim() || (businessMode === 'qr_menu' ? 'Ana Yemekler' : 'Üst Giyim'),
         stockStatus: prodStockStatus,
         stockCount: isNaN(stockNumber) ? undefined : stockNumber,

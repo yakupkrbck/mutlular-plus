@@ -1,2 +1,2 @@
 // Her yüklemede güncellenir; menünün altında görünür. Hangi sürümün çalıştığını anlamak için.
-export const APP_VERSION = '2026.11.15-muhtar-sikayet-2';
+export const APP_VERSION = '2026.11.16-yasal-5';
