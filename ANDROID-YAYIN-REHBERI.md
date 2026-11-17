@@ -73,8 +73,20 @@ Actions → **Android Yayın (AAB)** → Run workflow. Bitince "Artifacts" böl�
    - Reklam / analiz: yok.
 7. Test sürecinden sonra **Üretim** kanalına çık. (Yeni kişisel geliştirici hesaplarında Google üretimden önce belirli sayıda test kullanıcısıyla kapalı test şartı isteyebilir; Play Console'daki güncel şartı kontrol et.)
 
-## 3) Bilinen eksikler / ikinci aşama
-- **Kullanıcı içeriği moderasyonu:** Yorumlarda şikayet mekanizması var; ilan / ihbar / hikayeler için uygulama içi "Şikayet et" ve kullanıcı engelleme yok. Play'in kullanıcı içeriği politikası bunu bekler, incelemede takılabilir. İstersen bir sonraki adımda eklerim.
+## 3) Android Studio ile yerel deneme (APK'yı telefona kendin yüklemek istersen)
+Her seferinde bu sırayı uygula; atlanırsa "FirebaseAuthentication plugin is not implemented on android" gibi hatalar çıkar:
+```
+npm install --legacy-peer-deps
+npm run build
+npx cap sync android
+```
+1. `android/app/google-services.json` dosyasını koy (Firebase'den indirdiğin; depoya ekleme).
+2. Android Studio → `android` klasörünü aç → **File → Sync Project with Gradle Files** → **Build → Clean Project** → Run.
+3. Kontrol: `android/app/src/main/assets/capacitor.plugins.json` içinde `FirebaseAuthenticationPlugin` ve `PushNotificationsPlugin` yazmalı.
+4. Google girişi için bu derlemeyi imzalayan anahtarın SHA-1 ve SHA-256 değeri Firebase'e eklenmiş olmalı (Android Studio → Gradle → `signingReport`). Ekledikten sonra `google-services.json`'u yeniden indir.
+
+## 4) Bilinen eksikler / ikinci aşama
+- Kullanıcı içeriği: yorum, ilan, iş ilanı ve hikâyelerde uygulama içi **Bildir** ve kullanıcı **engelleme** var (menü → Engellenen Kullanıcılar); Yönetim → Şikayetler sekmesinden incelenir. Hikâye sahibi bilinmediği için hikâyelerde engelleme yok, yalnız bildirme var.
 - **Uygulama bağlantıları** (mutlularhaber.com linkine dokununca uygulamada açılma) eklenmedi.
 - R8 küçültme kapalı (güvenli varsayılan). Boyutu azaltmak istenirse sonra açılır.
 - Ekran görüntüleri sana ait; ben gerçek cihazdan alamam.

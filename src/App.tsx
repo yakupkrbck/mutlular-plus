@@ -149,7 +149,7 @@ import { hizmetAlaniId, HizmetAlani } from './data/hizmetAlanlari';
 import { syncUstaFields } from './services/hizmetAlanlari';
 import { isNative, exitNativeApp } from './native';
 import { PermissionPrompt } from './components/modals/PermissionPrompt';
-import { refreshPushIfGranted, sendBroadcastPush, broadcastSummary, initNativePushClickListener, type BroadcastOptions } from './services/pushService';
+import { refreshPushIfGranted, sendBroadcastPush, broadcastSummary, initNativePushClickListener, getNotificationState, type BroadcastOptions } from './services/pushService';
 import { markSeen, isTrackedNotification } from './services/bildirimIstatistikService';
 import { getLocationPermissionState, requestLocation, wasLocationAsked } from './services/locationService';
 import { uploadFile } from './services/uploadService';
@@ -1735,30 +1735,34 @@ export default function App() {
     });
   };
 
+  // İlk açılışta (giriş yapılmadan da) bildirim ve konum izni istenir; giriş sonrası cihaz Worker'a kaydedilir.
   useEffect(() => {
-    if (!isLoggedIn || !myUid) return;
     let alive = true;
-    (async () => {
-      const notif = getAndroidNotificationPermission();
-      // Yerel (Capacitor) uygulamada Notification API yoktur; izin kontrolünü refreshPushIfGranted kendisi yapar
-      refreshPushIfGranted();
-      const loc = await getLocationPermissionState();
-      if (loc === 'granted') requestLocation().catch(() => {});
+    // Açılış ekranı/oturum yerleşsin diye kısa bekleme
+    const timer = setTimeout(() => {
+      (async () => {
+        const notif = await getNotificationState();
+        // İzin zaten verilmişse ve giriş yapılmışsa cihaz sessizce kaydedilir (refreshPushIfGranted girişi kendisi kontrol eder)
+        if (myUid) refreshPushIfGranted();
+        const loc = await getLocationPermissionState();
+        if (loc === 'granted') requestLocation().catch(() => {});
 
-      const needNotif = notif === 'default';
-      const needLoc = loc === 'prompt' || (loc === 'unknown' && !wasLocationAsked());
-      let dismissedAt = 0;
-      try {
-        dismissedAt = Number(localStorage.getItem('mp_perm_dismissed_at') || 0);
-      } catch {}
-      const recently = Date.now() - dismissedAt < 3 * 24 * 60 * 60 * 1000;
-      if (alive && (needNotif || needLoc) && !recently) {
-        setPermNeeds({ notif: needNotif, loc: needLoc });
-        setIsPermPromptOpen(true);
-      }
-    })();
+        const needNotif = notif === 'prompt';
+        const needLoc = loc === 'prompt' || (loc === 'unknown' && !wasLocationAsked());
+        let dismissedAt = 0;
+        try {
+          dismissedAt = Number(localStorage.getItem('mp_perm_dismissed_at') || 0);
+        } catch {}
+        const recently = Date.now() - dismissedAt < 3 * 24 * 60 * 60 * 1000;
+        if (alive && (needNotif || needLoc) && !recently) {
+          setPermNeeds({ notif: needNotif, loc: needLoc });
+          setIsPermPromptOpen(true);
+        }
+      })();
+    }, 1200);
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, [isLoggedIn, myUid]);
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Bell, MapPin, Check, X } from 'lucide-react';
-import { enablePush, PushResult } from '../../services/pushService';
+import { askNotificationPermission, PushResult } from '../../services/pushService';
 import { requestLocation } from '../../services/locationService';
 
 interface PermissionPromptProps {
@@ -40,7 +40,7 @@ export const PermissionPrompt: React.FC<PermissionPromptProps> = ({ isOpen, need
 
   const askNotif = async () => {
     setNotif({ status: 'busy' });
-    const r = await enablePush();
+    const r = await askNotificationPermission();
     setNotif(notifMessage(r));
   };
 

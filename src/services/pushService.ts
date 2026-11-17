@@ -153,6 +153,43 @@ export async function enablePush(): Promise<PushResult> {
   }
 }
 
+export type NotifState = 'granted' | 'prompt' | 'denied' | 'unsupported';
+
+/** Bildirim izninin durumu. Yerel uygulamada (WebView) Notification API yoktur; eklentiden okunur. */
+export async function getNotificationState(): Promise<NotifState> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      const p = await PushNotifications.checkPermissions();
+      return p.receive === 'granted' ? 'granted' : p.receive === 'denied' ? 'denied' : 'prompt';
+    } catch {
+      return 'unsupported';
+    }
+  }
+  const s = getAndroidNotificationPermission();
+  return s === 'granted' ? 'granted' : s === 'denied' ? 'denied' : s === 'unsupported' ? 'unsupported' : 'prompt';
+}
+
+/**
+ * Bildirim iznini ister. Giriş GEREKMEZ (ilk açılışta sorulabilsin diye).
+ * Giriş yapılmışsa cihaz hemen Worker'a kaydedilir; yapılmamışsa giriş sonrası refreshPushIfGranted kaydeder.
+ */
+export async function askNotificationPermission(): Promise<PushResult> {
+  if (auth.currentUser) return enablePush();
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      const perm = await PushNotifications.requestPermissions();
+      return perm.receive === 'granted' ? { ok: true } : { ok: false, reason: 'denied' };
+    } catch (e: any) {
+      return { ok: false, reason: 'native_error', detail: e?.message };
+    }
+  }
+  const perm = await requestAndroidNotificationPermission();
+  if (perm === 'unsupported') return { ok: false, reason: 'unsupported' };
+  return perm === 'granted' ? { ok: true } : { ok: false, reason: perm === 'denied' ? 'denied' : 'dismissed' };
+}
+
 /** İzin zaten verilmişse sessizce yeniler (jetonlar zamanla değişebilir). */
 export async function refreshPushIfGranted(): Promise<void> {
   if (!auth.currentUser) return;
