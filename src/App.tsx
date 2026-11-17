@@ -149,7 +149,8 @@ import { hizmetAlaniId, HizmetAlani } from './data/hizmetAlanlari';
 import { syncUstaFields } from './services/hizmetAlanlari';
 import { isNative, exitNativeApp } from './native';
 import { PermissionPrompt } from './components/modals/PermissionPrompt';
-import { refreshPushIfGranted, sendBroadcastPush, initNativePushClickListener } from './services/pushService';
+import { refreshPushIfGranted, sendBroadcastPush, broadcastSummary, initNativePushClickListener, type BroadcastOptions } from './services/pushService';
+import { markSeen, isTrackedNotification } from './services/bildirimIstatistikService';
 import { getLocationPermissionState, requestLocation, wasLocationAsked } from './services/locationService';
 import { uploadFile } from './services/uploadService';
 import { notifyEvent, unregisterPush, resyncPushTopics, scanKesintiNow } from './services/pushService';
@@ -897,6 +898,7 @@ export default function App() {
     initNativePushClickListener();
     const onClick = (e: Event) => {
       const p: any = (e as CustomEvent).detail || {};
+      if (p.nid) markSeen(String(p.nid), 'push');
       if (specialNavRef.current(p.actionTab, p.subTab, p.relatedId, p.title)) return;
       genericNavRef.current(p.actionTab, p.subTab);
     };
@@ -914,6 +916,8 @@ export default function App() {
       const actionParam = params.get('action');
       const relatedParam = params.get('relatedId');
       const titleParam = params.get('nt');
+      const nidParam = params.get('nid');
+      if (nidParam) markSeen(nidParam, 'push');
 
       if (actionParam === 'ulasim') {
         setIsBusOpen(true);
@@ -939,6 +943,7 @@ export default function App() {
       const messageHandler = (event: MessageEvent) => {
         if (event.data && event.data.type === 'NOTIFICATION_CLICKED') {
           const payload = event.data.payload || {};
+          if (payload.nid) markSeen(String(payload.nid), 'push');
           const actionTab = payload.actionTab;
           const subTab = payload.subTab;
 
@@ -1195,6 +1200,14 @@ export default function App() {
   };
 
   const isAnnouncementId = (id: string) => announcements.some((a) => a.id === id);
+
+  // Bildirim Merkezi açıkken yönetim bildirimleri "gördü" olarak sayılır (kişi başı bir kez)
+  useEffect(() => {
+    if (!myUid || currentTab !== 'profil' || profileSubTab !== 'bildirimler') return;
+    announcements.forEach((a) => {
+      if (isTrackedNotification(a.id)) markSeen(a.id, 'liste');
+    });
+  }, [myUid, currentTab, profileSubTab, announcements]);
 
   const handleMarkAsRead = (id: string) => {
     if (isAnnouncementId(id)) {
@@ -1708,11 +1721,17 @@ export default function App() {
   }, []);
 
   /** Yönetim: tüm kayıtlı cihazlara gerçek push gönderir */
-  const handleBroadcastPush = (title: string, body: string, actionTab = 'profil', relatedId?: string, subTab?: string) => {
-    sendBroadcastPush(title, body, actionTab, relatedId, subTab).then((r) => {
-      if (r.ok) showInfo('Bildirim tüm cihazlara gönderildi.');
-      else
-        window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: `Cihaz bildirimi gönderilemedi: ${r.error}` }));
+  const handleBroadcastPush = (
+    title: string,
+    body: string,
+    actionTab = 'profil',
+    relatedId?: string,
+    subTab?: string,
+    opts?: BroadcastOptions
+  ) => {
+    sendBroadcastPush(title, body, actionTab, relatedId, subTab, opts).then((r) => {
+      if (r.ok) showInfo(broadcastSummary(r));
+      else window.dispatchEvent(new CustomEvent('mp-sync-error', { detail: broadcastSummary(r) }));
     });
   };
 
@@ -3456,9 +3475,14 @@ export default function App() {
           onUpdateNews={handleAdminUpdateNews}
           onDeleteNews={handleAdminDeleteNews}
           onBroadcastNotification={(notif) => {
-            setAnnouncements((prev) => [notif, ...prev]);
-            // Gerçek push: tüm kayıtlı cihazlara (uygulama kapalıyken de) ulaşır
-            handleBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil', notif.relatedId, notif.subTab);
+            // Worker hem uygulama içi duyuruyu (Bildirim Merkezi) hem raporu oluşturur hem de tüm cihazlara push gönderir
+            handleBroadcastPush(notif.title, notif.message, notif.actionTab || 'profil', notif.relatedId, notif.subTab, {
+              notifType: notif.type,
+              badgeText: notif.badgeText,
+              sender: notif.sender,
+              dedupId: notif.id.startsWith('haber-') ? notif.id : undefined,
+              urgent: notif.badgeText === 'SON DAKİKA',
+            });
           }}
           onApproveObituary={handleApproveObituary}
           onRejectObituary={handleRejectObituary}

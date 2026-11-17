@@ -170,13 +170,34 @@ export async function refreshPushIfGranted(): Promise<void> {
 }
 
 /** Yönetici: tüm cihazlara bildirim gönderir (Worker yetkiyi doğrular). */
+export interface BroadcastOptions {
+  /** Bildirim türü (simge/etiket): haber, duyuru, ilan, vefat, kesinti… */
+  notifType?: string;
+  badgeText?: string;
+  sender?: string;
+  /** Aynı kimlikle tekrar gönderimi engeller (çift tıklama koruması) */
+  dedupId?: string;
+  /** Acil: cihazda daha kısa süre bekler (6 saat) */
+  urgent?: boolean;
+}
+
+export interface BroadcastResult {
+  ok: boolean;
+  error?: string;
+  id?: string;
+  hedefCihaz?: number;
+  hedefKullanici?: number;
+  duplicate?: boolean;
+}
+
 export async function sendBroadcastPush(
   title: string,
   body: string,
   actionTab = 'profil',
   relatedId?: string,
-  subTab?: string
-): Promise<{ ok: boolean; error?: string }> {
+  subTab?: string,
+  opts: BroadcastOptions = {}
+): Promise<BroadcastResult> {
   const user = auth.currentUser;
   if (!user) return { ok: false, error: 'Giriş gerekli' };
   try {
@@ -184,12 +205,12 @@ export async function sendBroadcastPush(
     const res = await fetch(`${API_BASE}/api/push/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({ title, body, actionTab, relatedId, subTab }),
+      body: JSON.stringify({ title, body, actionTab, relatedId, subTab, ...opts }),
     });
     const json: any = await res.json().catch(() => ({}));
     if (res.status === 503) return { ok: false, error: 'Bildirim sunucusu henüz yapılandırılmadı.' };
-    if (!res.ok || !json.success) return { ok: false, error: json.error || `HTTP ${res.status}` };
-    return { ok: true };
+    if (!res.ok || !json.success) return { ok: false, error: json.error || `HTTP ${res.status}`, id: json.id };
+    return { ok: true, id: json.id, hedefCihaz: json.hedefCihaz, hedefKullanici: json.hedefKullanici, duplicate: !!json.duplicate };
   } catch {
     return { ok: false, error: 'Sunucuya ulaşılamadı.' };
   }
@@ -273,14 +294,25 @@ export async function scanKesintiNow(): Promise<{ ok: boolean; yeni?: number; er
 }
 
 /** Yönetim arayüzlerinden tek tuşla "tüm cihazlara" duyuru. Sonuç ekranda kısa mesajla gösterilir. */
-export async function broadcastPush(title: string, body: string, actionTab = 'profil', relatedId?: string, subTab?: string) {
-  const r = await sendBroadcastPush(title, body, actionTab, relatedId, subTab);
+/** Gönderim sonucunu kısa metne çevirir (kaç cihaza / kullanıcıya gittiği dahil). */
+export function broadcastSummary(r: BroadcastResult): string {
+  if (!r.ok) return `Cihaz bildirimi gönderilemedi: ${r.error}`;
+  if (r.duplicate) return 'Bu bildirim zaten gönderilmiş; tekrar gönderilmedi.';
+  if (r.hedefCihaz) return `Bildirim ${r.hedefCihaz} cihaza (${r.hedefKullanici || 0} kullanıcı) gönderildi. Ayrıntı: Yönetim → Bildirim Raporu.`;
+  return 'Bildirim gönderildi. Ayrıntı: Yönetim → Bildirim Raporu.';
+}
+
+export async function broadcastPush(
+  title: string,
+  body: string,
+  actionTab = 'profil',
+  relatedId?: string,
+  subTab?: string,
+  opts?: BroadcastOptions
+) {
+  const r = await sendBroadcastPush(title, body, actionTab, relatedId, subTab, opts);
   try {
-    window.dispatchEvent(
-      new CustomEvent(r.ok ? 'mp-info' : 'mp-sync-error', {
-        detail: r.ok ? 'Bildirim tüm cihazlara gönderildi.' : `Cihaz bildirimi gönderilemedi: ${r.error}`,
-      })
-    );
+    window.dispatchEvent(new CustomEvent(r.ok ? 'mp-info' : 'mp-sync-error', { detail: broadcastSummary(r) }));
   } catch {}
   return r;
 }

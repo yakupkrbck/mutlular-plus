@@ -84,6 +84,7 @@ function showAndroidSystemNotification(payload) {
     actionTab: payload.actionTab || (data && data.actionTab) || 'profil',
     subTab: payload.subTab || (data && data.subTab) || 'bildirimler',
     relatedId: payload.relatedId || (data && data.relatedId),
+    nid: payload.nid || (data && data.nid),
     url: payload.url || (data && data.url) || '/',
     timestamp: Date.now(),
   };
@@ -128,7 +129,8 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl =
     `/?tab=${encodeURIComponent(actionTab)}&subTab=${encodeURIComponent(subTab)}` +
     (relatedId ? `&relatedId=${encodeURIComponent(relatedId)}` : '') +
-    (notificationData.title ? `&nt=${encodeURIComponent(String(notificationData.title).slice(0, 160))}` : '');
+    (notificationData.title ? `&nt=${encodeURIComponent(String(notificationData.title).slice(0, 160))}` : '') +
+    (notificationData.nid ? `&nid=${encodeURIComponent(String(notificationData.nid))}` : '');
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

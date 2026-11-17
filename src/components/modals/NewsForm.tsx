@@ -390,18 +390,16 @@ export const NewsForm: React.FC<NewsFormProps> = ({ values, onChange, categories
         <SectionTitle n={4}>Yayın seçenekleri</SectionTitle>
         <Switch
           checked={values.urgent}
-          onChange={(v) => onChange({ urgent: v, sendPush: v ? values.sendPush : false })}
+          onChange={(v) => onChange({ urgent: v })}
           label="Son dakika haberi"
           hint="Haberde ve vitrinde Son Dakika rozeti görünür."
         />
-        {values.urgent && (
-          <Switch
-            checked={values.sendPush}
-            onChange={(v) => onChange({ sendPush: v })}
-            label={mode === 'edit' ? 'Kaydederken bildirim gönder' : 'Bildirim olarak gönder'}
-            hint="Tüm cihazlara bildirim gider; bildirime dokunan haberi tam ekran açar."
-          />
-        )}
+        <Switch
+          checked={values.sendPush}
+          onChange={(v) => onChange({ sendPush: v })}
+          label={mode === 'edit' ? 'Kaydederken bildirim gönder' : 'Bildirim olarak gönder'}
+          hint="Tüm kullanıcılara bildirim gider; bildirime dokunan haberi tam ekran açar. Kaç kişiye gittiği ve kaçının gördüğü Yönetim → Bildirim Raporu'nda görünür."
+        />
       </section>
 
       <div className="flex items-center gap-2 pt-1">

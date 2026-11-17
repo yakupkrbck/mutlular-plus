@@ -67,6 +67,7 @@ import { CanliAdmin } from './CanliAdmin';
 import { RejiPanel } from '../reji/RejiPanel';
 import { KullaniciListesi } from './KullaniciListesi';
 import { SikayetYonetimi } from './SikayetYonetimi';
+import { BildirimRaporu } from './BildirimRaporu';
 import { assignEditor, listEditors, revokeEditor, type EditorKaydi } from '../../services/staffService';
 import type { CanliAyar, CanliDurum } from '../../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
@@ -387,14 +388,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     };
 
     onAddNewNews(created);
-    // Bildirim yalnızca "Son Dakika" işaretliyse VE "Bildirim olarak gönder" seçildiyse gider
-    const sendPush = !!created.urgent && f.sendPush;
-    if (sendPush) handleBroadcastNewsPush(created);
+    // "Bildirim olarak gönder" seçiliyse (Son Dakika olsun olmasın) tüm kullanıcılara bildirim gider
+    const sendPush = !!f.sendPush;
+    if (sendPush) handleBroadcastNewsPush(created, true);
 
     setNewsDraft(EMPTY_NEWS_FORM);
     setNewsFormKey((k) => k + 1);
     setNewsSuccessToast(true);
-    showToast(`✓ Yeni haber "${created.title.slice(0, 22)}..." başarıyla yayınlandı!${sendPush ? ' 🚨 Bildirim tüm cihazlara gönderildi.' : ''}`);
+    showToast(`✓ Yeni haber "${created.title.slice(0, 22)}..." başarıyla yayınlandı!${sendPush ? ' 📣 Bildirim gönderiliyor…' : ''}`);
     setTimeout(() => setNewsSuccessToast(false), 3000);
   };
 
@@ -439,7 +440,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (onUpdateNews) {
       onUpdateNews(updated);
       showToast('✓ Haber başarıyla güncellendi!');
-      if (updated.urgent && editNewsForm.sendPush) handleBroadcastNewsPush(updated);
+      if (editNewsForm.sendPush) handleBroadcastNewsPush(updated);
     }
     setEditingNewsId(null);
   };
@@ -556,7 +557,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       readCount: '1 Okunma',
     };
     onApproveNewsTip?.(tip, news);
-    if (news.urgent && tipForm.sendPush) handleBroadcastNewsPush(news);
+    if (tipForm.sendPush) handleBroadcastNewsPush(news, true);
     setEditingTipId(null);
   };
 
@@ -582,27 +583,28 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     showToast(`📢 "${ad.title}" ilanı tüm kullanıcılara push bildirim olarak iletildi!`);
   };
 
-  const handleBroadcastNewsPush = async (item: NewsItem) => {
-    const pushTitle = `🚨 SON DAKİKA: ${item.title}`;
+  const handleBroadcastNewsPush = async (item: NewsItem, ilkYayin = false) => {
+    const pushTitle = item.urgent ? `🚨 SON DAKİKA: ${item.title}` : `📰 ${item.title}`;
     if (onBroadcastNotification) {
-      // App.tsx hem uygulama içi duyuruyu ekler hem gerçek push'u TEK sefer gönderir (haber id'siyle)
+      // App.tsx bildirimi Worker'a tek sefer gönderir; Worker uygulama içi kaydı ve raporu da oluşturur.
+      // İlk yayında kimlik haber id'sine bağlıdır: çift tıklamada aynı haber için bildirim bir daha gitmez.
       onBroadcastNotification({
-        id: `news-push-${Date.now()}`,
+        id: ilkYayin ? `haber-${item.id}` : `news-push-${Date.now()}`,
         type: 'haber',
         title: pushTitle,
         message: item.summary,
         date: 'Şimdi',
         read: false,
         relatedId: item.id,
-        badgeText: 'SON DAKİKA',
+        badgeText: item.urgent ? 'SON DAKİKA' : 'HABER',
         sender: 'Mutlular Haber & Basın',
         actionTab: 'haber',
       });
     } else {
-      broadcastPush(pushTitle, item.summary, 'haber', item.id);
+      broadcastPush(pushTitle, item.summary, 'haber', item.id, undefined, { notifType: 'haber', urgent: !!item.urgent, dedupId: ilkYayin ? `haber-${item.id}` : undefined });
     }
 
-    showToast(`🚨 "${item.title}" haberi Son Dakika bildirimi olarak gönderildi!`);
+    showToast(`📣 "${item.title}" haberi bildirim olarak gönderiliyor…`);
   };
 
   const handleSendCustomPush = async (e: React.FormEvent) => {
@@ -3210,6 +3212,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   </button>
                 </div>
               </form>
+
+              <BildirimRaporu />
             </div>
           )}
         </div>
