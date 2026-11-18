@@ -10,7 +10,6 @@ import {
   PhoneCall,
   Store,
   Bus,
-  Home,
   Sparkles,
   ShieldCheck,
   CheckCircle2,
@@ -49,7 +48,6 @@ interface QuickActionSheetProps {
 export const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
   isOpen,
   onClose,
-  onGoHome,
   onOpenEmergency,
   onOpenQuoteWizard,
   onOpenMarketListing,
@@ -155,10 +153,6 @@ export const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
                 <h3 className="text-base font-black text-neutral-900 leading-tight">
                   MP Hızlı İşlemler
                 </h3>
-                <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Anasayfadasınız
-                </span>
               </div>
               <p className="text-[11px] text-neutral-500 font-medium mt-0.5">
                 Ne yapmak istiyorsunuz? Bir işlem seçin:
@@ -281,20 +275,6 @@ export const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Alt Kısım: Anasayfayı Gör & Kapat */}
-        <div className="p-3 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between gap-3 shrink-0">
-          <button
-            onClick={() => {
-              if (onGoHome) onGoHome();
-              else onClose();
-            }}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-neutral-900 hover:bg-neutral-800 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
-          >
-            <Home className="w-4 h-4" />
-            <span>Anasayfaya Dön & Akışı İncele</span>
-          </button>
         </div>
 
       </div>

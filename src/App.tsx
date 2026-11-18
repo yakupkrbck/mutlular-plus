@@ -1975,7 +1975,7 @@ export default function App() {
         </div>
       )}
       {/* Top Preview Bar for Desktop */}
-      <div className="hidden sm:flex items-center justify-between w-full max-w-md px-4 py-1.5 mb-2 bg-neutral-900 text-white rounded-xl shadow-md text-xs font-semibold">
+      <div className="hidden sm:flex md:hidden items-center justify-between w-full max-w-md px-4 py-1.5 mb-2 bg-neutral-900 text-white rounded-xl shadow-md text-xs font-semibold">
         <div className="flex items-center gap-2">
           <Smartphone className="w-4 h-4 text-rose-400" />
           <span>Mutlular Plus • Mobil Görünüm</span>
@@ -1987,33 +1987,12 @@ export default function App() {
       </div>
 
       {/* Main App Container */}
-      <div className="w-full max-w-md bg-neutral-100 min-h-screen sm:min-h-[920px] sm:rounded-[36px] sm:shadow-2xl sm:border-[6px] sm:border-neutral-900 overflow-hidden flex flex-col relative transition-all duration-300">
+      <div className="w-full max-w-md md:max-w-[calc(46rem+88px)] md:pl-[88px] bg-neutral-100 min-h-screen sm:min-h-[920px] md:min-h-screen sm:rounded-[36px] md:rounded-none sm:shadow-2xl md:shadow-[0_0_40px_rgba(0,0,0,0.08)] sm:border-[6px] md:border-0 sm:border-neutral-900 overflow-hidden flex flex-col relative transition-all duration-300">
         {/* Android Native Heads-Up Push Notification Banner */}
         <AndroidHeadsUpNotification
           onNavigateTab={(tab, subTab, relatedId, title) => {
             if (handleSpecialNotificationNav(tab, subTab, relatedId, title)) return;
-            if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
-              setMuhtarlikInitialTab('basvurular');
-              setIsMuhtarlikOpen(true);
-            } else if (tab === 'canli_yayin') {
-              openCanliYayin();
-            } else if (tab === 'vefat') {
-              setIsVefatOpen(true);
-            } else if (tab === 'tekliflerim') {
-              setCurrentTab('profil');
-              setProfileSubTab('tekliflerim');
-            } else if (tab === 'hizmet') {
-              setCurrentTab('hizmet');
-            } else if (tab === 'haber' || tab === 'haberler') {
-              setCurrentTab('haber');
-            } else if (tab === 'alim_satim' || tab === 'alim-satim') {
-              setCurrentTab('alim-satim');
-            } else {
-              setCurrentTab(tab as NavTab);
-              if (subTab && (subTab === 'tekliflerim' || subTab === 'bildirimler' || subTab === 'profil')) {
-                setProfileSubTab(subTab);
-              }
-            }
+            handleGenericNotificationNav(tab, subTab);
           }}
         />
 
@@ -2048,7 +2027,7 @@ export default function App() {
         />
 
         {/* Dynamic Screen Content */}
-        <main className="flex-1 pb-24 overflow-y-auto">
+        <main className="flex-1 pb-24 md:pb-8 overflow-y-auto">
           {currentTab === 'anasayfa' && (
             <div className="space-y-3.5 pb-6">
               {/* 1. Haber Vitrini (Görsel Ön Planda, Yazı Görseli Kapatmaz, Mutlular Plus Renkleri) */}
@@ -2432,28 +2411,7 @@ export default function App() {
                   }}
                   onNavigateTab={(tab, subTab, relatedId, title) => {
                     if (handleSpecialNotificationNav(tab, subTab, relatedId, title)) return;
-                    if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
-                      setMuhtarlikInitialTab('basvurular');
-                      setIsMuhtarlikOpen(true);
-                    } else if (tab === 'canli_yayin') {
-                      openCanliYayin();
-                    } else if (tab === 'vefat') {
-                      setIsVefatOpen(true);
-                    } else if (tab === 'tekliflerim') {
-                      setCurrentTab('profil');
-                      setProfileSubTab('tekliflerim');
-                    } else if (tab === 'hizmet') {
-                      setCurrentTab('hizmet');
-                    } else if (tab === 'haber' || tab === 'haberler') {
-                      setCurrentTab('haber');
-                    } else if (tab === 'alim_satim' || tab === 'alim-satim') {
-                      setCurrentTab('alim-satim');
-                    } else {
-                      setCurrentTab(tab as NavTab);
-                      if (subTab && (subTab === 'tekliflerim' || subTab === 'bildirimler' || subTab === 'profil')) {
-                        setProfileSubTab(subTab);
-                      }
-                    }
+                    handleGenericNotificationNav(tab, subTab);
                   }}
                 />
               ) : profileSubTab === 'tekliflerim' ? (
@@ -3090,9 +3048,7 @@ export default function App() {
           currentTab={currentTab}
           onTabChange={(tab) => {
             if (tab === 'mp-hub') {
-              // MP tuşu aynı anda anasayfaya yönlendirir ve Hızlı İşlemler menüsünü açar
-              setCurrentTab('anasayfa');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              // Ortadaki "+" yalnız Hızlı İşlemler çekmecesini açar; Anasayfa kendi düğmesinden gelir
               setIsQuickActionOpen(true);
             } else {
               // Alt menüden Esnaf'a basınca her zaman "Tüm Çarşı" açılır
