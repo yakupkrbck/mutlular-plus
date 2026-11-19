@@ -11,6 +11,15 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        // İki ayrı giriş noktası: uygulama (/) ve yönetim paneli (/yonetimpaneli/)
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          yonetimpaneli: path.resolve(__dirname, 'yonetimpaneli/index.html'),
+        },
+      },
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.

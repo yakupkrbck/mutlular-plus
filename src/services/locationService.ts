@@ -5,6 +5,8 @@ export interface SavedLocation {
   lat: number;
   lng: number;
   ts: number;
+  /** Konum doğruluğu (metre). Küçük = iyi. */
+  acc?: number;
 }
 
 const KEY = 'mp_last_location';
@@ -58,8 +60,8 @@ export async function requestLocation(): Promise<LocationResult> {
     localStorage.setItem(ASKED_KEY, '1');
   } catch {}
 
-  const save = (lat: number, lng: number): LocationResult => {
-    const loc = { lat, lng, ts: Date.now() };
+  const save = (lat: number, lng: number, acc?: number): LocationResult => {
+    const loc: SavedLocation = { lat, lng, ts: Date.now(), ...(typeof acc === 'number' && isFinite(acc) ? { acc: Math.round(acc) } : {}) };
     try {
       localStorage.setItem(KEY, JSON.stringify(loc));
       window.dispatchEvent(new CustomEvent('mp-location-updated', { detail: loc }));
@@ -72,8 +74,14 @@ export async function requestLocation(): Promise<LocationResult> {
       const { Geolocation } = await import('@capacitor/geolocation');
       const perm = await Geolocation.requestPermissions();
       if (perm.location !== 'granted') return { ok: false, reason: 'denied' };
-      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 10000 });
-      return save(pos.coords.latitude, pos.coords.longitude);
+      // Önce GPS (isabetli), olmazsa baz istasyonu/Wi-Fi konumu
+      let pos;
+      try {
+        pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000 });
+      } catch {
+        pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 10000 });
+      }
+      return save(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
     }
   } catch {
     return { ok: false, reason: 'unavailable' };
@@ -81,10 +89,15 @@ export async function requestLocation(): Promise<LocationResult> {
 
   if (!navigator.geolocation) return { ok: false, reason: 'unavailable' };
   return new Promise<LocationResult>((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(save(pos.coords.latitude, pos.coords.longitude)),
-      (err) => resolve({ ok: false, reason: err.code === 1 ? 'denied' : err.code === 3 ? 'timeout' : 'unavailable' }),
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 }
-    );
+    const dene = (yuksek: boolean) =>
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(save(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy)),
+        (err) => {
+          if (yuksek && err.code !== 1) return dene(false); // GPS yoksa/gecikirse kaba konuma dön
+          resolve({ ok: false, reason: err.code === 1 ? 'denied' : err.code === 3 ? 'timeout' : 'unavailable' });
+        },
+        { enableHighAccuracy: yuksek, timeout: yuksek ? 12000 : 10000, maximumAge: 120000 }
+      );
+    dene(true);
   });
 }

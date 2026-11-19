@@ -1,0 +1,56 @@
+// ============================================================================
+// MUTLULAR PLUS — Analitik + Yönetim Paneli (/yonetimpaneli) kural EKLEMESİ
+//
+// Firebase Console → Firestore → Kurallar. Mevcut kuralları SİLMEYİN; aşağıdaki
+// bloğu `match /databases/{database}/documents { ... }` içine, mevcut kuralların
+// altına yapıştırın ve Yayınla'ya basın. Fonksiyon adları `analitik...` ile
+// başladığı için mevcut `plus...` fonksiyonlarıyla çakışmaz.
+//
+// Yönetici = `admins/{uid}` belgesi olan ve role alanı yok / 'admin' / 'yonetici' olan kullanıcı.
+// ============================================================================
+
+    function analitikYonetici() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('role', 'admin') in ['admin', 'yonetici'];
+    }
+
+    // Cihaz başına 1 belge. Herkes (girişsiz dahil) KENDİ rastgele kimlikli belgesine yazabilir;
+    // okuma yalnız yönetici. Silme: yalnız belgedeki uid kendisiyse (hesap silme).
+    match /plus_ziyaretciler/{vid} {
+      allow read: if analitikYonetici();
+      allow create, update: if vid.size() >= 8 && vid.size() <= 40
+        && request.resource.data.keys().hasOnly(['ilk', 'ik', 'son', 'gun', 'gh', 'ilgi', 'platform', 'surum', 'uid', 'rol', 'giris', 'konum'])
+        && (!('uid' in request.resource.data) || request.auth == null || request.resource.data.uid == request.auth.uid);
+      allow delete: if request.auth != null && resource.data.get('uid', '') == request.auth.uid;
+    }
+
+    // İçerik görüntülenme sayaçları: her yazma en fazla +1 artırabilir (şişirmeyi sınırlar)
+    match /plus_icerik_istatistik/{id} {
+      allow read: if analitikYonetici();
+      allow create: if request.resource.data.keys().hasOnly(['tip', 'id', 'baslik', 'kategori', 'goruntulenme', 'son', 'gun'])
+        && request.resource.data.goruntulenme == 1;
+      allow update: if request.resource.data.keys().hasOnly(['tip', 'id', 'baslik', 'kategori', 'goruntulenme', 'son', 'gun'])
+        && request.resource.data.goruntulenme - resource.data.goruntulenme == 1;
+    }
+
+    // Arama sözcüğü sayaçları
+    match /plus_arama_istatistik/{id} {
+      allow read: if analitikYonetici();
+      allow create: if request.resource.data.keys().hasOnly(['terim', 'adet', 'bos', 'son'])
+        && request.resource.data.adet == 1;
+      allow update: if request.resource.data.keys().hasOnly(['terim', 'adet', 'bos', 'son'])
+        && request.resource.data.adet - resource.data.adet == 1
+        && request.resource.data.bos - resource.data.bos <= 1;
+    }
+
+    // Şimdi çevrimiçi: cihaz başına 1 belge, dakikada bir üzerine yazılır (zaman, ekran, cihaz türü, geliş kaynağı; kişi bilgisi yok).
+    // Panel yalnız son ~90 sn içinde güncellenenleri "çevrimiçi" sayar.
+    match /plus_cevrimici/{vid} {
+      allow read: if analitikYonetici();
+      allow create, update: if vid.size() >= 8 && vid.size() <= 40
+        && request.resource.data.keys().hasOnly(['t', 's', 'p', 'k', 'a'])
+        && request.resource.data.t is int
+        && request.resource.data.s is string && request.resource.data.s.size() <= 30;
+      allow delete: if false;
+    }

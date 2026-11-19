@@ -129,7 +129,7 @@ export const PermissionPrompt: React.FC<PermissionPromptProps> = ({ isOpen, need
           row(
             <MapPin className="w-4.5 h-4.5" />,
             'Konum',
-            'Size en yakın nöbetçi eczaneyi ve mahalledeki kesintileri gösterebilmemiz için. Konumunuz yalnızca bu cihazda kalır, sunucuya gönderilmez.',
+            'Size en yakın nöbetçi eczaneyi ve mahalledeki kesintileri gösterebilmemiz için. Tam konumunuz cihazda kalır; yalnızca istatistik için yaklaşık (≈50 m) bölge bilgisi gönderilir.',
             loc,
             askLoc,
             'Konumumu Paylaş'

@@ -215,6 +215,8 @@ export interface UserProfile {
   roleLabel: string;
   avatar?: string;
   loginMethod: 'phone' | 'google' | 'form';
+  /** Hesabın oluşturulma zamanı (ms). Yönetim panelindeki kayıt analizi için. */
+  createdAtMs?: number;
   title?: string;
   officialBadge?: string;
   isOfficial?: boolean;

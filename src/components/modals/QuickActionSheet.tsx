@@ -16,6 +16,7 @@ import {
   Download,
 } from 'lucide-react';
 import { UserProfile } from '../../types';
+import { analitikOlay } from '../../services/analitikService';
 
 interface QuickActionSheetProps {
   isOpen: boolean;
@@ -176,7 +177,10 @@ export const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
             return (
               <button
                 key={action.id}
-                onClick={action.onClick}
+                onClick={() => {
+                  analitikOlay('hizli_' + action.id);
+                  action.onClick();
+                }}
                 className={`w-full p-3 sm:p-3.5 rounded-2xl bg-white border border-neutral-200/90 shadow-2xs hover:shadow-md transition-all active:scale-[0.99] flex items-center gap-3.5 text-left group ${action.borderHover}`}
               >
                 <div

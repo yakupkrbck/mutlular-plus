@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { aramaKaydet } from '../../services/analitikService';
 import { Search, X, ChevronRight, Store, Briefcase, Car, UtensilsCrossed } from 'lucide-react';
 import {
   POPULAR_SERVICES,
@@ -8,6 +9,16 @@ import {
 } from '../../data/mockData';
 import { RestaurantItem, ClassifiedItem, JobItem } from '../../types';
 import { checkIsFoodStore } from '../FoodSection';
+
+/** Kullanıcı yazmayı bırakınca (1,5 sn) aranan sözcüğü ve sonuç sayısını anonim sayar. */
+const AramaIzle: React.FC<{ terim: string; sonuc: number }> = ({ terim, sonuc }) => {
+  useEffect(() => {
+    if (terim.trim().length < 3) return;
+    const t = setTimeout(() => aramaKaydet(terim, sonuc), 1500);
+    return () => clearTimeout(t);
+  }, [terim, sonuc]);
+  return null;
+};
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -73,6 +84,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden mt-6 flex flex-col max-h-[85vh]">
+        <AramaIzle
+          terim={query}
+          sonuc={filteredServices.length + filteredRestaurants.length + filteredAds.length + filteredJobs.length}
+        />
         {/* Search Header */}
         <div className="p-3.5 border-b border-neutral-100 flex items-center gap-2">
           <div className="relative flex-1 flex items-center bg-neutral-100 rounded-xl px-3 py-2">

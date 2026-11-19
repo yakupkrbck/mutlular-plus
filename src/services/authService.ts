@@ -21,6 +21,7 @@ import { API_BASE } from '../config/api';
 import { UserProfile, UserRole } from '../types';
 import { ROLE_CONFIGS } from '../data/rolesData';
 import { syncUstaFields } from './hizmetAlanlari';
+import { analitikSil } from './analitikService';
 
 // Kendi kendine kayıtta seçilebilen roller. Editör / Yönetici / Muhtar
 // istemciden ASLA atanamaz; yalnızca Firestore'daki `admins/{uid}` kaydıyla gelir.
@@ -117,6 +118,7 @@ export const registerWithEmail = async (input: RegisterInput): Promise<UserProfi
     roleLabel: ROLE_CONFIGS[input.role].title,
     avatar: avatarFor(input.name, input.role),
     loginMethod: 'form',
+    createdAtMs: Date.now(),
     businessName: input.role === 'esnaf' ? input.businessName : undefined,
     businessCategory: input.role === 'esnaf' ? input.businessCategory : undefined,
     businessAddress: input.role === 'esnaf' ? input.businessAddress : undefined,
@@ -145,6 +147,7 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
       roleLabel: ROLE_CONFIGS['mahalle-sakini'].title,
       avatar: cred.user.photoURL || avatarFor(name, 'mahalle-sakini'),
       loginMethod: 'form' as const,
+      createdAtMs: Date.now(),
     });
     await saveProfile(cred.user.uid, fresh);
     return (await loadProfile(cred.user)) || fresh;
@@ -196,6 +199,7 @@ const finishGoogle = async (user: User): Promise<UserProfile> => {
     roleLabel: ROLE_CONFIGS['mahalle-sakini'].title,
     avatar: user.photoURL || avatarFor(name, 'mahalle-sakini'),
     loginMethod: 'google' as const,
+    createdAtMs: Date.now(),
   });
   await saveProfile(user.uid, fresh);
   return (await loadProfile(user)) || fresh;
@@ -228,6 +232,7 @@ export const deleteMyAccount = async (password?: string): Promise<void> => {
   } else {
     await reauthenticateWithPopup(user, googleProvider);
   }
+  await analitikSil();
   const token = await user.getIdToken(true);
   const res = await fetch(`${API_BASE}/api/account/delete`, {
     method: 'POST',

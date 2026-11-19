@@ -27,6 +27,7 @@ import { FeaturedClassifieds } from './components/FeaturedClassifieds';
 import { JobsSection } from './components/JobsSection';
 import { FoodSection } from './components/FoodSection';
 import { BottomNav, NavTab } from './components/BottomNav';
+import { analitikBaslat, analitikKimlik, analitikOlay, analitikSayfa, icerikGoruntule } from './services/analitikService';
 import { AlimSatimScreen } from './components/AlimSatimScreen';
 import { HaberScreen } from './components/HaberScreen';
 import { HizmetScreen } from './components/HizmetScreen';
@@ -761,8 +762,53 @@ export default function App() {
 
   // Haber açıldığında okunma sayılır (uygulama içi tıklama, bildirim ve Instagram/WhatsApp bağlantısı dahil)
   useEffect(() => {
-    if (selectedNews?.id) recordView(selectedNews.id);
+    if (selectedNews?.id) {
+      recordView(selectedNews.id);
+      icerikGoruntule('haber', selectedNews.id, selectedNews.title, selectedNews.category);
+    }
   }, [selectedNews?.id]);
+
+  // Anonim kullanım analitiği (yönetim paneli /yonetimpaneli için): oturum, sekme, içerik ilgisi
+  useEffect(() => {
+    analitikBaslat();
+  }, []);
+  useEffect(() => {
+    analitikKimlik(
+      userProfile?.uid ? { uid: userProfile.uid, rol: userProfile.role, giris: userProfile.loginMethod || 'form' } : null
+    );
+  }, [userProfile?.uid, userProfile?.role]);
+  useEffect(() => {
+    analitikOlay('sekme_' + currentTab);
+  }, [currentTab]);
+  useEffect(() => {
+    if (selectedAd?.id) icerikGoruntule('ilan', String(selectedAd.id), (selectedAd as any).title || '', (selectedAd as any).category);
+  }, [selectedAd?.id]);
+  useEffect(() => {
+    if (selectedRestaurant?.id)
+      icerikGoruntule('esnaf', String(selectedRestaurant.id), (selectedRestaurant as any).name || '', (selectedRestaurant as any).category);
+  }, [selectedRestaurant?.id]);
+  const acikModulAdi = isCanliOpen
+    ? 'canli'
+    : isVefatOpen
+    ? 'vefat'
+    : isKesintilerOpen
+    ? 'kesintiler'
+    : isMuhtarlikOpen
+    ? 'muhtarlik'
+    : isJobsModalOpen
+    ? 'isler'
+    : isPharmacyOpen
+    ? 'eczane'
+    : isBusOpen
+    ? 'ulasim'
+    : '';
+  useEffect(() => {
+    if (acikModulAdi) analitikOlay('modul_' + acikModulAdi);
+  }, [acikModulAdi]);
+  // Şu an hangi ekranda: açık modül varsa o, yoksa sekme (anasayfa, haber, alim-satim, yemek, hizmet, profil)
+  useEffect(() => {
+    analitikSayfa(acikModulAdi || currentTab);
+  }, [acikModulAdi, currentTab]);
 
   // Generic Info Modal
   const [genericModalData, setGenericModalData] = useState<{
@@ -899,6 +945,7 @@ export default function App() {
     const onClick = (e: Event) => {
       const p: any = (e as CustomEvent).detail || {};
       if (p.nid) markSeen(String(p.nid), 'push');
+      analitikOlay('bildirim_dokundu');
       if (specialNavRef.current(p.actionTab, p.subTab, p.relatedId, p.title)) return;
       genericNavRef.current(p.actionTab, p.subTab);
     };
