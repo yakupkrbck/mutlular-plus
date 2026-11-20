@@ -3,6 +3,10 @@ import { Bos, Cizgi, Cubuklar, Gosterge, Halka, IsiMatrisi, Kart } from './chart
 import { BolgeHaritasi } from './BolgeHaritasi';
 import {
   aktifSerisi,
+  bildirimSaatleri,
+  huniler,
+  uyarilariUret,
+  type UyariKaydi,
   bolgeAnalizi,
   EN_AZ_KISI,
   kaynakOzeti,
@@ -27,6 +31,7 @@ import {
   type SegmentAdi,
 } from './analiz';
 import { useCanli, type PanelVeri } from './veri';
+import { APP_VERSION } from '../version';
 import { useBildirimRaporu } from '../services/bildirimIstatistikService';
 
 export interface EkranProps {
@@ -255,6 +260,7 @@ export const EtkinlikZamani: React.FC<EkranProps> = ({ kisiler }) => {
   const gunToplam = useMemo(() => m.map((s) => s.reduce((a, b) => a + b, 0)), [m]);
   return (
     <div className="space-y-4">
+      <BildirimSaatiOnerisi kisiler={kisiler} />
       <Kart baslik="Etkinlik ısı haritası" alt="Gün ve saate göre uygulama etkinliği (Türkiye saati). Koyu = yoğun.">
         {enler.length ? <IsiMatrisi matris={m} /> : <Bos />}
       </Kart>
@@ -331,6 +337,7 @@ export const IcerikIlgi: React.FC<EkranProps> = ({ veri, kisiler, aralik }) => {
           <Cubuklar veri={sonucsuz} renk="#be123c" />
         </Kart>
       </div>
+      <KategoriPerformansi veri={veri} kisiler={kisiler} aralik={aralik} />
       <Kart baslik="Bölüm ve işlem ilgisi" alt="Sekme açılışları, hızlı işlemler, modüller (tüm zamanlar, toplam dokunuş)">
         <Cubuklar veri={ilgi.slice(0, 16).map((i) => ({ ad: i.ad, deger: i.deger }))} renk="#7c3aed" />
       </Kart>
@@ -574,5 +581,251 @@ export const TrafikKaynaklari: React.FC<EkranProps> = ({ veri, aralik }) => {
         </ul>
       </Kart>
     </div>
+  );
+};
+
+// ---- Uyarılar -------------------------------------------------------------------------------
+export const uyarilar = (veri: PanelVeri, kisiler: Kisi[]): UyariKaydi[] =>
+  uyarilariUret(kisiler, veri.onay, veri.hatalar, veri.hatalarGunlugu);
+
+const SEVIYE_STIL: Record<string, string> = {
+  kritik: 'border-rose-300 bg-rose-50 text-rose-900',
+  uyari: 'border-amber-300 bg-amber-50 text-amber-900',
+  bilgi: 'border-sky-200 bg-sky-50 text-sky-900',
+};
+const SEVIYE_AD: Record<string, string> = { kritik: 'Kritik', uyari: 'Uyarı', bilgi: 'Bilgi' };
+
+export const UyarilarSayfasi: React.FC<EkranProps & { git: (b: string) => void }> = ({ veri, kisiler, git }) => {
+  const liste = useMemo(() => uyarilar(veri, kisiler), [veri, kisiler]);
+  return (
+    <div className="space-y-4">
+      <Kart
+        baslik="Uyarılar"
+        alt="Panel açıkken her 2 dakikada bir yenilenir. Panel kapalıyken bildirim göndermez (bunun için sunucu tarafı zamanlanmış görev gerekir)."
+      >
+        {liste.length === 0 ? (
+          <p className="text-[13px] font-bold text-emerald-700 py-4">Her şey yolunda görünüyor: bekleyen kritik iş ya da anormal düşüş yok.</p>
+        ) : (
+          <div className="space-y-2">
+            {liste.map((u, i) => (
+              <div key={i} className={`rounded-xl border p-3 flex items-start justify-between gap-3 ${SEVIYE_STIL[u.seviye]}`}>
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-wide opacity-70">{SEVIYE_AD[u.seviye]}</div>
+                  <div className="text-[13px] font-black">{u.baslik}</div>
+                  <div className="text-[12px] opacity-80">{u.ayrinti}</div>
+                </div>
+                {u.bolum && (
+                  <button onClick={() => git(u.bolum!)} className="shrink-0 text-[11px] font-black underline">
+                    Git
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Kart>
+    </div>
+  );
+};
+
+// ---- Huniler --------------------------------------------------------------------------------
+export const HunilerSayfasi: React.FC<EkranProps> = ({ kisiler }) => {
+  const h = useMemo(() => huniler(kisiler), [kisiler]);
+  const toplamAc = h.reduce((a, x) => a + x.ac, 0);
+  return (
+    <div className="space-y-4">
+      <Kart baslik="Form tamamlama hunileri" alt="Formu açanların kaçı gönderdi? Düşük oran, formun zor ya da uzun olduğunu gösterebilir. Tüm zamanların toplamı; yeni sürümden itibaren birikir.">
+        {toplamAc === 0 ? (
+          <Bos metin="Henüz huni verisi yok. Yeni sürüm kullanıldıkça burada birikir." />
+        ) : (
+          <div className="space-y-4">
+            {h.map((x) => (
+              <div key={x.anahtar}>
+                <div className="flex justify-between text-[12px] font-black text-neutral-800 mb-1">
+                  <span>{x.ad}</span>
+                  <span>{x.oran === null ? (x.ac ? `${x.ac} açılış` : '—') : x.ac ? `%${x.oran} tamamlandı` : '—'}</span>
+                </div>
+                <div className="h-5 rounded-lg bg-neutral-100 overflow-hidden relative">
+                  <div className="h-full bg-neutral-300" style={{ width: x.ac ? '100%' : '0%' }} />
+                  <div className="h-full bg-emerald-500 absolute left-0 top-0" style={{ width: x.ac ? `${Math.min(100, (x.gonder / x.ac) * 100)}%` : '0%' }} />
+                </div>
+                <div className="text-[11px] text-neutral-500 mt-1">
+                  {x.ac} açılış ({x.kisiAc} cihaz){x.oran !== null ? ` → ${x.gonder} gönderim (${x.kisiGonder} cihaz)` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Kart>
+    </div>
+  );
+};
+
+// ---- Esnaf performansı ---------------------------------------------------------------------
+export const EsnafSayfasi: React.FC<EkranProps> = ({ veri, aralik }) => {
+  const gunler = useMemo(() => sonGunler(aralik), [aralik]);
+  const satirlar = useMemo(
+    () =>
+      veri.esnaf
+        .map((e) => {
+          const s = (k: string) => gunler.reduce((a, g) => a + (Number(e.gun?.[g]?.[k]) || 0), 0);
+          const goruntule = s('goruntule');
+          const ara = s('ara');
+          const yol = s('yol');
+          const wp = s('whatsapp');
+          return { id: e.id, ad: e.ad, goruntule, ara, yol, wp, menu: s('menu'), paylas: s('paylas'), iletisim: ara + yol + wp };
+        })
+        .filter((x) => x.goruntule + x.iletisim > 0)
+        .sort((a, b) => b.goruntule - a.goruntule),
+    [veri.esnaf, gunler]
+  );
+  const t = (k: 'goruntule' | 'ara' | 'yol' | 'wp') => satirlar.reduce((a, x) => a + x[k], 0);
+  return (
+    <div className="space-y-4">
+      <Uyari veri={veri} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Gosterge baslik="Profil görüntüleme" deger={t('goruntule')} alt={`Son ${aralik} gün`} />
+        <Gosterge baslik="Arama" deger={t('ara')} renk="text-emerald-600" />
+        <Gosterge baslik="Yol tarifi" deger={t('yol')} renk="text-blue-600" />
+        <Gosterge baslik="WhatsApp" deger={t('wp')} renk="text-green-600" />
+      </div>
+      <Kart baslik="Esnaf performansı" alt={`Son ${aralik} gün · iletişim = arama + yol tarifi + WhatsApp`}>
+        {satirlar.length === 0 ? (
+          <Bos metin="Henüz esnaf etkileşimi yok." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="text-left text-neutral-500 border-b border-neutral-200">
+                  <th className="py-2 pr-3">İşletme</th>
+                  <th className="px-2 text-right">Görüntüleme</th>
+                  <th className="px-2 text-right">Arama</th>
+                  <th className="px-2 text-right">Yol</th>
+                  <th className="px-2 text-right">WhatsApp</th>
+                  <th className="px-2 text-right">Menü</th>
+                  <th className="px-2 text-right">İletişim oranı</th>
+                </tr>
+              </thead>
+              <tbody>
+                {satirlar.slice(0, 40).map((x) => (
+                  <tr key={x.id} className="border-b border-neutral-100">
+                    <td className="py-2 pr-3 font-bold text-neutral-800">{x.ad}</td>
+                    <td className="px-2 text-right">{x.goruntule}</td>
+                    <td className="px-2 text-right">{x.ara}</td>
+                    <td className="px-2 text-right">{x.yol}</td>
+                    <td className="px-2 text-right">{x.wp}</td>
+                    <td className="px-2 text-right">{x.menu}</td>
+                    <td className="px-2 text-right font-black">{x.goruntule ? `%${Math.round((x.iletisim / x.goruntule) * 100)}` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Kart>
+    </div>
+  );
+};
+
+// ---- Hatalar -------------------------------------------------------------------------------
+export const HatalarSayfasi: React.FC<EkranProps> = ({ veri, aralik }) => {
+  const gunler = useMemo(() => sonGunler(aralik), [aralik]);
+  const satirlar = useMemo(
+    () =>
+      veri.hatalarGunlugu
+        .map((h) => ({ ...h, aralikAdet: gunler.reduce((a, g) => a + (Number(h.gun?.[g]) || 0), 0) }))
+        .filter((h) => h.aralikAdet > 0)
+        .sort((a, b) => b.aralikAdet - a.aralikAdet),
+    [veri.hatalarGunlugu, gunler]
+  );
+  const gunluk = gunler.map((g) => veri.hatalarGunlugu.reduce((a, h) => a + (Number(h.gun?.[g]) || 0), 0));
+  const surumler = dagilim(satirlar, (h) => h.surum).map((d) => d);
+  return (
+    <div className="space-y-4">
+      <Uyari veri={veri} />
+      <div className="grid sm:grid-cols-3 gap-3">
+        <Gosterge baslik="Hata kaydı" deger={satirlar.reduce((a, h) => a + h.aralikAdet, 0)} alt={`Son ${aralik} gün`} renk="text-rose-600" />
+        <Gosterge baslik="Farklı hata" deger={satirlar.length} />
+        <Gosterge baslik="Çalışan sürüm (panel)" deger={APP_VERSION.split('-').pop() || ''} alt={APP_VERSION} />
+      </div>
+      <Kart baslik="Günlük hata sayısı">
+        <Cizgi etiketler={gunler.map(kisaGun)} seriler={[{ ad: 'Hata', renk: '#e11d48', veri: gunluk }]} yukseklik={160} />
+      </Kart>
+      <Kart baslik="En sık görülen hatalar" alt="JavaScript hataları (ağ kopmaları ve gürültü elenir). Yerel Android çökmeleri burada görünmez; onlar için Firebase Crashlytics gerekir.">
+        {satirlar.length === 0 ? (
+          <Bos metin="Kayıtlı hata yok." />
+        ) : (
+          <div className="space-y-2">
+            {satirlar.slice(0, 25).map((h) => (
+              <div key={h.id} className="rounded-xl border border-neutral-200 p-3">
+                <div className="flex justify-between gap-3">
+                  <div className="text-[12px] font-bold text-neutral-800 break-words min-w-0">{h.mesaj}</div>
+                  <div className="text-[13px] font-black text-rose-600 shrink-0">{h.aralikAdet}×</div>
+                </div>
+                <div className="text-[11px] text-neutral-500 mt-1">
+                  {[h.kaynak, h.platform, h.surum && `sürüm ${h.surum.split('-').pop()}`, h.son && `son: ${new Date(h.son).toLocaleString('tr-TR')}`].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {surumler.length > 1 && <p className="text-[11px] text-neutral-500 mt-3">Sürümlere dağılım için hata satırlarındaki sürüm etiketine bakın.</p>}
+      </Kart>
+    </div>
+  );
+};
+
+// ---- Akıllı bildirim saati kartı + içerik performansı (kategori) -----------------------------
+const GUN_KISA = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
+export const BildirimSaatiOnerisi: React.FC<{ kisiler: Kisi[] }> = ({ kisiler }) => {
+  const s = useMemo(() => bildirimSaatleri(kisiler), [kisiler]);
+  const dk = (h: number) => `${String(h).padStart(2, '0')}:00`;
+  return (
+    <Kart baslik="Bildirim için en iyi saat" alt="Önümüzdeki 24 saatte, kullanıcıların uygulamayı en çok açtığı saat dilimi (23:00–07:00 hariç). Zamanlanmış gönderim bu panelden yapılamaz; saati not edip bildirimi o saatte gönderin.">
+      {!s.en ? (
+        <Bos metin="Öneri için yeterli etkinlik verisi yok (en az ~50 kayıtlı uygulama açılışı gerekir)." />
+      ) : (
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+            <div className="text-[10px] font-black uppercase text-emerald-700">Önerilen</div>
+            <div className="text-xl font-black text-emerald-800">
+              {GUN_KISA[s.en.gun]} {dk(s.en.saat)}
+            </div>
+            <div className="text-[11px] text-emerald-700">{new Date(s.en.ms).toLocaleString('tr-TR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} (cihaz saatiyle)</div>
+          </div>
+          {s.ilk3.slice(1).map((x) => (
+            <div key={x.ms} className="rounded-2xl bg-neutral-50 border border-neutral-200 px-4 py-3">
+              <div className="text-[10px] font-black uppercase text-neutral-500">Alternatif</div>
+              <div className="text-base font-black text-neutral-800">
+                {GUN_KISA[x.gun]} {dk(x.saat)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Kart>
+  );
+};
+
+export const KategoriPerformansi: React.FC<EkranProps> = ({ veri, aralik }) => {
+  const gunler = useMemo(() => sonGunler(aralik), [aralik]);
+  const kategori = useMemo(() => {
+    const m: Record<string, number> = {};
+    veri.icerik.forEach((i) => {
+      const t = gunler.reduce((a, g) => a + (Number(i.gun?.[g]) || 0), 0);
+      if (t > 0) {
+        const k = `${i.tip === 'haber' ? 'Haber' : i.tip === 'ilan' ? 'İlan' : 'Esnaf'}: ${i.kategori || 'Kategorisiz'}`;
+        m[k] = (m[k] || 0) + t;
+      }
+    });
+    return Object.entries(m)
+      .map(([ad, deger]) => ({ ad, deger }))
+      .sort((a, b) => b.deger - a.deger)
+      .slice(0, 12);
+  }, [veri.icerik, gunler]);
+  return (
+    <Kart baslik="Kategori performansı" alt={`Son ${aralik} gün · hangi konu türleri daha çok ilgi görüyor`}>
+      <Cubuklar veri={kategori} renk="#0891b2" />
+    </Kart>
   );
 };

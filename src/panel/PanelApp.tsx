@@ -4,7 +4,11 @@ import {
   Bell,
   CalendarClock,
   ClipboardCheck,
+  AlertTriangle,
+  Bug,
   Database,
+  Filter,
+  Store,
   Loader2,
   LogOut,
   Radio,
@@ -23,7 +27,12 @@ import {
   BildirimSayfasi,
   BolgeSayfasi,
   CanliSayfasi,
+  EsnafSayfasi,
   EtkinlikZamani,
+  HatalarSayfasi,
+  HunilerSayfasi,
+  UyarilarSayfasi,
+  uyarilar,
   GenelBakis,
   IcerikIlgi,
   Katilimcilar,
@@ -32,18 +41,22 @@ import {
   VeriDurumu,
 } from './ekranlar';
 
-type Bolum = 'genel' | 'canli' | 'kaynak' | 'katilimci' | 'zaman' | 'icerik' | 'bolge' | 'bildirim' | 'onay' | 'veri';
+type Bolum = 'uyari' | 'huni' | 'esnaf' | 'hata' | 'genel' | 'canli' | 'kaynak' | 'katilimci' | 'zaman' | 'icerik' | 'bolge' | 'bildirim' | 'onay' | 'veri';
 
 const MENU: { id: Bolum; ad: string; ikon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'uyari', ad: 'Uyarılar', ikon: AlertTriangle },
   { id: 'genel', ad: 'Genel Bakış', ikon: BarChart3 },
   { id: 'canli', ad: 'Canlı', ikon: Radio },
   { id: 'kaynak', ad: 'Trafik Kaynakları', ikon: Share2 },
   { id: 'katilimci', ad: 'Katılımcılar', ikon: Users },
   { id: 'zaman', ad: 'Etkinlik Zamanı', ikon: CalendarClock },
   { id: 'icerik', ad: 'İçerik & Arama', ikon: Search },
+  { id: 'huni', ad: 'Huniler', ikon: Filter },
+  { id: 'esnaf', ad: 'Esnaf Performansı', ikon: Store },
   { id: 'bolge', ad: 'Bölge Haritası', ikon: MapPin },
   { id: 'bildirim', ad: 'Bildirimler', ikon: Bell },
   { id: 'onay', ad: 'Onay Kuyruğu', ikon: ClipboardCheck },
+  { id: 'hata', ad: 'Hatalar', ikon: Bug },
   { id: 'veri', ad: 'Veri Durumu', ikon: Database },
 ];
 
@@ -156,7 +169,7 @@ export const PanelApp: React.FC = () => {
   const [yetki, setYetki] = useState<Yetki>('bekliyor');
   const [bolum, setBolum] = useState<Bolum>(() => {
     const h = window.location.hash.replace('#', '') as Bolum;
-    return MENU.some((m) => m.id === h) ? h : 'genel';
+    return MENU.some((m) => m.id === h) ? h : 'uyari';
   });
   const [aralik, setAralik] = useState(30);
   const [veri, setVeri] = useState<PanelVeri | null>(null);
@@ -189,6 +202,13 @@ export const PanelApp: React.FC = () => {
     if (yetki === 'var') void yukle();
   }, [yetki, yukle]);
 
+  // Panel açıkken uyarıların güncel kalması için 2 dakikada bir yenile
+  useEffect(() => {
+    if (yetki !== 'var') return;
+    const t = setInterval(() => void yukle(), 2 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [yetki, yukle]);
+
   useEffect(() => {
     window.location.hash = bolum;
   }, [bolum]);
@@ -208,6 +228,7 @@ export const PanelApp: React.FC = () => {
   }
 
   const props = { veri: veri!, kisiler, aralik };
+  const uyariSayisi = veri ? uyarilar(veri, kisiler).filter((u) => u.seviye !== 'bilgi').length : 0;
   const aktifAd = MENU.find((m) => m.id === bolum)?.ad;
   return (
     <div className="min-h-screen bg-neutral-100 flex">
@@ -236,6 +257,7 @@ export const PanelApp: React.FC = () => {
               >
                 <I className="w-4 h-4" />
                 {m.ad}
+                {m.id === 'uyari' && uyariSayisi > 0 && <span className="ml-auto bg-amber-500 text-white text-[10px] font-black rounded-full px-1.5 py-0.5">{uyariSayisi}</span>}
               </button>
             );
           })}
@@ -259,7 +281,7 @@ export const PanelApp: React.FC = () => {
             >
               {MENU.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.ad}
+                  {m.ad}{m.id === 'uyari' && uyariSayisi > 0 ? ` (${uyariSayisi})` : ''}
                 </option>
               ))}
             </select>
@@ -290,6 +312,10 @@ export const PanelApp: React.FC = () => {
             </div>
           ) : (
             <>
+              {bolum === 'uyari' && <UyarilarSayfasi {...props} git={(b) => setBolum(b as Bolum)} />}
+              {bolum === 'huni' && <HunilerSayfasi {...props} />}
+              {bolum === 'esnaf' && <EsnafSayfasi {...props} />}
+              {bolum === 'hata' && <HatalarSayfasi {...props} />}
               {bolum === 'genel' && <GenelBakis {...props} />}
               {bolum === 'canli' && <CanliSayfasi {...props} />}
               {bolum === 'kaynak' && <TrafikKaynaklari {...props} />}

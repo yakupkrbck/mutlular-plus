@@ -38,6 +38,8 @@ import {
 } from 'lucide-react';
 import { StoreShowcaseProduct, StoreCampaignItem, UserProfile, BusinessTypeMode, RestaurantItem } from '../../types';
 import { ImageCropField } from '../ImageCropField';
+import { EsnafIstatistik } from '../EsnafIstatistik';
+import { BarChart3 as IstatistikIkon } from 'lucide-react';
 
 interface EsnafPaneliModalProps {
   isOpen: boolean;
@@ -75,7 +77,7 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
   onUpdateStoreDetails,
   onOpenJobs,
 }) => {
-  const [activeTab, setActiveTab] = useState<'urunler' | 'stok_fiyat' | 'qr_vitrin' | 'kampanyalar' | 'bilgiler'>('urunler');
+  const [activeTab, setActiveTab] = useState<'urunler' | 'stok_fiyat' | 'qr_vitrin' | 'kampanyalar' | 'bilgiler' | 'istatistik'>('urunler');
 
   // Business Profile Info
   const [storeName, setStoreName] = useState(
@@ -670,6 +672,18 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('istatistik')}
+            className={`py-1.5 px-3 rounded-xl transition flex items-center gap-1.5 shrink-0 ${
+              activeTab === 'istatistik'
+                ? 'bg-slate-900 text-white font-black shadow-xs'
+                : 'text-neutral-700 hover:bg-neutral-200'
+            }`}
+          >
+            <IstatistikIkon className="w-3.5 h-3.5 text-rose-400" />
+            <span>İstatistikler</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('bilgiler')}
             className={`py-1.5 px-3 rounded-xl transition flex items-center gap-1.5 shrink-0 ${
               activeTab === 'bilgiler'
@@ -1047,6 +1061,8 @@ export const EsnafPaneliModal: React.FC<EsnafPaneliModalProps> = ({
           {/* -------------------------------------------------------- */}
           {/* SEKME 2: HIZLI STOK & FİYAT YÖNETİMİ TABLOSU             */}
           {/* -------------------------------------------------------- */}
+          {activeTab === 'istatistik' && <EsnafIstatistik isletmeId={ownStore?.id} />}
+
           {activeTab === 'stok_fiyat' && (
             <div className="space-y-3">
               <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 text-white p-3 rounded-2xl flex items-center justify-between">

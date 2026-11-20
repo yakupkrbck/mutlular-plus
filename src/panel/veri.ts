@@ -30,6 +30,25 @@ export interface AramaKaydi {
   son?: number;
 }
 
+export interface EsnafKaydi {
+  id: string;
+  ad: string;
+  son?: number;
+  toplam: Record<string, number>;
+  gun: Record<string, Record<string, number>>;
+}
+
+export interface HataKaydi {
+  id: string;
+  mesaj: string;
+  kaynak?: string;
+  surum?: string;
+  platform?: string;
+  adet: number;
+  son?: number;
+  gun?: Record<string, number>;
+}
+
 export interface OnayKuyrugu {
   ilan: number | null;
   vefat: number | null;
@@ -44,6 +63,8 @@ export interface PanelVeri {
   kullanicilar: KullaniciKaydi[];
   icerik: IcerikKaydi[];
   arama: AramaKaydi[];
+  esnaf: EsnafKaydi[];
+  hatalarGunlugu: HataKaydi[];
   onay: OnayKuyrugu;
   /** Kaynak başına okuma hataları (ör. kurallar henüz yayınlanmadıysa permission-denied) */
   hatalar: Record<string, string>;
@@ -72,7 +93,7 @@ async function say(kol: string, alan: string, deger: string): Promise<number | n
 
 export async function panelVerisiYukle(): Promise<PanelVeri> {
   const hatalar: Record<string, string> = {};
-  const [zv, us, ic, ar, ilan, vefat, esnaf, ihbar, kesinti, sikayet] = await Promise.all([
+  const [zv, us, ic, ar, es, isl, hg, ilan, vefat, esnaf, ihbar, kesinti, sikayet] = await Promise.all([
     getDocs(collection(db, 'plus_ziyaretciler')).catch((e) => ((hatalar.ziyaretciler = hataMetni(e)), null)),
     getDocs(collection(db, 'plus_users')).catch((e) => ((hatalar.kullanicilar = hataMetni(e)), null)),
     getDocs(query(collection(db, 'plus_icerik_istatistik'), orderBy('goruntulenme', 'desc'), limit(300))).catch(
@@ -80,6 +101,13 @@ export async function panelVerisiYukle(): Promise<PanelVeri> {
     ),
     getDocs(query(collection(db, 'plus_arama_istatistik'), orderBy('adet', 'desc'), limit(300))).catch(
       (e) => ((hatalar.arama = hataMetni(e)), null)
+    ),
+    getDocs(query(collection(db, 'plus_esnaf_istatistik'), orderBy('son', 'desc'), limit(300))).catch(
+      (e) => ((hatalar.esnaf = hataMetni(e)), null)
+    ),
+    getDocs(query(collection(db, 'plus_isletmeler'), limit(500))).catch(() => null),
+    getDocs(query(collection(db, 'plus_hatalar'), orderBy('adet', 'desc'), limit(100))).catch(
+      (e) => ((hatalar.hatalarGunlugu = hataMetni(e)), null)
     ),
     say('plus_ilanlar', 'status', 'pending'),
     say('plus_vefat', 'status', 'pending'),
@@ -104,6 +132,18 @@ export async function panelVerisiYukle(): Promise<PanelVeri> {
     }),
     icerik: (ic?.docs || []).map((d) => ({ id: d.id, ...(d.data() as any) })),
     arama: (ar?.docs || []).map((d) => ({ id: d.id, ...(d.data() as any) })),
+    esnaf: (es?.docs || []).map((d) => {
+      const v: any = d.data();
+      const isl2: any = isl?.docs.find((x) => x.id === d.id)?.data();
+      return {
+        id: d.id,
+        ad: String(isl2?.name || isl2?.title || isl2?.ad || isl2?.businessName || d.id),
+        son: typeof v.son === 'number' ? v.son : undefined,
+        toplam: v.toplam || {},
+        gun: v.gun || {},
+      };
+    }),
+    hatalarGunlugu: (hg?.docs || []).map((d) => ({ id: d.id, ...(d.data() as any) })),
     onay: { ilan, vefat, esnaf, ihbar, kesinti, sikayet },
     hatalar,
     yuklendi: Date.now(),

@@ -27,7 +27,7 @@ import { FeaturedClassifieds } from './components/FeaturedClassifieds';
 import { JobsSection } from './components/JobsSection';
 import { FoodSection } from './components/FoodSection';
 import { BottomNav, NavTab } from './components/BottomNav';
-import { analitikBaslat, analitikKimlik, analitikOlay, analitikSayfa, icerikGoruntule } from './services/analitikService';
+import { analitikBaslat, analitikKimlik, analitikOlay, analitikSayfa, esnafOlay, icerikGoruntule } from './services/analitikService';
 import { AlimSatimScreen } from './components/AlimSatimScreen';
 import { HaberScreen } from './components/HaberScreen';
 import { HizmetScreen } from './components/HizmetScreen';
@@ -231,6 +231,7 @@ export default function App() {
   const visKey = `${myUid || 'anon'}-${isContentStaff}`;
 
   const handleSuccessLogin = (profile: UserProfile) => {
+    analitikOlay('funnel_giris_gonder');
     setUserProfile(profile);
     setIsLoggedIn(true);
     setIsLoginOpen(false);
@@ -685,6 +686,7 @@ export default function App() {
       const ok = await setNewsTipList((prev) => [item, ...prev]);
       if (!ok) return { ok: false, error: 'İhbar kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.' };
       notifyEvent('haber-ihbar', { id: item.id });
+      analitikOlay('funnel_ihbar_gonder');
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message || 'Fotoğraflar yüklenemedi.' };
@@ -784,6 +786,9 @@ export default function App() {
     if (selectedAd?.id) icerikGoruntule('ilan', String(selectedAd.id), (selectedAd as any).title || '', (selectedAd as any).category);
   }, [selectedAd?.id]);
   useEffect(() => {
+    if (selectedRestaurant?.id) esnafOlay(String(selectedRestaurant.id), 'goruntule');
+  }, [selectedRestaurant?.id]);
+  useEffect(() => {
     if (selectedRestaurant?.id)
       icerikGoruntule('esnaf', String(selectedRestaurant.id), (selectedRestaurant as any).name || '', (selectedRestaurant as any).category);
   }, [selectedRestaurant?.id]);
@@ -805,6 +810,14 @@ export default function App() {
   useEffect(() => {
     if (acikModulAdi) analitikOlay('modul_' + acikModulAdi);
   }, [acikModulAdi]);
+  // Huniler (funnel): ekranın açılması ve işlemin tamamlanması ayrı sayılır; panelde "açan → tamamlayan" oranı görünür
+  useEffect(() => { if (isQuoteWizardOpen) analitikOlay('funnel_hizmet_ac'); }, [isQuoteWizardOpen]);
+  useEffect(() => { if (isMarketListingOpen) analitikOlay('funnel_ilan_ac'); }, [isMarketListingOpen]);
+  useEffect(() => { if (isNewsTipOpen) analitikOlay('funnel_ihbar_ac'); }, [isNewsTipOpen]);
+  useEffect(() => { if (isDavetOpen) analitikOlay('funnel_davet_ac'); }, [isDavetOpen]);
+  useEffect(() => { if (isLoginOpen) analitikOlay('funnel_giris_ac'); }, [isLoginOpen]);
+  useEffect(() => { if (isBusinessRegisterOpen) analitikOlay('funnel_esnaf_ac'); }, [isBusinessRegisterOpen]);
+  useEffect(() => { if (isVefatOpen) analitikOlay('funnel_vefat_ac'); }, [isVefatOpen]);
   // Şu an hangi ekranda: açık modül varsa o, yoksa sekme (anasayfa, haber, alim-satim, yemek, hizmet, profil)
   useEffect(() => {
     analitikSayfa(acikModulAdi || currentTab);
@@ -1210,6 +1223,7 @@ export default function App() {
     // Yönetim ilanı doğrudan yayınlar; diğer kullanıcıların ilanları onay bekler
     setClassifiedList((prev) => [{ ...newAd, status: isContentStaff ? 'approved' : 'pending' }, ...prev]).then((ok) => {
       // Onay bekleyen ilan için yönetime bildirim gider
+      if (ok) analitikOlay('funnel_ilan_gonder');
       if (ok && !isContentStaff) notifyEvent('ilan-bekliyor', { id: newAd.id });
     });
   };
@@ -1324,6 +1338,7 @@ export default function App() {
     if (requireLogin('Vefat ilanı vermek için giriş yapmalısınız.')) return;
     setObituaryList((prev) => [newOb, ...prev]).then((ok) => {
       // Onay bekleyen vefat ilanı yönetime bildirilir
+      if (ok) analitikOlay('funnel_vefat_gonder');
       if (ok && newOb.status === 'pending') notifyEvent('vefat-bekliyor', { id: newOb.id });
     });
   };
@@ -1451,6 +1466,7 @@ export default function App() {
   };
 
   const handleRegisterBusiness = (data: RegisteredBusinessPayload) => {
+    analitikOlay('funnel_esnaf_gonder');
     const initialProducts: StoreShowcaseProduct[] = [];
     const storeUid = userProfile?.uid || authUidRef.current;
 
@@ -1676,6 +1692,7 @@ export default function App() {
     setUserQuotes((prev) => [formattedRequest, ...prev]).then((ok) => {
       // Talep kaydedilince YALNIZCA o hizmet alanındaki ustalara bildirim gider
       if (ok) {
+        analitikOlay('funnel_hizmet_gonder');
         notifyEvent('talep-olustu', { id: formattedRequest.id });
         window.dispatchEvent(new CustomEvent('mp-info', { detail: 'Talebiniz yayınlandı; alandaki ustalara bildirildi.' }));
       }

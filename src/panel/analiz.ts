@@ -421,6 +421,19 @@ export const ILGI_ETIKET: Record<string, string> = {
   modul_eczane: 'Nöbetçi eczane',
   modul_ulasim: 'Ulaşım',
   bildirim_dokundu: 'Bildirime dokunma',
+  funnel_hizmet_ac: 'Hizmet formu açıldı',
+  funnel_hizmet_gonder: 'Hizmet talebi gönderildi',
+  funnel_ilan_ac: 'İlan formu açıldı',
+  funnel_ilan_gonder: 'İlan gönderildi',
+  funnel_ihbar_ac: 'İhbar formu açıldı',
+  funnel_ihbar_gonder: 'İhbar gönderildi',
+  funnel_vefat_ac: 'Vefat formu açıldı',
+  funnel_vefat_gonder: 'Vefat ilanı gönderildi',
+  funnel_esnaf_ac: 'Esnaf başvurusu açıldı',
+  funnel_esnaf_gonder: 'Esnaf başvurusu gönderildi',
+  funnel_giris_ac: 'Giriş ekranı açıldı',
+  funnel_giris_gonder: 'Giriş tamamlandı',
+  funnel_davet_ac: 'Davetiye açıldı',
 };
 
 export function ilgiToplami(kisiler: Kisi[]): { ad: string; anahtar: string; deger: number }[] {
@@ -429,4 +442,109 @@ export function ilgiToplami(kisiler: Kisi[]): { ad: string; anahtar: string; deg
   return Object.entries(m)
     .map(([anahtar, deger]) => ({ anahtar, ad: ILGI_ETIKET[anahtar] || anahtar, deger }))
     .sort((a, b) => b.deger - a.deger);
+}
+
+// ---- Huniler: form açıldı → gönderildi (tüm zamanlar, toplam dokunuş) ----------------
+export const HUNI_ADLARI: { anahtar: string; ad: string; tamamlanir: boolean }[] = [
+  { anahtar: 'giris', ad: 'Giriş / kayıt', tamamlanir: true },
+  { anahtar: 'hizmet', ad: 'Hizmet iste', tamamlanir: true },
+  { anahtar: 'ilan', ad: 'İlan paylaş', tamamlanir: true },
+  { anahtar: 'ihbar', ad: 'Haber ihbar', tamamlanir: true },
+  { anahtar: 'vefat', ad: 'Vefat ilanı', tamamlanir: true },
+  { anahtar: 'esnaf', ad: 'Esnaf başvurusu', tamamlanir: true },
+  { anahtar: 'davet', ad: 'Davetiye', tamamlanir: false },
+];
+
+export function huniler(kisiler: Kisi[]): { anahtar: string; ad: string; ac: number; gonder: number; oran: number | null; kisiAc: number; kisiGonder: number }[] {
+  const t = (k: string) => kisiler.reduce((a, x) => a + (x.ilgi[k] || 0), 0);
+  const kisi = (k: string) => kisiler.filter((x) => (x.ilgi[k] || 0) > 0).length;
+  return HUNI_ADLARI.map((h) => {
+    const ac = t(`funnel_${h.anahtar}_ac`);
+    const gonder = h.tamamlanir ? t(`funnel_${h.anahtar}_gonder`) : 0;
+    return {
+      anahtar: h.anahtar,
+      ad: h.ad,
+      ac,
+      gonder,
+      oran: h.tamamlanir && ac > 0 ? Math.min(100, Math.round((gonder / ac) * 1000) / 10) : null,
+      kisiAc: kisi(`funnel_${h.anahtar}_ac`),
+      kisiGonder: h.tamamlanir ? kisi(`funnel_${h.anahtar}_gonder`) : 0,
+    };
+  });
+}
+
+// ---- Akıllı bildirim saati: yoğunluk matrisinden önümüzdeki 24 saatin en iyi dilimi ----------
+export function bildirimSaatleri(kisiler: Kisi[], simdi = Date.now()): {
+  en: { gun: number; saat: number; ms: number; deger: number } | null;
+  ilk3: { gun: number; saat: number; ms: number; deger: number }[];
+  toplam: number;
+} {
+  const m = isiMatrisi(kisiler);
+  const toplam = m.flat().reduce((a, b) => a + b, 0);
+  if (toplam < 50) return { en: null, ilk3: [], toplam };
+  const tr = new Date(simdi + 3 * 3600 * 1000);
+  const adaylar: { gun: number; saat: number; ms: number; deger: number }[] = [];
+  for (let i = 1; i <= 24; i++) {
+    const t = new Date(tr.getTime() + i * 3600 * 1000);
+    const gun = (t.getUTCDay() + 6) % 7; // 0 = Pazartesi
+    const saat = t.getUTCHours();
+    // Gece 23-07 arası bildirim önerilmez
+    if (saat >= 23 || saat < 7) continue;
+    adaylar.push({ gun, saat, ms: Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), saat) - 3 * 3600 * 1000, deger: m[gun][saat] });
+  }
+  adaylar.sort((a, b) => b.deger - a.deger);
+  return { en: adaylar[0] || null, ilk3: adaylar.slice(0, 3), toplam };
+}
+
+// ---- Uyarılar ---------------------------------------------------------------------------------
+export type UyariSeviye = 'kritik' | 'uyari' | 'bilgi';
+export interface UyariKaydi {
+  seviye: UyariSeviye;
+  baslik: string;
+  ayrinti: string;
+  bolum?: string;
+}
+
+export function uyarilariUret(
+  kisiler: Kisi[],
+  onay: { ilan: number | null; vefat: number | null; esnaf: number | null; ihbar: number | null; kesinti: number | null; sikayet: number | null },
+  okumaHatalari: Record<string, string>,
+  hataGunlugu: { adet: number; surum?: string; gun?: Record<string, number> }[],
+  simdi = Date.now()
+): UyariKaydi[] {
+  const u: UyariKaydi[] = [];
+  const bugun = trGun(simdi);
+
+  if (okumaHatalari.ziyaretciler || okumaHatalari.icerik) {
+    u.push({ seviye: 'kritik', baslik: 'Analitik verisi okunamıyor', ayrinti: 'Firestore kuralları yayınlanmamış olabilir. Güncel firestore.rules dosyasını Firebase Console\'da yayınlayın.', bolum: 'veri' });
+  }
+  if ((onay.vefat || 0) > 0) {
+    u.push({ seviye: 'kritik', baslik: `${onay.vefat} vefat ilanı onay bekliyor`, ayrinti: 'Vefat ilanları zamana duyarlıdır; öncelikle onaylayın.', bolum: 'onay' });
+  }
+  if ((onay.kesinti || 0) > 0) u.push({ seviye: 'uyari', baslik: `${onay.kesinti} kesinti bildirimi onay bekliyor`, ayrinti: 'Onaylanana kadar kullanıcılara gitmez.', bolum: 'onay' });
+  if ((onay.sikayet || 0) > 0) u.push({ seviye: 'uyari', baslik: `${onay.sikayet} açık şikayet`, ayrinti: 'Kullanıcı şikayetleri inceleme bekliyor.', bolum: 'onay' });
+  if ((onay.esnaf || 0) > 0) u.push({ seviye: 'bilgi', baslik: `${onay.esnaf} esnaf başvurusu bekliyor`, ayrinti: 'İşletme kaydı onay bekliyor.', bolum: 'onay' });
+  if ((onay.ilan || 0) > 0) u.push({ seviye: 'bilgi', baslik: `${onay.ilan} ilan onay bekliyor`, ayrinti: 'Alım-satım ilanları onay bekliyor.', bolum: 'onay' });
+  if ((onay.ihbar || 0) > 0) u.push({ seviye: 'bilgi', baslik: `${onay.ihbar} haber ihbarı bekliyor`, ayrinti: 'Editör incelemesi bekliyor.', bolum: 'onay' });
+
+  // Veri toplama durdu mu?
+  const sonGorulen = kisiler.reduce((a, k) => Math.max(a, k.son || 0), 0);
+  if (kisiler.length > 0 && simdi - sonGorulen > 24 * 3600 * 1000) {
+    u.push({ seviye: 'uyari', baslik: 'Son 24 saatte hiç kullanım kaydı yok', ayrinti: 'Uygulama kullanılmıyor olabilir ya da analitik yazımı durmuş olabilir (kota / kural).', bolum: 'veri' });
+  }
+
+  // Günlük aktif kullanıcı düşüşü: dünün sayısı, önceki 7 günün ortalamasının %40 altında mı?
+  const gunler = sonGunler(9, bugun).slice(0, 8); // bugün hariç son 8 gün
+  const ak = aktifSerisi(kisiler, gunler);
+  const dun = ak[ak.length - 1];
+  const onceki = ak.slice(0, -1);
+  const ort = onceki.reduce((a, b) => a + b, 0) / Math.max(1, onceki.length);
+  if (ort >= 10 && dun < ort * 0.6) {
+    u.push({ seviye: 'uyari', baslik: 'Dünkü aktif kullanıcı sayısı düştü', ayrinti: `Dün ${dun} kişi; önceki 7 gün ortalaması ${Math.round(ort)}.`, bolum: 'genel' });
+  }
+
+  // Hata artışı: bugünkü hata sayısı
+  const bugunHata = hataGunlugu.reduce((a, h) => a + (Number(h.gun?.[bugun]) || 0), 0);
+  if (bugunHata >= 20) u.push({ seviye: 'uyari', baslik: `Bugün ${bugunHata} uygulama hatası kaydedildi`, ayrinti: 'Hatalar sekmesinde en sık görülenlere bakın.', bolum: 'hata' });
+  return u;
 }

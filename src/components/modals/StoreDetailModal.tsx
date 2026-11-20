@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { checkIsFoodStore } from '../FoodSection';
 import { PLACEHOLDER_IMG } from '../../utils/placeholder';
+import { esnafOlay } from '../../services/analitikService';
 
 export interface MenuItem {
   id?: string;
@@ -166,12 +167,14 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
   if (!business) return null;
 
   const handleCall = () => {
+    esnafOlay(business.id, 'ara');
     if (business.phone) {
       window.location.href = `tel:${business.phone.replace(/\s+/g, '')}`;
     }
   };
 
   const handleCopyPhone = () => {
+    esnafOlay(business.id, 'ara');
     if (business.phone) {
       navigator.clipboard?.writeText(business.phone);
       setCopiedPhone(true);
@@ -214,10 +217,12 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
       text = `Merhaba ${business.name}, Mutlular Plus Çarşı üzerinden vitrininizi inceliyorum, bilgi almak istiyorum.`;
     }
 
+    esnafOlay(business.id, itemName ? 'menu' : 'whatsapp');
     window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleShare = () => {
+    esnafOlay(business.id, 'paylas');
     const fullUrl = window.location.href;
     if (navigator.share) {
       navigator
@@ -407,6 +412,7 @@ export const StoreDetailModal: React.FC<StoreDetailModalProps> = ({
                 {business.address && (
                   <button
                     onClick={() => {
+                      esnafOlay(business.id, 'yol');
                       const query = encodeURIComponent(
                         `${business.address || ''} ${business.name} Bursa`
                       );

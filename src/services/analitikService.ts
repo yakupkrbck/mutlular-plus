@@ -27,6 +27,8 @@ export const ZIYARETCI_KOL = 'plus_ziyaretciler';
 export const ICERIK_KOL = 'plus_icerik_istatistik';
 export const ARAMA_KOL = 'plus_arama_istatistik';
 export const CEVRIMICI_KOL = 'plus_cevrimici';
+export const ESNAF_KOL = 'plus_esnaf_istatistik';
+export const HATA_KOL = 'plus_hatalar';
 const NABIZ_MS = 60000;
 
 export const analitikKapali = (): boolean => {
@@ -240,6 +242,7 @@ export function analitikBaslat(): void {
   if (baslatildi || typeof window === 'undefined') return;
   baslatildi = true;
   if (analitikKapali()) return;
+  hataDinleyiciKur();
   yeniOturum();
   void nabiz(true);
   // Çevrimiçi sayacı: ekran açıkken dakikada bir "buradayım" işareti
@@ -375,4 +378,89 @@ export async function analitikSil(): Promise<void> {
   try {
     await deleteDoc(doc(db, ZIYARETCI_KOL, ziyaretciId()));
   } catch {}
+}
+
+// ---- Esnaf sayaçları -----------------------------------------------------------
+// plus_esnaf_istatistik/{işletmeId}: toplam + gün gün sayaçlar. İşletme sahibi KENDİ belgesini okur (esnaf panelindeki İstatistik sekmesi).
+export type EsnafOlayTuru = 'goruntule' | 'ara' | 'yol' | 'whatsapp' | 'paylas' | 'menu';
+const esnafSon = new Map<string, number>();
+
+export function esnafOlay(isletmeId: string | undefined, tur: EsnafOlayTuru): void {
+  if (analitikKapali() || !isletmeId) return;
+  const id = temizId(isletmeId);
+  if (!id) return;
+  const anahtar = `${id}|${tur}`;
+  const simdi = Date.now();
+  // Aynı oturumda aynı tür en fazla 10 sn'de bir sayılır (çift dokunuş ve sekme yenilemeleri şişirmesin)
+  const onceki = esnafSon.get(anahtar) || 0;
+  if (tur === 'goruntule' ? onceki > 0 : simdi - onceki < 10000) return;
+  esnafSon.set(anahtar, simdi);
+  void setDoc(
+    doc(db, ESNAF_KOL, id),
+    { son: simdi, toplam: { [tur]: increment(1) }, gun: { [gunAnahtari(simdi)]: { [tur]: increment(1) } } },
+    { merge: true }
+  ).catch(() => {});
+}
+
+// ---- Hata günlüğü ---------------------------------------------------------------
+// plus_hatalar/{özet}: aynı hata tek belgede sayılır (mesaj + sürüm). Kişisel veri sızmasın diye metin temizlenir.
+const hataGorulen = new Set<string>();
+let hataSayisi = 0;
+const GURULTU = /ResizeObserver loop|^Script error\.?$|Non-Error promise rejection|AbortError|Load failed$|Failed to fetch$|NetworkError/i;
+
+const hataOzeti = (s: string): string => {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return 'h' + (h >>> 0).toString(36);
+};
+
+const metniTemizle = (m: string): string =>
+  m
+    .replace(/https?:\/\/[^\s)]+/g, (u) => {
+      try {
+        return new URL(u).pathname.split('/').pop() || 'url';
+      } catch {
+        return 'url';
+      }
+    })
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '<eposta>')
+    .replace(/\d{6,}/g, '#')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+
+export function hataKaydet(mesaj: unknown, kaynak = ''): void {
+  if (analitikKapali()) return;
+  const m = metniTemizle(typeof mesaj === 'string' ? mesaj : (mesaj as any)?.message || String(mesaj ?? ''));
+  if (!m || GURULTU.test(m)) return;
+  const k = metniTemizle(kaynak).slice(0, 60);
+  const id = hataOzeti(m + '|' + APP_VERSION);
+  if (hataGorulen.has(id) || hataSayisi >= 15) return; // aynı hata oturumda 1 kez; oturum başına en çok 15 farklı hata
+  hataGorulen.add(id);
+  hataSayisi += 1;
+  const simdi = Date.now();
+  void setDoc(
+    doc(db, HATA_KOL, id),
+    {
+      mesaj: m,
+      kaynak: k,
+      surum: APP_VERSION,
+      platform: Capacitor.getPlatform(),
+      adet: increment(1),
+      son: simdi,
+      gun: { [gunAnahtari(simdi)]: increment(1) },
+    },
+    { merge: true }
+  ).catch(() => {});
+}
+
+let hataDinleniyor = false;
+export function hataDinleyiciKur(): void {
+  if (hataDinleniyor || typeof window === 'undefined') return;
+  hataDinleniyor = true;
+  window.addEventListener('error', (e) => {
+    const yer = e.filename ? `${(e.filename.split('/').pop() || '').split('?')[0]}:${e.lineno}` : '';
+    hataKaydet(e.message, yer);
+  });
+  window.addEventListener('unhandledrejection', (e) => hataKaydet((e.reason as any)?.message || e.reason, 'promise'));
 }
