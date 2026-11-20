@@ -73,6 +73,7 @@ import { EBelediyeModal } from './components/modals/EBelediyeModal';
 import { SaglikOcagiModal } from './components/modals/SaglikOcagiModal';
 import { MuhtarlikModal } from './components/modals/MuhtarlikModal';
 import { KesintilerModal, type KesintiModalTab } from './components/modals/KesintilerModal';
+import { KesintiUyariModal } from './components/KesintiUyariModal';
 import { QuickActionSheet } from './components/modals/QuickActionSheet';
 import { AdminPanelModal } from './components/modals/AdminPanelModal';
 import { EsnafPaneliModal } from './components/modals/EsnafPaneliModal';
@@ -3270,6 +3271,8 @@ export default function App() {
           onNewApplication={handleNewMuhtarlikApplication}
           onUpdateApplicationStatus={handleUpdateMuhtarlikApplicationStatus}
         />
+
+        <KesintiUyariModal onDetay={() => setIsKesintilerOpen(true)} />
 
         {/* BUSKİ & UEDAŞ Canlı Su ve Elektrik Kesintileri Modalı */}
         <KesintilerModal
