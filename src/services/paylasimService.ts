@@ -35,6 +35,10 @@ export interface KartVeri {
   gorsel?: string;
   /** Sağ üstteki etiket yerine özel metin */
   etiket?: string;
+  /** Fotoğrafın dikey odağı: 0 = üst, 0.5 = orta, 1 = alt */
+  gorselOdak?: number;
+  /** Vefat kartında da fotoğraf kullanılsın (kullanıcı kendisi eklediyse) */
+  gorselZorla?: boolean;
 }
 
 const TEMA: Record<KartTuru, { ad: string; a: string; b: string; vurgu: string }> = {
@@ -101,7 +105,7 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
-  const im = v.tur === 'vefat' ? null : await gorselYukle(v.gorsel); // vefat kartında fotoğraf kullanılmaz
+  const im = v.tur === 'vefat' && !v.gorselZorla ? null : await gorselYukle(v.gorsel); // vefat kartında kullanıcı kendi eklemedikçe fotoğraf kullanılmaz
   if (im) {
     const oran = Math.max(W / im.width, (H * 0.62) / im.height);
     const iw = im.width * oran;
@@ -110,7 +114,7 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
     ctx.beginPath();
     ctx.rect(0, 0, W, H * 0.62);
     ctx.clip();
-    ctx.drawImage(im, (W - iw) / 2, (H * 0.62 - ih) / 2, iw, ih);
+    ctx.drawImage(im, (W - iw) / 2, (H * 0.62 - ih) * (v.gorselOdak ?? 0.5), iw, ih);
     ctx.restore();
     const ort = ctx.createLinearGradient(0, H * 0.25, 0, H * 0.7);
     ort.addColorStop(0, 'rgba(0,0,0,0)');

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, Share2, Download, Copy, Loader2 } from 'lucide-react';
+import { X, Share2, Download, Copy, Loader2, ImagePlus, Trash2 } from 'lucide-react';
 import {
   indir,
   izlemeliLink,
@@ -32,6 +32,30 @@ export const PaylasimKartiModal: React.FC<Props> = ({ acik, onKapat, kart, yol, 
   const [onizleme, setOnizleme] = useState<string>('');
   const [uretiliyor, setUretiliyor] = useState(false);
   const [bilgi, setBilgi] = useState('');
+  // undefined = haberin kendi görseli, null = görselsiz, string = kullanıcının seçtiği dosya
+  const [ozelGorsel, setOzelGorsel] = useState<string | null | undefined>(undefined);
+  const [odak, setOdak] = useState(0.5);
+  const dosyaRef = React.useRef<HTMLInputElement>(null);
+
+  const etkin: KartVeri = useMemo(() => {
+    const g = ozelGorsel === undefined ? kart.gorsel : ozelGorsel || undefined;
+    return { ...kart, gorsel: g, gorselOdak: odak, gorselZorla: typeof ozelGorsel === 'string' };
+  }, [kart, ozelGorsel, odak]);
+  const etkinAnahtar = JSON.stringify(etkin);
+
+  const gorselSec = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return setBilgi('Lütfen bir görsel dosyası seçin.');
+    if (f.size > 15 * 1024 * 1024) return setBilgi('Görsel çok büyük (en fazla 15 MB).');
+    setOzelGorsel((eski) => {
+      if (typeof eski === 'string') URL.revokeObjectURL(eski);
+      return URL.createObjectURL(f);
+    });
+    setOdak(0.5);
+    setBilgi('');
+  };
 
   const link = useMemo(() => izlemeliLink(yol, kanal, kampanya), [yol, kanal, kampanya]);
   const metin = useMemo(() => paylasimMetni(kart.baslik, ozet, link, kanal), [kart.baslik, ozet, link, kanal]);
@@ -41,7 +65,7 @@ export const PaylasimKartiModal: React.FC<Props> = ({ acik, onKapat, kart, yol, 
     let iptal = false;
     setUretiliyor(true);
     setBilgi('');
-    kartUret(kart, bicim)
+    kartUret(etkin, bicim)
       .then((b) => {
         if (iptal) return;
         setBlob(b);
@@ -55,7 +79,7 @@ export const PaylasimKartiModal: React.FC<Props> = ({ acik, onKapat, kart, yol, 
     return () => {
       iptal = true;
     };
-  }, [acik, bicim, kart]);
+  }, [acik, bicim, etkinAnahtar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => { if (onizleme) URL.revokeObjectURL(onizleme); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -106,6 +130,32 @@ export const PaylasimKartiModal: React.FC<Props> = ({ acik, onKapat, kart, yol, 
                 {b === 'kare' ? 'Kare (gönderi)' : 'Story (dikey)'}
               </button>
             ))}
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-2.5 space-y-2">
+            <div className="flex gap-2">
+              <button onClick={() => dosyaRef.current?.click()} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-neutral-900 text-white text-[12px] font-bold">
+                <ImagePlus className="w-4 h-4" /> {ozelGorsel ? 'Görseli değiştir' : 'Görsel ekle'}
+              </button>
+              {(ozelGorsel !== null && (ozelGorsel || kart.gorsel)) && (
+                <button onClick={() => setOzelGorsel(null)} className="px-3 flex items-center gap-1.5 py-2 rounded-lg border border-neutral-300 text-[12px] font-bold text-neutral-700">
+                  <Trash2 className="w-4 h-4" /> Kaldır
+                </button>
+              )}
+              {ozelGorsel !== undefined && kart.gorsel && (
+                <button onClick={() => setOzelGorsel(undefined)} className="px-3 py-2 rounded-lg border border-neutral-300 text-[12px] font-bold text-neutral-700">
+                  Haberin görseli
+                </button>
+              )}
+            </div>
+            <input ref={dosyaRef} type="file" accept="image/*" className="hidden" onChange={gorselSec} />
+            {etkin.gorsel && (
+              <label className="flex items-center gap-2 text-[11px] font-bold text-neutral-500">
+                Konum
+                <input type="range" min={0} max={1} step={0.05} value={odak} onChange={(e) => setOdak(Number(e.target.value))} className="flex-1" />
+                <span>{odak < 0.34 ? 'Üst' : odak > 0.66 ? 'Alt' : 'Orta'}</span>
+              </label>
+            )}
           </div>
 
           <div>
