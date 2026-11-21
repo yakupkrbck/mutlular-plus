@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Check, Image as ImageIcon, Video, Plus, X, Link2, Upload, Loader2, Play, Trash2 } from 'lucide-react';
 import { ImageCropField } from '../ImageCropField';
+import { NewsContentEditor } from './NewsContentEditor';
 import { uploadVideoFile, MAX_VIDEO_MB } from '../../services/uploadService';
 import { youtubeId, videoPoster, isVideoFileUrl } from '../../utils/newsVideo';
 
@@ -188,13 +189,7 @@ export const NewsForm: React.FC<NewsFormProps> = ({ values, onChange, categories
           />
           <div className="text-right text-[9.5px] text-neutral-500 mt-0.5">{values.summary.length}/220</div>
         </div>
-        <textarea
-          rows={8}
-          value={values.content}
-          onChange={(e) => onChange({ content: e.target.value })}
-          placeholder="Haber metni (isteğe bağlı). Paragrafları boş satırla ayırın."
-          className={inputCls}
-        />
+        <NewsContentEditor value={values.content} onChange={(v) => onChange({ content: v })} />
         {mode === 'edit' && (
           <div>
             <label className="text-[10px] text-neutral-400 uppercase font-bold block mb-0.5">Yayın tarihi (haberde görünen)</label>

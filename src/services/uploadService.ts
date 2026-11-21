@@ -1,5 +1,6 @@
 import { auth } from '../firebase';
 import { API_BASE } from '../config/api';
+import { gorselKucult } from '../utils/gorsel';
 
 // Gerçek dosya yükleme: Cloudinary.
 // 1) Tercih edilen yol: Worker'dan giriş doğrulamalı İMZA alınır (gizli anahtar repoda/istemcide yok).
@@ -43,7 +44,8 @@ export const uploadDataUrl = async (dataUrl: string): Promise<string> => {
   }
   const sig = await getSignature();
   const fd = new FormData();
-  fd.append('file', dataUrl);
+  // Yüklemeden önce küçült: en uzun kenar 1600 px, JPEG %82 (telefon fotoğrafları 4-8 MB yerine ~300-500 KB olur)
+  fd.append('file', await gorselKucult(dataUrl));
   if (sig) {
     fd.append('api_key', sig.apiKey);
     fd.append('timestamp', String(sig.timestamp));

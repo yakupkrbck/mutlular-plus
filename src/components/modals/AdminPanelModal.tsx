@@ -2148,6 +2148,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                             </span>
                           </div>
                           <NewsForm
+                            key={`edit-${editingNewsId}`}
                             mode="edit"
                             values={editNewsForm}
                             onChange={(patch) => setEditNewsForm((prev) => ({ ...prev, ...patch }))}
