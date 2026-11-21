@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Zap, X } from 'lucide-react';
+import { Zap, X, Share2 } from 'lucide-react';
+import { PaylasimKartiModal } from './PaylasimKartiModal';
 import { fetchUedasOutages } from '../services/kesintiService';
 import { isMehmetAkifUedasOutage, type UedasOutage } from '../data/kesintiData';
 
@@ -69,6 +70,7 @@ const bugunAnahtar = () => new Date().toISOString().slice(0, 10);
 
 export const KesintiUyariModal: React.FC<{ onDetay: () => void }> = ({ onDetay }) => {
   const [liste, setListe] = useState<Uyari[]>([]);
+  const [paylas, setPaylas] = useState<Uyari | null>(null);
 
   useEffect(() => {
     let iptal = false;
@@ -145,6 +147,9 @@ export const KesintiUyariModal: React.FC<{ onDetay: () => void }> = ({ onDetay }
                 </div>
                 {u.neden && <div className="text-[11px] text-neutral-600 mt-2">Neden: {u.neden}</div>}
                 {u.sokaklar && <div className="text-[11px] text-neutral-500 mt-1">Etkilenen yerler: {u.sokaklar}</div>}
+                <button onClick={() => setPaylas(u)} className="mt-2 flex items-center gap-1.5 text-[11px] font-black text-amber-800 underline">
+                  <Share2 className="w-3.5 h-3.5" /> Komşulara paylaş
+                </button>
               </div>
             );
           })}
@@ -165,6 +170,25 @@ export const KesintiUyariModal: React.FC<{ onDetay: () => void }> = ({ onDetay }
           </button>
         </div>
       </div>
+      {paylas && (
+        <PaylasimKartiModal
+          acik
+          onKapat={() => setPaylas(null)}
+          kart={{
+            tur: 'kesinti',
+            baslik: "Mehmet Akif Mahallesi'nde elektrik kesintisi",
+            altBaslik: paylas.sokaklar ? `Etkilenen yerler: ${paylas.sokaklar}` : undefined,
+            bilgiler: [
+              { etiket: 'Tarih', deger: paylas.tarih },
+              { etiket: 'Saat', deger: paylas.saat || '—' },
+              { etiket: 'Süre', deger: paylas.sureSaat !== null ? sureMetni(paylas.sureSaat).replace('yaklaşık ', '~') : '—' },
+            ],
+          }}
+          yol="/kesintiler"
+          ozet={`Elektrik kesintisi: ${paylas.tarih} ${paylas.saat}`.trim()}
+          kampanya="kesinti"
+        />
+      )}
     </div>
   );
 };

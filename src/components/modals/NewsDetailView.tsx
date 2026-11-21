@@ -1,5 +1,7 @@
-import React from 'react';
-import { Calendar, Eye, Share2, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Eye, Share2, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { PaylasimKartiModal } from '../PaylasimKartiModal';
+import { izlemeliLink } from '../../services/paylasimService';
 import { NewsItem } from '../../types';
 import { PLACEHOLDER_IMG } from '../../utils/placeholder';
 import { youtubeId } from '../../utils/newsVideo';
@@ -12,6 +14,7 @@ interface NewsDetailViewProps {
 
 export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose }) => {
   // Hook'lar erken return'den ÖNCE olmalı
+  const [kartAcik, setKartAcik] = useState(false);
   const views = useNewsViews(news ? [news.id] : []);
   if (!news) return null;
   const okunma = views[news.id];
@@ -27,10 +30,10 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
       navigator.share({
         title: news.title,
         text: news.summary,
-        url: window.location.href,
+        url: izlemeliLink(`/haber/${news.id}`, 'diger', 'haber'),
       }).catch(() => {});
     } else {
-      navigator.clipboard?.writeText(`${news.title}\n${window.location.href}`);
+      navigator.clipboard?.writeText(`${news.title}\n${izlemeliLink(`/haber/${news.id}`, 'diger', 'haber')}`);
       alert('Haber bağlantısı kopyalandı!');
     }
   };
@@ -157,8 +160,23 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
             <Share2 className="w-4 h-4" />
             <span>Haberi Paylaş</span>
           </button>
+          <button
+            onClick={() => setKartAcik(true)}
+            className="flex-1 bg-neutral-900 hover:bg-neutral-800 active:scale-98 text-white font-bold text-[12px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs"
+          >
+            <ImageIcon className="w-4 h-4" />
+            <span>Kart Oluştur</span>
+          </button>
         </div>
       </div>
+      <PaylasimKartiModal
+        acik={kartAcik}
+        onKapat={() => setKartAcik(false)}
+        kart={{ tur: 'haber', baslik: news.title, altBaslik: news.summary, gorsel: news.image, etiket: (news.category || 'HABER').toLocaleUpperCase('tr-TR') }}
+        yol={`/haber/${news.id}`}
+        ozet={news.summary}
+        kampanya="haber"
+      />
     </div>
   );
 };
