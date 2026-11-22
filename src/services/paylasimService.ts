@@ -35,10 +35,6 @@ export interface KartVeri {
   gorsel?: string;
   /** Sağ üstteki etiket yerine özel metin */
   etiket?: string;
-  /** Fotoğrafın dikey odağı: 0 = üst, 0.5 = orta, 1 = alt */
-  gorselOdak?: number;
-  /** Vefat kartında da fotoğraf kullanılsın (kullanıcı kendisi eklediyse) */
-  gorselZorla?: boolean;
 }
 
 const TEMA: Record<KartTuru, { ad: string; a: string; b: string; vurgu: string }> = {
@@ -105,7 +101,7 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
-  const im = v.tur === 'vefat' && !v.gorselZorla ? null : await gorselYukle(v.gorsel); // vefat kartında kullanıcı kendi eklemedikçe fotoğraf kullanılmaz
+  const im = v.tur === 'vefat' ? null : await gorselYukle(v.gorsel); // vefat kartında fotoğraf kullanılmaz
   if (im) {
     const oran = Math.max(W / im.width, (H * 0.62) / im.height);
     const iw = im.width * oran;
@@ -114,7 +110,7 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
     ctx.beginPath();
     ctx.rect(0, 0, W, H * 0.62);
     ctx.clip();
-    ctx.drawImage(im, (W - iw) / 2, (H * 0.62 - ih) * (v.gorselOdak ?? 0.5), iw, ih);
+    ctx.drawImage(im, (W - iw) / 2, (H * 0.62 - ih) / 2, iw, ih);
     ctx.restore();
     const ort = ctx.createLinearGradient(0, H * 0.25, 0, H * 0.7);
     ort.addColorStop(0, 'rgba(0,0,0,0)');
@@ -153,7 +149,9 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
   ctx.textAlign = 'left';
 
   // Alt blok yüksekliğini önce hesapla (aşağıdan yukarı yerleşim)
-  const altSerit = 150;
+  // Story: Instagram arayüzü alt kısmı kapattığı için alt ~380 px "link alanı" olarak boş bırakılır
+  const story = bicim === 'story';
+  const altSerit = story ? 400 : 150;
   let y = H - altSerit;
 
   // Bilgi kutuları
@@ -221,6 +219,25 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
       }
       ctx.fillText(b.deger, x + 28, by + 74);
     });
+  }
+
+  // Story: link alanı (boş bırakılır; kullanıcı Instagram link çıkartmasını buraya yerleştirir)
+  if (story) {
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = tema.vurgu;
+    ctx.font = `900 44px ${FONT}`;
+    ctx.fillText('DETAYLAR LİNKTE', W / 2, H - altSerit + 60);
+    ctx.font = `900 56px ${FONT}`;
+    ctx.fillText('↓', W / 2, H - altSerit + 128);
+    ctx.setLineDash([18, 14]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    yuvarlakDikdortgen(ctx, PAD + 60, H - altSerit + 170, W - (PAD + 60) * 2, 130, 36);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.textAlign = 'left';
+    return new Promise((coz, red) => c.toBlob((b) => (b ? coz(b) : red(new Error('Görsel üretilemedi'))), 'image/jpeg', 0.92));
   }
 
   // Alt şerit

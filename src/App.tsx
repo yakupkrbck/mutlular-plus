@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { doc as fsDoc, updateDoc, setDoc, deleteDoc, arrayUnion, increment, where, or } from 'firebase/firestore';
+import { doc as fsDoc, updateDoc, setDoc, deleteDoc, arrayUnion, increment, where, or, orderBy, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import { useSyncedList } from './services/useSyncedList';
 import {
@@ -314,13 +314,24 @@ export default function App() {
   );
 
   // Kişisel bildirimler (plus_users/{uid}/bildirimler) + yönetim duyuruları (plus_duyurular)
+  // Liste sınırsız büyümesin: en yeni N bildirim okunur; "Daha eski" ile N artar
+  const [bildirimLimit, setBildirimLimit] = useState(50);
   const [personalNotifs, setUserNotifications] = useSyncedList<UserNotification>(
     `plus_users/${myUid || '_'}/bildirimler`,
-    { enabled: !!myUid }
+    {
+      enabled: !!myUid,
+      key: `${myUid}-${bildirimLimit}`,
+      constraints: [orderBy('createdAtMs', 'desc'), limit(bildirimLimit)],
+    }
   );
   const [announcements, setAnnouncements] = useSyncedList<UserNotification>('plus_duyurular', {
     enabled: !!myUid,
+    key: `${myUid}-${bildirimLimit}`,
+    constraints: [orderBy('createdAtMs', 'desc'), limit(bildirimLimit)],
   });
+  // Tarih damgası olmayan yeni bildirim sorguda kaybolmasın: eklerken damgala
+  const addPersonalNotif = (n: UserNotification) =>
+    setUserNotifications((prev) => [{ ...n, createdAtMs: n.createdAtMs || Date.now() }, ...prev]);
   const [readAnn, setReadAnn] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('mutlular_read_announcements') || '[]');
@@ -337,8 +348,9 @@ export default function App() {
   });
   useEffect(() => {
     try {
-      localStorage.setItem('mutlular_read_announcements', JSON.stringify(readAnn));
-      localStorage.setItem('mutlular_hidden_announcements', JSON.stringify(hiddenAnn));
+      // Sonsuz büyümesin: en çok 200 kimlik tutulur
+      localStorage.setItem('mutlular_read_announcements', JSON.stringify(readAnn.slice(-200)));
+      localStorage.setItem('mutlular_hidden_announcements', JSON.stringify(hiddenAnn.slice(-200)));
     } catch {}
   }, [readAnn, hiddenAnn]);
   const userNotifications = useMemo<UserNotification[]>(
@@ -347,10 +359,32 @@ export default function App() {
         ...personalNotifs,
         ...announcements
           .filter((a) => !hiddenAnn.includes(a.id))
+          // 14 günden eski duyurular listede gösterilmez
+          .filter((a) => !a.createdAtMs || Date.now() - a.createdAtMs < 14 * 86400000)
+          // Rolü uymayan (ör. yalnız yönetime giden) duyurular başkalarında görünmez
+          .filter((a) => {
+            const h = a.hedef;
+            if (!h || h === 'herkes') return true;
+            if (currentRole === 'yonetici') return true;
+            if (h === 'yonetim') return currentRole === 'editor';
+            if (h === 'muhtar') return currentRole === 'muhtar';
+            if (h === 'esnaf') return currentRole === 'esnaf';
+            return false;
+          })
           .map((a) => ({ ...a, read: readAnn.includes(a.id) })),
       ].sort((a: any, b: any) => (b.createdAtMs || 0) - (a.createdAtMs || 0)),
-    [personalNotifs, announcements, readAnn, hiddenAnn]
+    [personalNotifs, announcements, readAnn, hiddenAnn, currentRole]
   );
+
+  // 30 günden eski kişisel bildirimler oturum başına bir kez sessizce silinir
+  const eskiTemizlendi = useRef(false);
+  useEffect(() => {
+    if (eskiTemizlendi.current || !myUid || !personalNotifs.length) return;
+    eskiTemizlendi.current = true;
+    const sinir = Date.now() - 30 * 86400000;
+    const eskiler = personalNotifs.filter((n) => n.createdAtMs && n.createdAtMs < sinir);
+    if (eskiler.length) setUserNotifications((prev) => prev.filter((n) => !(n.createdAtMs && n.createdAtMs < sinir)));
+  }, [myUid, personalNotifs]);
 
   // Senkron/yetki hataları için bildirim şeridi
   const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
@@ -405,6 +439,7 @@ export default function App() {
   const [isUstaPaneliOpen, setIsUstaPaneliOpen] = useState(false);
   const [isEditorPanelOpen, setIsEditorPanelOpen] = useState(false);
   const [isMahalleSakiniPaneliOpen, setIsMahalleSakiniPaneliOpen] = useState(false);
+  const [residentInitialTab, setResidentInitialTab] = useState<'ozet' | 'muhtarlik' | undefined>(undefined);
   const [isJobsModalOpen, setIsJobsModalOpen] = useState(initialModal === 'isler');
 
   // --- Giriş zorunluluğu: giriş yapmadan yalnızca gezilebilir, hiçbir şey paylaşılamaz ---
@@ -928,7 +963,16 @@ export default function App() {
   // Özel olmayan bildirim hedefleri (sekmeler, paneller)
   const handleGenericNotificationNav = (tab?: string, subTab?: string) => {
     if (!tab) return;
-    if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
+    if (tab === 'muhtarlik_talebim') {
+      // Talep sahibi: cevabı kendi "Muhtarlık" sekmesinde görür; muhtar/yönetici ise masaya gider
+      if (currentRole === 'muhtar' || currentRole === 'yonetici') {
+        setMuhtarlikInitialTab('basvurular');
+        setIsMuhtarlikOpen(true);
+      } else {
+        setResidentInitialTab('muhtarlik');
+        setIsMahalleSakiniPaneliOpen(true);
+      }
+    } else if (tab === 'muhtar_paneli' || tab === 'muhtarlik') {
       setMuhtarlikInitialTab('basvurular');
       setIsMuhtarlikOpen(true);
     } else if (tab === 'onay_bekleyen') {
@@ -1199,7 +1243,7 @@ export default function App() {
       sender: newJob.company,
       actionTab: 'hizmet',
     };
-    setUserNotifications((prev) => [notif, ...prev]);
+    addPersonalNotif(notif);
   };
 
   const handleApplyJobToSystem = (jobId: string, application: JobApplication) => {
@@ -1244,6 +1288,16 @@ export default function App() {
     newStatus: MuhtarlikApplication['status'],
     notes?: string
   ) => {
+    const hedef = muhtarlikApplications.find((a) => a.id === id);
+    const metin = (notes || '').trim();
+    const yeniCevap = notes !== undefined && metin !== '' && metin !== (hedef?.officialNotes || '').trim();
+    const simdi = Date.now();
+    const durumAd: Record<MuhtarlikApplication['status'], string> = {
+      bekliyor: 'beklemede',
+      inceleniyor: 'inceleniyor',
+      belediyeye_iletildi: 'Belediyeye iletildi',
+      tamamlandi: 'çözüldü',
+    };
     setMuhtarlikApplications((prev) =>
       prev.map((item) =>
         item.id === id
@@ -1251,13 +1305,34 @@ export default function App() {
               ...item,
               status: newStatus,
               officialNotes: notes !== undefined ? notes : item.officialNotes,
-              updatedAt: 'Az önce',
+              updatedAt: new Date(simdi).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }),
+              ...(yeniCevap ? { repliedAtMs: simdi, repliedBy: userProfile?.name || 'Muhtarlık' } : {}),
             }
           : item
       )
     ).then((ok) => {
-      // Başvuru sahibine "başvurunuz güncellendi" bildirimi gider
-      if (ok) notifyEvent('muhtarlik-durum', { id });
+      if (!ok) return;
+      // Telefona push (Worker)
+      notifyEvent('muhtarlik-durum', { id });
+      // Uygulama içi bildirim: talep sahibinin bildirim kutusuna doğrudan yazılır (Worker'a bağlı değil)
+      if (hedef?.ownerUid && hedef.ownerUid !== myUid) {
+        const nid = `muhtarlik-${id}-${simdi}`.replace(/[^A-Za-z0-9_-]/g, '_');
+        const d = new Date(simdi);
+        const p2 = (n: number) => String(n).padStart(2, '0');
+        const ilkSatir = metin.split('\n')[0].slice(0, 140);
+        setDoc(fsDoc(db, 'plus_users', hedef.ownerUid, 'bildirimler', nid), {
+          id: nid,
+          type: 'muhtarlik',
+          title: yeniCevap ? 'Muhtarınız talebinizi yanıtladı' : 'Muhtarlık talebiniz güncellendi',
+          message: yeniCevap ? ilkSatir : `Talebinizin durumu: ${durumAd[newStatus]}.`,
+          date: `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`,
+          read: false,
+          relatedId: id,
+          actionTab: 'muhtarlik_talebim',
+          createdAtMs: simdi,
+          sender: 'Mahalle Muhtarlığı',
+        }).catch(() => {});
+      }
     });
   };
 
@@ -2468,6 +2543,8 @@ export default function App() {
                   onMarkAllAsRead={handleMarkAllAsRead}
                   onDeleteNotification={handleDeleteNotification}
                   onClearAll={handleClearAllNotifications}
+                  onLoadMore={() => setBildirimLimit((l) => l + 50)}
+                  canLoadMore={personalNotifs.length >= bildirimLimit || announcements.length >= bildirimLimit}
                   onNavigateToQuotes={(relatedId) => {
                     setProfileSubTab('tekliflerim');
                   }}
@@ -3169,7 +3246,7 @@ export default function App() {
               badgeText: 'Esnaf Kaydı',
               sender: 'Yönetim Onay Masası',
             };
-            setUserNotifications((prev) => [notif, ...prev]);
+            addPersonalNotif(notif);
           }}
         />
 
@@ -3420,7 +3497,7 @@ export default function App() {
           isOpen={isEBelediyeOpen}
           onClose={() => setIsEBelediyeOpen(false)}
           userProfile={userProfile}
-          onAddNotification={(notif) => setUserNotifications((prev) => [notif, ...prev])}
+          onAddNotification={(notif) => addPersonalNotif(notif)}
         />
 
         <QuickActionSheet
@@ -3582,7 +3659,8 @@ export default function App() {
         {/* Mahalle Sakini Kişisel Yönetim Masası Modalı (Tam Ekran) */}
         <MahalleSakiniPaneliModal
           isOpen={isMahalleSakiniPaneliOpen}
-          onClose={() => setIsMahalleSakiniPaneliOpen(false)}
+          initialTab={residentInitialTab}
+          onClose={() => { setIsMahalleSakiniPaneliOpen(false); setResidentInitialTab(undefined); }}
           userProfile={userProfile}
           userQuotes={userQuotes}
           classifiedList={panelClassifieds}

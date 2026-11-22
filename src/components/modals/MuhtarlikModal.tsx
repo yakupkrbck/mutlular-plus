@@ -53,6 +53,15 @@ type TabType = 'iletisim' | 'talep' | 'evrak' | 'rehber' | 'basvurular';
 
 const DEFAULT_SAMPLE_APPLICATIONS: MuhtarlikApplication[] = [];
 
+// Muhtarın tek dokunuşla ekleyebileceği hazır cevap parçaları
+const CEVAP_SABLONLARI = [
+  'Talebiniz alındı, ilgili birime ilettim.',
+  'Konuyu belediyeye bildirdim, takibini yapıyorum.',
+  'Sorun giderildi, bilginize.',
+  'Detaylar için lütfen muhtarlığa uğrayınız.',
+  'Bu konu muhtarlık yetkisi dışında; ilgili kuruma başvurmanız gerekiyor.',
+];
+
 export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
   onRequireLogin,
   isOpen,
@@ -284,6 +293,10 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
 
   // Save Muhtar Official Note
   const handleSaveNote = (appId: string) => {
+    if (!noteDraft.trim()) {
+      showToast('Lütfen bir cevap yazın.');
+      return;
+    }
     const updated = localApplications.map((app) =>
       app.id === appId
         ? {
@@ -304,7 +317,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
 
     setActiveEditingNoteId(null);
     setNoteDraft('');
-    showToast('Muhtarlık resmi notu kaydedildi.');
+    showToast('Cevabınız talep sahibine gönderildi.');
   };
 
   const getCategoryIcon = (cat: string) => {
@@ -1005,7 +1018,14 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                         {app.officialNotes && activeEditingNoteId !== app.id && (
                           <div className="p-2.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs space-y-1">
                             <div className="flex items-center justify-between text-[10.5px] font-black text-amber-900">
-                              <span>🏛️ Muhtarlık Resmi Notu:</span>
+                              <span>
+                                🏛️ Cevabınız (talep sahibine bildirildi)
+                                {app.repliedAtMs && (
+                                  <span className="font-semibold text-amber-700/80">
+                                    {' '}· {new Date(app.repliedAtMs).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}
+                                  </span>
+                                )}
+                              </span>
                               <button
                                 onClick={() => {
                                   setActiveEditingNoteId(app.id);
@@ -1026,8 +1046,20 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                         {activeEditingNoteId === app.id && (
                           <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 space-y-2">
                             <label className="block text-[11px] font-bold text-amber-950">
-                              Muhtar Notu / İşlem Açıklaması:
+                              Talep sahibine cevabınız (bildirim olarak gider):
                             </label>
+                            <div className="flex flex-wrap gap-1">
+                              {CEVAP_SABLONLARI.map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => setNoteDraft((d) => (d ? `${d}\n${t}` : t))}
+                                  className="px-2 py-1 rounded-full bg-white border border-amber-300 text-[10.5px] font-bold text-amber-900 hover:bg-amber-100"
+                                >
+                                  {t.length > 34 ? `${t.slice(0, 32)}…` : t}
+                                </button>
+                              ))}
+                            </div>
                             <textarea
                               rows={2}
                               value={noteDraft}
@@ -1046,7 +1078,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                                 onClick={() => handleSaveNote(app.id)}
                                 className="px-3 py-1 bg-amber-700 text-white rounded-lg text-xs font-bold hover:bg-amber-800 transition"
                               >
-                                Notu Kaydet
+                                Cevabı Gönder
                               </button>
                             </div>
                           </div>
@@ -1101,7 +1133,7 @@ export const MuhtarlikModal: React.FC<MuhtarlikModalProps> = ({
                                 }}
                                 className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold rounded-xl text-[11px] transition"
                               >
-                                + Not Ekle
+                                Cevapla
                               </button>
                             )}
 

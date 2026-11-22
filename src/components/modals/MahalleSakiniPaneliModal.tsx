@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   User,
@@ -37,6 +37,8 @@ import {
 
 interface MahalleSakiniPaneliModalProps {
   isOpen: boolean;
+  /** Açılışta hangi sekme (ör. muhtar cevabı bildirimine dokununca 'muhtarlik') */
+  initialTab?: 'ozet' | 'muhtarlik';
   onClose: () => void;
   userProfile?: UserProfile | null;
   userQuotes?: UserQuoteRequest[];
@@ -53,6 +55,7 @@ interface MahalleSakiniPaneliModalProps {
 
 export const MahalleSakiniPaneliModal: React.FC<MahalleSakiniPaneliModalProps> = ({
   isOpen,
+  initialTab,
   onClose,
   userProfile,
   userQuotes = [],
@@ -66,7 +69,10 @@ export const MahalleSakiniPaneliModal: React.FC<MahalleSakiniPaneliModalProps> =
   onOpenKesintiler,
   onOpenBelediye,
 }) => {
-  const [activeTab, setActiveTab] = useState<'ozet' | 'muhtarlik' | 'ustalar' | 'ilanlarim' | 'rehber' | 'ayarlar'>('ozet');
+  const [activeTab, setActiveTab] = useState<'ozet' | 'muhtarlik' | 'ustalar' | 'ilanlarim' | 'rehber' | 'ayarlar'>(initialTab || 'ozet');
+  useEffect(() => {
+    if (isOpen && initialTab) setActiveTab(initialTab);
+  }, [isOpen, initialTab]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -497,9 +503,14 @@ export const MahalleSakiniPaneliModal: React.FC<MahalleSakiniPaneliModalProps> =
                     {app.officialNotes && (
                       <div className="bg-red-50/80 border border-red-200 rounded-xl p-3 text-xs text-red-900 space-y-1">
                         <div className="font-black flex items-center gap-1 text-[11px] text-red-800">
-                          <span>🏛️ Muhtarın Resmi Yanıtı:</span>
+                          <span>🏛️ Muhtarın Cevabı</span>
+                          {app.repliedAtMs && (
+                            <span className="font-semibold text-red-700/80">
+                              · {new Date(app.repliedAtMs).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-neutral-800">{app.officialNotes}</p>
+                        <p className="text-neutral-800 whitespace-pre-line">{app.officialNotes}</p>
                       </div>
                     )}
                   </div>

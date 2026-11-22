@@ -39,19 +39,21 @@ export const AlimSatimScreen: React.FC<AlimSatimScreenProps> = ({
   onOpenCreateAd,
 }) => {
   // 3 Üst Kategori: 'kiralik' | 'satilik' | 'ikinci-el'
-  const [activeMainCategory, setActiveMainCategory] = useState<ClassifiedMainCategory>('satilik');
+  const [activeMainCategory, setActiveMainCategory] = useState<ClassifiedMainCategory | 'tumu'>('tumu');
   // Alt kategori filtresi: 'tumu' veya spesifik alt kategori
   const [activeSubCategory, setActiveSubCategory] = useState<string>('tumu');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Ana kategori değiştiğinde alt filtreyi sıfırla
+  // Seçili kategoriye tekrar dokunmak "Tümü"ne döner
   const handleSelectMainCategory = (cat: ClassifiedMainCategory) => {
-    setActiveMainCategory(cat);
+    setActiveMainCategory((onceki) => (onceki === cat ? 'tumu' : cat));
     setActiveSubCategory('tumu');
   };
 
   // İlgili ana kategoriye göre tanımlı alt kategoriler
   const getSubCategories = () => {
+    if (activeMainCategory === 'tumu') return [];
     if (activeMainCategory === 'kiralik') {
       return [
         { id: 'tumu', label: 'Tümü' },
@@ -87,8 +89,10 @@ export const AlimSatimScreen: React.FC<AlimSatimScreenProps> = ({
   // Filtreleme mantığı
   const filteredItems = items.filter((item) => {
     // 1. Ana Kategori Eşleşmesi
-    let matchesMain = false;
-    if (item.mainCategory) {
+    let matchesMain = activeMainCategory === 'tumu';
+    if (activeMainCategory === 'tumu') {
+      // Hepsi gösterilir
+    } else if (item.mainCategory) {
       matchesMain = item.mainCategory === activeMainCategory;
     } else {
       // Geriye dönük uyumluluk
@@ -140,6 +144,16 @@ export const AlimSatimScreen: React.FC<AlimSatimScreenProps> = ({
   // Kategoriye özel stil / rozet renkleri
   const getMainCategoryTheme = () => {
     switch (activeMainCategory) {
+      case 'tumu':
+        return {
+          bg: 'bg-neutral-900',
+          lightBg: 'bg-neutral-100',
+          textColor: 'text-neutral-700',
+          borderColor: 'border-neutral-200',
+          badgeBg: 'bg-neutral-900',
+          bannerTitle: 'Tüm İlanlar',
+          bannerDesc: 'Satılık, kiralık ve 2. el hepsi bir arada. Filtrelemek için yukarıdan seçin',
+        };
       case 'kiralik':
         return {
           bg: 'bg-emerald-600',
@@ -283,7 +297,9 @@ export const AlimSatimScreen: React.FC<AlimSatimScreenProps> = ({
                 ? 'Kiralık ilanlarda ara...'
                 : activeMainCategory === 'satilik'
                 ? 'Satılık ilanlarda ara...'
-                : '2. El ilanlarında her şeyi ara...'
+                : activeMainCategory === 'ikinci-el'
+                ? '2. El ilanlarında her şeyi ara...'
+                : 'Tüm ilanlarda ara...'
             }`}
             className="w-full bg-transparent text-[12px] font-semibold text-neutral-800 placeholder-neutral-400 pl-2 outline-none"
           />
@@ -300,6 +316,7 @@ export const AlimSatimScreen: React.FC<AlimSatimScreenProps> = ({
       </div>
 
       {/* 3. Alt Kategori Hap Butonları (Subcategory Chips) */}
+      {currentSubCategories.length > 0 && (
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
         {currentSubCategories.map((sub) => {
           const isSelected = activeSubCategory === sub.id;
@@ -320,6 +337,7 @@ export const AlimSatimScreen: React.FC<AlimSatimScreenProps> = ({
           );
         })}
       </div>
+      )}
 
       {/* 4. Bilgi Şeridi */}
       <div

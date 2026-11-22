@@ -60,6 +60,9 @@ interface BildirimMerkeziViewProps {
   onNavigateToQuotes: (relatedId?: string) => void;
   onNavigateToClassifieds: () => void;
   onNavigateTab?: (tab: string, subTab?: string, relatedId?: string, title?: string) => void;
+  /** "Daha eski bildirimler" */
+  onLoadMore?: () => void;
+  canLoadMore?: boolean;
 }
 
 export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
@@ -71,6 +74,8 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
   onNavigateToQuotes,
   onNavigateToClassifieds,
   onNavigateTab,
+  onLoadMore,
+  canLoadMore,
 }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'teklif' | 'ilan' | 'haber' | 'muhtarlik'>('all');
   const [permissionStatus, setPermissionStatus] = useState<AndroidPermissionStatus>('default');
@@ -565,6 +570,14 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
         )}
       </div>
 
+      {canLoadMore && onLoadMore && (
+        <div className="pt-1 text-center">
+          <button onClick={onLoadMore} className="text-xs font-bold text-neutral-600 border border-neutral-300 rounded-xl px-4 py-2 hover:bg-neutral-50">
+            Daha eski bildirimleri göster
+          </button>
+        </div>
+      )}
+
       {/* Clear All Footer Button */}
       {notifications.length > 0 && (
         <div className="pt-2 text-center">
@@ -575,6 +588,7 @@ export const BildirimMerkeziView: React.FC<BildirimMerkeziViewProps> = ({
             <Trash2 className="w-3.5 h-3.5" />
             <span>Tüm Bildirimleri Temizle</span>
           </button>
+          <p className="text-[10px] text-neutral-400 mt-1">Duyurular bu cihazda gizlenir; kişisel bildirimler silinir.</p>
         </div>
       )}
 

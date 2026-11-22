@@ -313,6 +313,9 @@ export interface UserNotification {
   actionTab?: string;
   subTab?: string;
   imageUrl?: string;
+  /** Bildirimin kime ait olduğu; boşsa herkese. Rolü uymayan duyurular listede gösterilmez. */
+  hedef?: 'herkes' | 'yonetim' | 'muhtar' | 'esnaf';
+  createdAtMs?: number;
 }
 
 export interface MuhtarlikApplication {
@@ -325,7 +328,11 @@ export interface MuhtarlikApplication {
   message: string;
   createdAt: string;
   status: 'bekliyor' | 'inceleniyor' | 'belediyeye_iletildi' | 'tamamlandi';
+  /** Muhtarın talep sahibine cevabı */
   officialNotes?: string;
+  /** Cevabın verildiği an (ms) ve cevaplayan */
+  repliedAtMs?: number;
+  repliedBy?: string;
   updatedAt?: string;
 }
 
