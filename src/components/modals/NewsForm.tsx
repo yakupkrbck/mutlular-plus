@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Check, Image as ImageIcon, Video, Plus, X, Link2, Upload, Loader2, Play, Trash2 } from 'lucide-react';
 import { ImageCropField } from '../ImageCropField';
 import { NewsContentEditor } from './NewsContentEditor';
+import { NewsCoverTools } from './NewsCoverTools';
 import { uploadVideoFile, MAX_VIDEO_MB } from '../../services/uploadService';
 import { youtubeId, videoPoster, isVideoFileUrl } from '../../utils/newsVideo';
 
@@ -373,8 +374,11 @@ export const NewsForm: React.FC<NewsFormProps> = ({ values, onChange, categories
               </>
             )}
             {mediaError && <p className="text-[11px] text-rose-300 font-semibold">{mediaError}</p>}
+            {values.video && (
+              <NewsCoverTools video={values.video} kapak={values.image} baslik={values.title} kategori={values.category} onKapak={(v) => onChange({ image: v })} />
+            )}
             <p className="text-[10.5px] text-neutral-500 leading-snug">
-              Kısa videolar daha hızlı açılır. Kapak görseli videodan otomatik alınır.
+              Kısa videolar daha hızlı açılır. Kapak görselini yukarıdaki bölümden değiştirebilirsiniz; seçmezseniz videodan otomatik alınır.
             </p>
           </div>
         )}
