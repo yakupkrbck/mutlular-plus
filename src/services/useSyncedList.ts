@@ -83,7 +83,13 @@ export function useSyncedList<T extends { id: string }>(
         setReady(false);
       }
     );
-    return () => unsub();
+    return () => {
+      unsub();
+      // Bu yol artık izlenmiyor (ör. hesap değişti): eski hesabın dinleyicisinden kalan hata şeridi silinsin
+      try {
+        window.dispatchEvent(new CustomEvent('mp-load-clear', { detail: { path } }));
+      } catch {}
+    };
   }, [path, enabled, key]);
 
   const setList = useCallback(

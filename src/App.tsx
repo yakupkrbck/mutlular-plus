@@ -405,9 +405,11 @@ export default function App() {
     };
     window.addEventListener('mp-load-error', onErr);
     window.addEventListener('mp-load-ok', onOk);
+    window.addEventListener('mp-load-clear', onOk);
     return () => {
       window.removeEventListener('mp-load-error', onErr);
       window.removeEventListener('mp-load-ok', onOk);
+      window.removeEventListener('mp-load-clear', onOk);
     };
   }, []);
   const [syncError, setSyncError] = useState<string | null>(null);
