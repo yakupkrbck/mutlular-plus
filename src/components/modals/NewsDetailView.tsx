@@ -11,6 +11,8 @@ import { izlemeliLink } from '../../services/paylasimService';
 interface NewsDetailViewProps {
   news: NewsItem | null;
   onClose: () => void;
+  /** Sosyal medya kartı yalnızca yöneticiye açık */
+  yonetici?: boolean;
 }
 
 const YAZI_MIN = 12;
@@ -26,7 +28,7 @@ const yaziBoyutuOku = (): number => {
   }
 };
 
-export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose }) => {
+export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose, yonetici = false }) => {
   // Hook'lar erken return'den ÖNCE olmalı
   const views = useNewsViews(news ? [news.id] : []);
   const [kartAcik, setKartAcik] = useState(false);
@@ -210,13 +212,15 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose })
             <Share2 className="w-4 h-4" />
             <span>Haberi Paylaş</span>
           </button>
-          <button
-            onClick={() => setKartAcik(true)}
-            className="flex-1 bg-neutral-900 hover:bg-neutral-800 active:scale-98 text-white font-bold text-[12px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs"
-          >
-            <ImageIcon className="w-4 h-4" />
-            <span>Kart Oluştur</span>
-          </button>
+          {yonetici && (
+            <button
+              onClick={() => setKartAcik(true)}
+              className="flex-1 bg-neutral-900 hover:bg-neutral-800 active:scale-98 text-white font-bold text-[12px] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs"
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span>Kart Oluştur</span>
+            </button>
+          )}
         </div>
 
         {/* Görsel büyütme: dokununca yakınlaşır, kaydırarak gezilir */}

@@ -96,6 +96,14 @@ let ilkOturumYapildi = false;
 let oturumKaynagi = 'dogrudan';
 let aktifSayfa = 'anasayfa';
 let sonNabiz = 0;
+/** Cihazın bildirim (b) ve konum (k) izin durumu: g=verdi, r=sistem reddi, x=uygulama içinde reddetti, s=sorulmadı, u=desteklenmiyor */
+let izinBekleyen: { b: string; k: string } | null = null;
+
+export function analitikIzin(b: string, k: string): void {
+  if (analitikKapali()) return;
+  izinBekleyen = { b, k };
+  zamanla();
+}
 const sayfaBekleyen: Record<string, number> = {};
 const sayfaGorulen = new Set<string>();
 
@@ -159,7 +167,7 @@ const konumHucresi = (): { la: number; lo: number; dg?: number } | null => {
 
 async function yaz(): Promise<void> {
   if (analitikKapali() || yazimda) return;
-  if (!oturumBekliyor && olaySayisi === 0 && !Object.keys(ilgi).length && !Object.keys(sayfaBekleyen).length) return;
+  if (!oturumBekliyor && olaySayisi === 0 && !izinBekleyen && !Object.keys(ilgi).length && !Object.keys(sayfaBekleyen).length) return;
   yazimda = true;
   const simdi = Date.now();
   const gun = gunAnahtari(simdi);
@@ -205,6 +213,9 @@ async function yaz(): Promise<void> {
   }
   const konum = konumHucresi();
   if (konum) patch.konum = konum;
+  const izinKopya = izinBekleyen;
+  izinBekleyen = null;
+  if (izinKopya) patch.izin = { b: izinKopya.b, k: izinKopya.k, t: simdi };
 
   try {
     await setDoc(doc(db, ZIYARETCI_KOL, ziyaretciId()), patch, { merge: true });
@@ -215,6 +226,7 @@ async function yaz(): Promise<void> {
     }
   } catch {
     // Yazılamadıysa sayaçları geri koy (bir sonraki turda tekrar denenir); sessizce devam
+    if (izinKopya && !izinBekleyen) izinBekleyen = izinKopya;
     oturumBekliyor = oturumBekliyor || oturum;
     if (oturum && kaynak && !bekleyenKaynak) bekleyenKaynak = kaynak;
     Object.keys(sayfalar).forEach((k) => (sayfaBekleyen[k] = 1));

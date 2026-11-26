@@ -153,7 +153,8 @@ import { isNative, exitNativeApp } from './native';
 import { PermissionPrompt } from './components/modals/PermissionPrompt';
 import { refreshPushIfGranted, sendBroadcastPush, broadcastSummary, initNativePushClickListener, getNotificationState, type BroadcastOptions } from './services/pushService';
 import { markSeen, isTrackedNotification } from './services/bildirimIstatistikService';
-import { getLocationPermissionState, requestLocation, wasLocationAsked } from './services/locationService';
+import { getLocationPermissionState, requestLocation, getCachedLocation } from './services/locationService';
+import { izinDurumunuKaydet } from './services/izinKayit';
 import { uploadFile } from './services/uploadService';
 import { notifyEvent, unregisterPush, resyncPushTopics, scanKesintiNow } from './services/pushService';
 
@@ -1847,6 +1848,7 @@ export default function App() {
   // Giriş sonrası izinler: bildirim + konum. İzin verilmişse sessizce yenilenir.
   // ---------------------------------------------------------------------------
   const [isPermPromptOpen, setIsPermPromptOpen] = useState(false);
+  const permAskedRef = useRef(false);
   const [permNeeds, setPermNeeds] = useState<{ notif: boolean; loc: boolean }>({ notif: false, loc: false });
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const showInfo = (msg: string) => {
@@ -1887,14 +1889,13 @@ export default function App() {
         const loc = await getLocationPermissionState();
         if (loc === 'granted') requestLocation().catch(() => {});
 
-        const needNotif = notif === 'prompt';
-        const needLoc = loc === 'prompt' || (loc === 'unknown' && !wasLocationAsked());
-        let dismissedAt = 0;
-        try {
-          dismissedAt = Number(localStorage.getItem('mp_perm_dismissed_at') || 0);
-        } catch {}
-        const recently = Date.now() - dismissedAt < 3 * 24 * 60 * 60 * 1000;
-        if (alive && (needNotif || needLoc) && !recently) {
+        // Her ziyarette: izin verilmemiş (sorulmamış, reddedilmiş) her cihaza tekrar sorulur; oturum başına bir kez
+        const needNotif = notif !== 'granted' && notif !== 'unsupported';
+        const needLoc =
+          loc === 'prompt' || loc === 'denied' || (loc === 'unknown' && !getCachedLocation(365 * 24 * 60 * 60 * 1000));
+        izinDurumunuKaydet();
+        if (alive && (needNotif || needLoc) && !permAskedRef.current) {
+          permAskedRef.current = true;
           setPermNeeds({ notif: needNotif, loc: needLoc });
           setIsPermPromptOpen(true);
         }
@@ -3349,7 +3350,7 @@ export default function App() {
           onUpdateApplicationStatus={handleUpdateMuhtarlikApplicationStatus}
         />
 
-        <KesintiUyariModal onDetay={() => setIsKesintilerOpen(true)} />
+        <KesintiUyariModal onDetay={() => setIsKesintilerOpen(true)} yonetici={isAdminRole} />
 
         {/* BUSKİ & UEDAŞ Canlı Su ve Elektrik Kesintileri Modalı */}
         <KesintilerModal
@@ -3474,6 +3475,7 @@ export default function App() {
         <NewsDetailView
           news={selectedNews}
           onClose={() => setSelectedNews(null)}
+          yonetici={isAdminRole}
         />
 
         <VefatModal

@@ -66,7 +66,7 @@ function hazirlaOrtak(tur: 'elektrik' | 'su', id: string, tarih: string, saat: s
   return { id, tur, tarih, saat, neden, sokaklar, baslangic: bas, bitis: bit, sureSaat: sa ? Math.round((bit - bas) / 60000) : null };
 }
 
-export const KesintiUyariModal: React.FC<{ onDetay: () => void }> = ({ onDetay }) => {
+export const KesintiUyariModal: React.FC<{ onDetay: () => void; yonetici?: boolean }> = ({ onDetay, yonetici = false }) => {
   const [liste, setListe] = useState<Uyari[]>([]);
   const [paylas, setPaylas] = useState<Uyari | null>(null);
 
@@ -143,9 +143,11 @@ export const KesintiUyariModal: React.FC<{ onDetay: () => void }> = ({ onDetay }
                 </div>
                 {u.neden && <div className="text-[11px] text-neutral-600 mt-2">{u.tur === 'su' ? u.neden : `Neden: ${u.neden}`}</div>}
                 {u.sokaklar && <div className="text-[11px] text-neutral-500 mt-1">{u.tur === 'su' ? u.sokaklar : `Etkilenen yerler: ${u.sokaklar}`}</div>}
-                <button onClick={() => setPaylas(u)} className="mt-2 flex items-center gap-1.5 text-[11px] font-black text-neutral-800 underline">
-                  <Share2 className="w-3.5 h-3.5" /> Komşulara paylaş
-                </button>
+                {yonetici && (
+                  <button onClick={() => setPaylas(u)} className="mt-2 flex items-center gap-1.5 text-[11px] font-black text-neutral-800 underline">
+                    <Share2 className="w-3.5 h-3.5" /> Kart oluştur
+                  </button>
+                )}
               </div>
             );
           })}

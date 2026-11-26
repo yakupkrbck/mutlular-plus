@@ -29,7 +29,7 @@ export function izlemeliLink(yol: string, kanal: PaylasimKanal = 'diger', kampan
 }
 
 // ---- Kart üretimi ----------------------------------------------------------------------------
-export type KartTuru = 'haber' | 'kesinti' | 'vefat' | 'eczane' | 'duyuru';
+export type KartTuru = 'haber' | 'kesinti' | 'vefat' | 'eczane' | 'duyuru' | 'ilan';
 export type KartBicim = 'kare' | 'story';
 
 export interface KartVeri {
@@ -49,6 +49,7 @@ const TEMA: Record<KartTuru, { ad: string; a: string; b: string; vurgu: string; 
   vefat: { ad: 'VEFAT İLANI', a: '#1e293b', b: '#05080f', vurgu: '#e2e8f0', pill: '#475569' },
   eczane: { ad: 'NÖBETÇİ ECZANE', a: '#053b2c', b: '#04110d', vurgu: '#4ade80', pill: '#059669' },
   duyuru: { ad: 'DUYURU', a: '#15286b', b: '#060b1f', vurgu: '#7dd3fc', pill: '#2563eb' },
+  ilan: { ad: 'ÖNE ÇIKAN İLAN', a: '#0b3b3a', b: '#031312', vurgu: '#5eead4', pill: '#0d9488' },
 };
 
 const BOYUT: Record<KartBicim, [number, number]> = { kare: [1080, 1080], story: [1080, 1920] };
@@ -153,7 +154,7 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 
-  const im = v.tur === 'vefat' ? null : await gorselYukle(v.gorsel); // vefat kartında fotoğraf kullanılmaz
+  const im = await gorselYukle(v.gorsel); // vefat kartında fotoğraf yalnızca yönetici stüdyodan eklerse gelir
   const bilgiler = (v.bilgiler || []).slice(0, 3);
   const bilgiYuk = bilgiler.length ? 150 : 0;
 
@@ -170,11 +171,11 @@ export async function kartUret(v: KartVeri, bicim: KartBicim = 'kare'): Promise<
     const iw = im.width * oran;
     const ih = im.height * oran;
     try {
-      ctx.filter = 'contrast(1.1) saturate(1.25)'; // eski iOS Safari'de yok sayılır
+      ctx.filter = v.tur === 'vefat' ? 'none' : 'contrast(1.1) saturate(1.25)'; // vefatta renk oynatılmaz; eski iOS Safari'de yok sayılır
     } catch {
       /* desteklenmiyorsa filtresiz */
     }
-    ctx.drawImage(im, M + (pw - iw) / 2, py + (ph - ih) / 2, iw, ih);
+    ctx.drawImage(im, M + (pw - iw) / 2, py + (v.tur === 'vefat' ? (ph - ih) * 0.2 : (ph - ih) / 2), iw, ih); // vefatta yüz kırpılmasın diye görsel yukarı hizalı
     ctx.filter = 'none';
   } else {
     const gg = ctx.createLinearGradient(M, py, M + pw, py + ph);

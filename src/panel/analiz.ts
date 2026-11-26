@@ -14,6 +14,8 @@ export interface Ziyaretci {
   rol?: string;
   giris?: string;
   konum?: { la: number; lo: number; dg?: number };
+  /** Cihazın izin durumu: b=bildirim, k=konum (g verdi, r sistem reddi, x uygulama içi red, s sorulmadı, u desteklenmiyor) */
+  izin?: { b?: string; k?: string; t?: number };
 }
 
 /** Bir kişi: aynı hesapla giren birden çok cihaz tek kişi sayılır; girişsiz cihaz ayrı kişidir. */

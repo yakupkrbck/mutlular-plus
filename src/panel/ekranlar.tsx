@@ -29,6 +29,7 @@ import {
   yuzde,
   type Kisi,
   type SegmentAdi,
+  type Ziyaretci,
 } from './analiz';
 import { useCanli, type PanelVeri } from './veri';
 import { APP_VERSION } from '../version';
@@ -393,7 +394,49 @@ export const BolgeSayfasi: React.FC<EkranProps> = ({ kisiler }) => {
 const zamanMetni = (ms: number) =>
   new Date(ms).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-export const BildirimSayfasi: React.FC = () => {
+const IzinOzeti: React.FC<{ ziyaretciler: Ziyaretci[] }> = ({ ziyaretciler }) => {
+  const bilgili = ziyaretciler.filter((z) => z.izin && (z.izin.b || z.izin.k));
+  const say = (alan: 'b' | 'k', ...d: string[]) => bilgili.filter((z) => d.includes(z.izin?.[alan] || '')).length;
+  const ikisi = bilgili.filter((z) => z.izin?.b === 'g' && z.izin?.k === 'g').length;
+  const satir = (ad: string, alan: 'b' | 'k') => (
+    <tr key={alan} className="border-t border-neutral-100">
+      <td className="py-1.5 font-bold">{ad}</td>
+      <td className="text-right text-emerald-700 font-bold">{say(alan, 'g')}</td>
+      <td className="text-right text-rose-600 font-bold">{say(alan, 'r')}</td>
+      <td className="text-right text-amber-700 font-bold">{say(alan, 'x')}</td>
+      <td className="text-right text-neutral-500">{say(alan, 's')}</td>
+    </tr>
+  );
+  return (
+    <>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Gosterge baslik="İzin bilgisi olan cihaz" deger={bilgili.length} alt={`Toplam ${ziyaretciler.length} cihazdan; eski sürümler henüz bildirmedi`} />
+        <Gosterge baslik="Bildirim izni veren" deger={say('b', 'g')} alt={`%${bilgili.length ? Math.round(yuzde(say('b', 'g'), bilgili.length)) : 0}`} renk="text-emerald-700" />
+        <Gosterge baslik="Konum izni veren" deger={say('k', 'g')} alt={`%${bilgili.length ? Math.round(yuzde(say('k', 'g'), bilgili.length)) : 0}`} renk="text-emerald-700" />
+        <Gosterge baslik="İkisini de veren" deger={ikisi} />
+      </div>
+      <Kart baslik="İzin durumu (cihaz sayısı)" alt="Reddedenlere her ziyarette tekrar sorulur. 'Uygulama içi red' = bizim pencerede Reddet'e dokundu; 'Sistem reddi' = telefon/tarayıcı engelledi.">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr className="text-left text-neutral-500">
+              <th className="py-1 font-bold">İzin</th>
+              <th className="font-bold text-right">Verdi</th>
+              <th className="font-bold text-right">Sistem reddi</th>
+              <th className="font-bold text-right">Uygulama içi red</th>
+              <th className="font-bold text-right">Sorulmadı</th>
+            </tr>
+          </thead>
+          <tbody>
+            {satir('Bildirim', 'b')}
+            {satir('Konum', 'k')}
+          </tbody>
+        </table>
+      </Kart>
+    </>
+  );
+};
+
+export const BildirimSayfasi: React.FC<{ veri?: PanelVeri }> = ({ veri }) => {
   const { liste, hata, yenileniyor, yenile } = useBildirimRaporu(true);
   const sayili = liste.filter((r) => r.goren !== null && r.hedefKullanici > 0);
   const ortDokunma = sayili.length
@@ -401,6 +444,7 @@ export const BildirimSayfasi: React.FC = () => {
     : 0;
   return (
     <div className="space-y-4">
+      {veri && <IzinOzeti ziyaretciler={veri.ziyaretciler} />}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Gosterge baslik="Son bildirim sayısı" deger={liste.length} />
         <Gosterge baslik="Ort. dokunma oranı" deger={`%${ortDokunma}`} alt="Dokunan ÷ hedef kullanıcı" renk="text-rose-600" />

@@ -323,7 +323,7 @@ export const PanelApp: React.FC = () => {
               {bolum === 'zaman' && <EtkinlikZamani {...props} />}
               {bolum === 'icerik' && <IcerikIlgi {...props} />}
               {bolum === 'bolge' && <BolgeSayfasi {...props} />}
-              {bolum === 'bildirim' && <BildirimSayfasi />}
+              {bolum === 'bildirim' && <BildirimSayfasi veri={props.veri} />}
               {bolum === 'onay' && <OnayKuyrugu {...props} />}
               {bolum === 'veri' && <VeriDurumu {...props} />}
             </>

@@ -68,6 +68,8 @@ import { RejiPanel } from '../reji/RejiPanel';
 import { KullaniciListesi } from './KullaniciListesi';
 import { SikayetYonetimi } from './SikayetYonetimi';
 import { BildirimRaporu } from './BildirimRaporu';
+import { KartStudyosu } from './KartStudyosu';
+import { Image as KartIkon } from 'lucide-react';
 import { assignEditor, listEditors, revokeEditor, type EditorKaydi } from '../../services/staffService';
 import type { CanliAyar, CanliDurum } from '../../services/canliYayinService';
 import { SecimVeri, secimHesapla, yuzdeYaz } from '../../services/secimService';
@@ -182,7 +184,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 }) => {
   // Tabs: 'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi'
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli' | 'reji' | 'kullanicilar' | 'sikayetler'
+    'dashboard' | 'onay-ilanlar' | 'cenaze-onay' | 'haber-yonetimi' | 'vitrin-afisleri' | 'kesinti-onay' | 'yorum-denetimi' | 'esnaf-onay' | 'editor-yonetimi' | 'istatistik' | 'bildirim-masasi' | 'anketler' | 'secim' | 'canli' | 'reji' | 'kullanicilar' | 'sikayetler' | 'kart-studyosu'
   >('dashboard');
 
   // Vitrin afişi formu
@@ -967,10 +969,24 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             <BellRing className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
             <span>📢 Bildirim Masası (Push Gönder)</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('kart-studyosu')}
+            className={`px-3 py-2 rounded-xl text-[11px] font-black flex items-center gap-1.5 whitespace-nowrap transition ${
+              activeTab === 'kart-studyosu'
+                ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md'
+                : 'text-amber-300 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <KartIkon className="w-3.5 h-3.5" />
+            <span>Kart Stüdyosu (Story / Gönderi)</span>
+          </button>
         </div>
 
         {/* Tab Body Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 text-neutral-200">
+          {activeTab === 'kart-studyosu' && <KartStudyosu newsList={newsList} classifiedList={classifiedList} obituaryList={obituaryList} />}
+
           {/* TAB 0: ADMIN ÖZET DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="space-y-4 animate-in fade-in duration-200">

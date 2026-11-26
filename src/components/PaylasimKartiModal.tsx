@@ -21,11 +21,13 @@ interface Props {
   yol: string;
   ozet?: string;
   kampanya?: string;
+  /** Üst katman (yönetici paneli içinden açılırken daha yüksek) */
+  zSinif?: string;
 }
 
 const KANALLAR: PaylasimKanal[] = ['whatsapp', 'instagram', 'facebook', 'telegram', 'twitter'];
 
-export const PaylasimKartiModal: React.FC<Props> = ({ acik, onKapat, kart, yol, ozet, kampanya = 'kart' }) => {
+export const PaylasimKartiModal: React.FC<Props> = ({ acik, onKapat, kart, yol, ozet, kampanya = 'kart', zSinif = 'z-[96]' }) => {
   const [bicim, setBicim] = useState<KartBicim>('kare');
   const [kanal, setKanal] = useState<PaylasimKanal>('whatsapp');
   const [blob, setBlob] = useState<Blob | null>(null);
@@ -77,7 +79,7 @@ export const PaylasimKartiModal: React.FC<Props> = ({ acik, onKapat, kart, yol, 
   };
 
   return (
-    <div className="fixed inset-0 z-[96] bg-black/70 flex items-end sm:items-center justify-center" role="dialog" aria-label="Paylaşım kartı">
+    <div className={`fixed inset-0 ${zSinif} bg-black/70 flex items-end sm:items-center justify-center`} role="dialog" aria-label="Paylaşım kartı">
       <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl max-h-[94vh] flex flex-col overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100">
           <h2 className="text-sm font-black text-neutral-900">Sosyal medya kartı</h2>
