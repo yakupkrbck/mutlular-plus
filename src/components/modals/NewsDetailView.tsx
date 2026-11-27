@@ -6,6 +6,7 @@ import { youtubeId } from '../../utils/newsVideo';
 import { blokAyir, hafifGorsel, hafifVideo } from '../../utils/gorsel';
 import { formatViews, useNewsViews } from '../../services/newsViewService';
 import { PaylasimKartiModal } from '../PaylasimKartiModal';
+import { BildirimSeridi } from '../BildirimSeridi';
 import { izlemeliLink } from '../../services/paylasimService';
 
 interface NewsDetailViewProps {
@@ -13,6 +14,8 @@ interface NewsDetailViewProps {
   onClose: () => void;
   /** Sosyal medya kartı yalnızca yöneticiye açık */
   yonetici?: boolean;
+  girisYapti?: boolean;
+  onGirisGerek?: () => void;
 }
 
 const YAZI_MIN = 12;
@@ -28,7 +31,7 @@ const yaziBoyutuOku = (): number => {
   }
 };
 
-export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose, yonetici = false }) => {
+export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose, yonetici = false, girisYapti = false, onGirisGerek }) => {
   // Hook'lar erken return'den ÖNCE olmalı
   const views = useNewsViews(news ? [news.id] : []);
   const [kartAcik, setKartAcik] = useState(false);
@@ -196,6 +199,8 @@ export const NewsDetailView: React.FC<NewsDetailViewProps> = ({ news, onClose, y
                 )
               )}
             </div>
+
+            <BildirimSeridi girisYapti={girisYapti} onGirisGerek={() => onGirisGerek?.()} className="mt-5" />
 
             <div className="mt-5 p-3 bg-neutral-50 rounded-2xl border border-neutral-200 text-[11px]">
               <div className="font-extrabold text-neutral-800">Mutlular Plus Haber Masası</div>

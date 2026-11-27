@@ -21,9 +21,43 @@ export type PushResult = {
 
 const TOKEN_KEY = 'mp_fcm_token';
 
+const ANON_TS_KEY = 'mp_fcm_anon_ts';
+
+/**
+ * Üye olmayan ziyaretçinin cihazını kaydeder (Worker'da /api/push/register-anon uç noktası gerekir).
+ * Aynı jeton 7 günde bir yeniden bildirilir; uç nokta yoksa/başarısızsa sessizce hata döner ve sonraki açılışta tekrar denenir.
+ */
+async function registerAnon(token: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const son = Number(localStorage.getItem(ANON_TS_KEY) || 0);
+    if (localStorage.getItem(TOKEN_KEY) === token && Date.now() - son < 7 * 24 * 60 * 60 * 1000) return { ok: true };
+  } catch {}
+  let vid = '';
+  try {
+    vid = localStorage.getItem('mp_vid') || '';
+  } catch {}
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/push/register-anon`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, vid, platform: Capacitor.getPlatform() }),
+    });
+  } catch {
+    return { ok: false, error: 'Sunucuya ulaşılamadı' };
+  }
+  const json: any = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) return { ok: false, error: json.error || `HTTP ${res.status}` };
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(ANON_TS_KEY, String(Date.now()));
+  } catch {}
+  return { ok: true };
+}
+
 async function registerWithWorker(token: string, removeFields: string[] = []): Promise<{ ok: boolean; error?: string }> {
   const user = auth.currentUser;
-  if (!user) return { ok: false, error: 'Giriş gerekli' };
+  if (!user) return registerAnon(token);
   const idToken = await user.getIdToken();
   let res: Response;
   try {
@@ -141,7 +175,6 @@ async function webToken(): Promise<PushResult> {
 
 /** İzin ister (kullanıcı dokunuşuyla çağrılmalı), cihazı kaydeder. */
 export async function enablePush(): Promise<PushResult> {
-  if (!auth.currentUser) return { ok: false, reason: 'login_required' };
   if (Capacitor.isNativePlatform()) return enableNative();
   const perm = await requestAndroidNotificationPermission();
   if (perm === 'unsupported') return { ok: false, reason: 'unsupported' };
@@ -175,24 +208,12 @@ export async function getNotificationState(): Promise<NotifState> {
  * Giriş yapılmışsa cihaz hemen Worker'a kaydedilir; yapılmamışsa giriş sonrası refreshPushIfGranted kaydeder.
  */
 export async function askNotificationPermission(): Promise<PushResult> {
-  if (auth.currentUser) return enablePush();
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const { PushNotifications } = await import('@capacitor/push-notifications');
-      const perm = await PushNotifications.requestPermissions();
-      return perm.receive === 'granted' ? { ok: true } : { ok: false, reason: 'denied' };
-    } catch (e: any) {
-      return { ok: false, reason: 'native_error', detail: e?.message };
-    }
-  }
-  const perm = await requestAndroidNotificationPermission();
-  if (perm === 'unsupported') return { ok: false, reason: 'unsupported' };
-  return perm === 'granted' ? { ok: true } : { ok: false, reason: perm === 'denied' ? 'denied' : 'dismissed' };
+  // Üye olmayan ziyaretçi de izin verince cihazı kaydedilir (enablePush anonim kaydı kendisi yapar)
+  return enablePush();
 }
 
 /** İzin zaten verilmişse sessizce yeniler (jetonlar zamanla değişebilir). */
 export async function refreshPushIfGranted(): Promise<void> {
-  if (!auth.currentUser) return;
   try {
     if (Capacitor.isNativePlatform()) {
       const { PushNotifications } = await import('@capacitor/push-notifications');

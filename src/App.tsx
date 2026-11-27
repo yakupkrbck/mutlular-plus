@@ -155,6 +155,8 @@ import { refreshPushIfGranted, sendBroadcastPush, broadcastSummary, initNativePu
 import { markSeen, isTrackedNotification } from './services/bildirimIstatistikService';
 import { getLocationPermissionState, requestLocation, getCachedLocation } from './services/locationService';
 import { izinDurumunuKaydet } from './services/izinKayit';
+
+const BILDIRIM_ACILISTA_SOR = true;
 import { uploadFile } from './services/uploadService';
 import { notifyEvent, unregisterPush, resyncPushTopics, scanKesintiNow } from './services/pushService';
 
@@ -1886,13 +1888,14 @@ export default function App() {
     const timer = setTimeout(() => {
       (async () => {
         const notif = await getNotificationState();
-        // İzin zaten verilmişse ve giriş yapılmışsa cihaz sessizce kaydedilir (refreshPushIfGranted girişi kendisi kontrol eder)
-        if (myUid) refreshPushIfGranted();
+        // İzin zaten verilmişse cihaz (üye olsun olmasın) sessizce kaydedilir/yenilenir
+        refreshPushIfGranted();
         const loc = await getLocationPermissionState();
         if (loc === 'granted') requestLocation().catch(() => {});
 
         // Her ziyarette: izin verilmemiş (sorulmamış, reddedilmiş) her cihaza tekrar sorulur; oturum başına bir kez
-        const needNotif = notif !== 'granted' && notif !== 'unsupported';
+        // Bildirim izni açılışta sorulur (BILDIRIM_ACILISTA_SOR); haber sayfasındaki şerit ayrıca ek yol olarak durur
+        const needNotif = BILDIRIM_ACILISTA_SOR && notif !== 'granted' && notif !== 'unsupported';
         const needLoc =
           loc === 'prompt' || loc === 'denied' || (loc === 'unknown' && !getCachedLocation(365 * 24 * 60 * 60 * 1000));
         izinDurumunuKaydet();
@@ -3478,6 +3481,11 @@ export default function App() {
           news={selectedNews}
           onClose={() => setSelectedNews(null)}
           yonetici={isAdminRole}
+          girisYapti={isLoggedIn}
+          onGirisGerek={() => {
+            setSelectedNews(null);
+            setIsLoginOpen(true);
+          }}
         />
 
         <VefatModal

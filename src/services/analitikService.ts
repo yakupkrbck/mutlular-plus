@@ -418,7 +418,7 @@ export function esnafOlay(isletmeId: string | undefined, tur: EsnafOlayTuru): vo
 // plus_hatalar/{özet}: aynı hata tek belgede sayılır (mesaj + sürüm). Kişisel veri sızmasın diye metin temizlenir.
 const hataGorulen = new Set<string>();
 let hataSayisi = 0;
-const GURULTU = /ResizeObserver loop|^Script error\.?$|Non-Error promise rejection|AbortError|Load failed$|Failed to fetch$|NetworkError/i;
+const GURULTU = /ResizeObserver loop|^Script error\.?$|Non-Error promise rejection|AbortError|Load failed$|Failed to fetch$|NetworkError|Java object is gone|navigation_performance_logger/i; // son ikisi: Android uygulama içi tarayıcının kendi betiği (bizim kod değil)
 
 const hataOzeti = (s: string): string => {
   let h = 5381;
