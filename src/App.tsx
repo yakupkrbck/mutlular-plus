@@ -150,13 +150,11 @@ import { PLACEHOLDER_IMG } from './utils/placeholder';
 import { hizmetAlaniId, HizmetAlani } from './data/hizmetAlanlari';
 import { syncUstaFields } from './services/hizmetAlanlari';
 import { isNative, exitNativeApp } from './native';
-import { PermissionPrompt } from './components/modals/PermissionPrompt';
-import { refreshPushIfGranted, sendBroadcastPush, broadcastSummary, initNativePushClickListener, getNotificationState, type BroadcastOptions } from './services/pushService';
+import { refreshPushIfGranted, askNotificationPermission, sendBroadcastPush, broadcastSummary, initNativePushClickListener, getNotificationState, type BroadcastOptions } from './services/pushService';
 import { markSeen, isTrackedNotification } from './services/bildirimIstatistikService';
 import { getLocationPermissionState, requestLocation, getCachedLocation } from './services/locationService';
 import { izinDurumunuKaydet } from './services/izinKayit';
 
-const BILDIRIM_ACILISTA_SOR = true;
 import { uploadFile } from './services/uploadService';
 import { notifyEvent, unregisterPush, resyncPushTopics, scanKesintiNow } from './services/pushService';
 
@@ -1851,9 +1849,8 @@ export default function App() {
   // ---------------------------------------------------------------------------
   // Giriş sonrası izinler: bildirim + konum. İzin verilmişse sessizce yenilenir.
   // ---------------------------------------------------------------------------
-  const [isPermPromptOpen, setIsPermPromptOpen] = useState(false);
-  const permAskedRef = useRef(false);
-  const [permNeeds, setPermNeeds] = useState<{ notif: boolean; loc: boolean }>({ notif: false, loc: false });
+  const bildirimSorulduRef = useRef(false);
+  const konumSorulduRef = useRef(false);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const showInfo = (msg: string) => {
     setInfoMsg(msg);
@@ -1881,7 +1878,8 @@ export default function App() {
     });
   };
 
-  // İlk açılışta (giriş yapılmadan da) bildirim ve konum izni istenir; giriş sonrası cihaz Worker'a kaydedilir.
+  // Bildirim: izni olmayan her cihazdan (üye olsun olmasın) her ziyarette standart sistem penceresiyle istenir.
+  // Konum: yalnızca üye (giriş yapmış) kişiden istenir. Özel pencere yok; doğrudan telefonun/tarayıcının izin penceresi çıkar.
   useEffect(() => {
     let alive = true;
     // Açılış ekranı/oturum yerleşsin diye kısa bekleme
@@ -1893,17 +1891,21 @@ export default function App() {
         const loc = await getLocationPermissionState();
         if (loc === 'granted') requestLocation().catch(() => {});
 
-        // Her ziyarette: izin verilmemiş (sorulmamış, reddedilmiş) her cihaza tekrar sorulur; oturum başına bir kez
-        // Bildirim izni açılışta sorulur (BILDIRIM_ACILISTA_SOR); haber sayfasındaki şerit ayrıca ek yol olarak durur
-        const needNotif = BILDIRIM_ACILISTA_SOR && notif !== 'granted' && notif !== 'unsupported';
-        const needLoc =
-          loc === 'prompt' || loc === 'denied' || (loc === 'unknown' && !getCachedLocation(365 * 24 * 60 * 60 * 1000));
-        izinDurumunuKaydet();
-        if (alive && (needNotif || needLoc) && !permAskedRef.current) {
-          permAskedRef.current = true;
-          setPermNeeds({ notif: needNotif, loc: needLoc });
-          setIsPermPromptOpen(true);
+        if (alive && !bildirimSorulduRef.current && notif !== 'granted' && notif !== 'unsupported') {
+          bildirimSorulduRef.current = true;
+          try {
+            await askNotificationPermission();
+          } catch {}
         }
+        const konumGerek =
+          loc === 'prompt' || loc === 'denied' || (loc === 'unknown' && !getCachedLocation(365 * 24 * 60 * 60 * 1000));
+        if (alive && isLoggedIn && !konumSorulduRef.current && konumGerek) {
+          konumSorulduRef.current = true;
+          try {
+            await requestLocation();
+          } catch {}
+        }
+        izinDurumunuKaydet();
       })();
     }, 1200);
     return () => {
@@ -1958,10 +1960,6 @@ export default function App() {
   };
 
   const handleBackPress = () => {
-    if (isPermPromptOpen) {
-      setIsPermPromptOpen(false);
-      return;
-    }
     const overlayOpen =
       isAdminOpen ||
     isSearchOpen ||
@@ -2066,14 +2064,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-200/90 text-neutral-800 flex flex-col items-center justify-start antialiased py-0 sm:py-4">
-      {/* Giriş sonrası bildirim ve konum izinleri */}
-      <PermissionPrompt
-        isOpen={isPermPromptOpen}
-        needNotif={permNeeds.notif}
-        needLoc={permNeeds.loc}
-        onClose={() => setIsPermPromptOpen(false)}
-      />
-
       {/* Bilgi mesajı (başarılı işlem) */}
       {infoMsg && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] max-w-[92vw] bg-emerald-600 text-white text-[12px] font-bold px-4 py-2.5 rounded-2xl shadow-xl">

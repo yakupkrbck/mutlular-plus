@@ -1,2 +1,2 @@
 // Her yüklemede güncellenir; menünün altında görünür. Hangi sürümün çalıştığını anlamak için.
-export const APP_VERSION = '2026.11.27-anonim-28';
+export const APP_VERSION = '2026.11.27-izin-29';
